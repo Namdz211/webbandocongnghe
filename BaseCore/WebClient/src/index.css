@@ -81,6 +81,21 @@ textarea {
   border: 0;
 }
 
+/* Keep the "Tim kiem" button on the same row as the search inputs */
+.header-search form {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+}
+
+.header-search form .input-select {
+  flex: 0 0 auto;
+}
+
+.header-search form .input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .section-copy {
   display: inline-flex;
   align-items: center;
@@ -241,6 +256,58 @@ textarea {
   margin-right: 0;
 }
 
+.product .add-to-cart .product-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.product .add-to-cart .product-action-row .add-to-cart-btn,
+.product .add-to-cart .product-action-row .buy-now-btn,
+.product-details .add-to-cart .buy-now-detail-btn {
+  height: 40px;
+  padding: 0 18px;
+  border: 2px solid #ef233c;
+  border-radius: 40px;
+  font-weight: 700;
+  text-transform: uppercase;
+  transition: 0.2s all;
+}
+
+.product .add-to-cart .product-action-row .add-to-cart-btn:hover {
+  padding: 0 18px;
+}
+
+.product .add-to-cart .product-action-row .add-to-cart-btn > i {
+  position: static;
+  width: auto;
+  height: auto;
+  margin-right: 6px;
+  color: inherit;
+  line-height: 1;
+  opacity: 1;
+  visibility: visible;
+}
+
+.product .add-to-cart .product-action-row .buy-now-btn,
+.product-details .add-to-cart .buy-now-detail-btn {
+  background: #fff;
+  color: #d10024;
+}
+
+.product .add-to-cart .product-action-row .buy-now-btn:hover,
+.product-details .add-to-cart .buy-now-detail-btn:hover {
+  background: #d10024;
+  color: #fff;
+}
+
+.product-details .add-to-cart .buy-now-detail-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
 .order-details {
   background: #fff;
   border-radius: 24px;
@@ -390,6 +457,130 @@ textarea {
   color: #d10024;
 }
 
+.admin-products-layout {
+  display: grid;
+  grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.admin-product-form-card,
+.admin-product-table-card {
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 24px;
+  box-shadow: 0 20px 45px rgba(21, 31, 48, 0.06);
+}
+
+.admin-product-form-card {
+  display: grid;
+  gap: 14px;
+  padding: 28px;
+}
+
+.admin-product-table-card {
+  padding: 28px;
+  overflow: hidden;
+}
+
+.admin-form-grid,
+.admin-form-actions,
+.admin-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.admin-form-grid > * {
+  flex: 1 1 140px;
+}
+
+.admin-select {
+  width: 100%;
+  border-radius: 0;
+}
+
+.admin-table-wrap {
+  overflow-x: auto;
+}
+
+.admin-products-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+
+.admin-products-table th,
+.admin-products-table td {
+  padding: 16px 12px;
+  border-bottom: 1px solid #eef1f6;
+  vertical-align: middle;
+}
+
+.admin-products-table th {
+  color: #8d99ae;
+  font-size: 12px;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.admin-product-cell {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 260px;
+}
+
+.admin-product-cell img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border: 1px solid #e4e7ed;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.admin-product-cell strong,
+.admin-product-cell span {
+  display: block;
+}
+
+.admin-product-cell span {
+  max-width: 34ch;
+  overflow: hidden;
+  color: #8d99ae;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.danger-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 20px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(209, 0, 36, 0.1);
+  color: #d10024;
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.danger-btn:hover {
+  background: #d10024;
+  color: #fff;
+}
+
+.danger-btn:disabled,
+.primary-btn:disabled,
+.secondary-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
 .floating-cart {
   position: fixed;
   right: 20px;
@@ -427,6 +618,10 @@ textarea {
   }
 
   .auth-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-products-layout {
     grid-template-columns: 1fr;
   }
 

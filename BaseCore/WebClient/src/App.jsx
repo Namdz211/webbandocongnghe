@@ -1,7 +1,6 @@
 import {
   startTransition,
   useEffect,
-  useEffectEvent,
   useRef,
   useState,
 } from 'react'
@@ -102,6 +101,10 @@ function toOrderStatusLabel(status) {
   }
 }
 
+function isAdmin(auth) {
+  return String(auth?.role || auth?.Role || '').toLowerCase() === 'admin'
+}
+
 function buildStorePath({
   keyword = '',
   categoryId = '',
@@ -156,6 +159,10 @@ function parseRoute() {
     return { name: 'orders', pathname, query }
   }
 
+  if (pathname === '/admin/products') {
+    return { name: 'adminProducts', pathname, query }
+  }
+
   if (pathname === '/login') {
     return { name: 'login', pathname, query }
   }
@@ -178,7 +185,7 @@ async function request(path, options = {}) {
     })
   } catch {
     throw new Error(
-      'Khong ket noi duoc backend. Hay chay BaseCore.APIService o cong 5001 va BaseCore.AuthService o cong 5002.',
+      'Không kết nối được backend. Hãy chạy BaseCore.APIService ở cổng 5001 và BaseCore.AuthService ở cổng 5002.',
     )
   }
 
@@ -197,7 +204,7 @@ async function request(path, options = {}) {
     const message =
       (typeof data === 'object' && data?.message) ||
       (typeof data === 'string' && data) ||
-      'Backend dang tra loi loi. Kiem tra lai API/gateway va du lieu SQL Server.'
+      'Backend đang trả lời lỗi. Kiểm tra lại API/gateway và dữ liệu SQL Server.'
     throw new Error(message)
   }
 
@@ -209,6 +216,23 @@ const api = {
   getProducts: (params = {}) =>
     request(`/products?${new URLSearchParams(params).toString()}`),
   getProduct: (id) => request(`/products/${id}`),
+  createProduct: (payload, token) =>
+    request('/products', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
+    }),
+  updateProduct: (id, payload, token) =>
+    request(`/products/${id}`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(payload),
+    }),
+  deleteProduct: (id, token) =>
+    request(`/products/${id}`, {
+      method: 'DELETE',
+      token,
+    }),
   login: (username, password) =>
     request('/auth/login', {
       method: 'POST',
@@ -267,11 +291,7 @@ function Header({
 }) {
   const [keyword, setKeyword] = useState(route.query.keyword || '')
   const [categoryId, setCategoryId] = useState(route.query.categoryId || '')
-
-  useEffect(() => {
-    setKeyword(route.query.keyword || '')
-    setCategoryId(route.query.categoryId || '')
-  }, [route.pathname, route.query.categoryId, route.query.keyword])
+  const [isCartOpen, setIsCartOpen] = useState(false)
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const cartTotal = cart.reduce(
@@ -293,7 +313,7 @@ function Header({
             <ul className="header-links pull-left">
               <li>
                 <a href="tel:+84000000000">
-                  <i className="fa fa-phone" /> 0900 000 000
+                  <i className="fa fa-phone" /> 097527435
                 </a>
               </li>
               <li>
@@ -302,8 +322,8 @@ function Header({
                 </a>
               </li>
               <li>
-                <a href="https://maps.google.com" target="_blank" rel="noreferrer">
-                  <i className="fa fa-map-marker" /> Ho Chi Minh City
+                <a href="https://www.google.com/maps/place/H%E1%BB%8Dc+vi%E1%BB%87n+K%E1%BB%B9+thu%E1%BA%ADt+Qu%C3%A2n+s%E1%BB%B1/@21.0467556,105.7838428,17z/data=!3m1!4b1!4m6!3m5!1s0x3135ab2d88bb4195:0x3006e474cce20274!8m2!3d21.0467556!4d105.7864177!16s%2Fm%2F03hl9kl?entry=ttu&g_ep=EgoyMDI2MDQyMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noreferrer">
+                  <i className="fa fa-map-marker" /> Học viện Kỹ thuật Quân sự
                 </a>
               </li>
             </ul>
@@ -320,7 +340,7 @@ function Header({
                   </button>
                 ) : (
                   <LinkButton to="/login" className="header-link-button" onNavigate={onNavigate}>
-                    <i className="fa fa-user-o" /> Dang nhap
+                    <i className="fa fa-user-o" /> Đăng nhập
                   </LinkButton>
                 )}
               </li>
@@ -348,7 +368,7 @@ function Header({
                       value={categoryId}
                       onChange={(event) => setCategoryId(event.target.value)}
                     >
-                      <option value="">Tat ca danh muc</option>
+                      <option value="">Tất cả danh mục</option>
                       {categories.map((category) => (
                         <option key={category.id} value={category.id}>
                           {category.name}
@@ -357,12 +377,12 @@ function Header({
                     </select>
                     <input
                       className="input"
-                      placeholder="Tim san pham, mo ta, danh muc..."
+                      placeholder="Tìm sản phẩm, mô tả, danh mục..."
                       value={keyword}
                       onChange={(event) => setKeyword(event.target.value)}
                     />
                     <button className="search-btn" type="submit">
-                      Tim kiem
+                      Tìm kiếm
                     </button>
                   </form>
                 </div>
@@ -373,21 +393,30 @@ function Header({
                   <div>
                     <LinkButton to="/orders" onNavigate={onNavigate}>
                       <i className="fa fa-list-alt" />
-                      <span>Don cua toi</span>
+                      <span>Đơn của tôi</span>
                       {auth && <div className="qty">1</div>}
                     </LinkButton>
                   </div>
 
-                  <div className="dropdown">
-                    <a className="dropdown-toggle" aria-expanded="true" href="#cart-dropdown">
+                  <div className={`dropdown ${isCartOpen ? 'open' : ''}`}>
+                    <a
+                      className="dropdown-toggle"
+                      aria-controls="cart-dropdown"
+                      aria-expanded={isCartOpen}
+                      href="#cart-dropdown"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        setIsCartOpen((current) => !current)
+                      }}
+                    >
                       <i className="fa fa-shopping-cart" />
-                      <span>Gio hang</span>
+                      <span>Giỏ hàng</span>
                       <div className="qty">{cartCount}</div>
                     </a>
                     <div className="cart-dropdown" id="cart-dropdown">
                       <div className="cart-list">
                         {cart.length === 0 ? (
-                          <div className="empty-dropdown">Chua co san pham trong gio.</div>
+                          <div className="empty-dropdown">Chưa có sản phẩm trong giỏ.</div>
                         ) : (
                           cart.map((item) => (
                             <div className="product-widget" key={item.id}>
@@ -420,15 +449,15 @@ function Header({
                         )}
                       </div>
                       <div className="cart-summary">
-                        <small>{cartCount} san pham da chon</small>
-                        <h5>TAM TINH: {formatCurrency(cartTotal)}</h5>
+                        <small>{cartCount} Sản phẩm đã chọn</small>
+                        <h5>TẠM TÍNH: {formatCurrency(cartTotal)}</h5>
                       </div>
                       <div className="cart-btns">
                         <LinkButton to="/store" onNavigate={onNavigate}>
-                          Tiep tuc mua
+                          Tiếp tục mua
                         </LinkButton>
                         <LinkButton to="/checkout" onNavigate={onNavigate}>
-                          Thanh toan <i className="fa fa-arrow-circle-right" />
+                          Thanh toán <i className="fa fa-arrow-circle-right" />
                         </LinkButton>
                       </div>
                     </div>
@@ -437,7 +466,7 @@ function Header({
                   <div className="menu-toggle">
                     <LinkButton to="/store" onNavigate={onNavigate}>
                       <i className="fa fa-bars" />
-                      <span>Danh muc</span>
+                      <span>Danh mục</span>
                     </LinkButton>
                   </div>
                 </div>
@@ -453,12 +482,12 @@ function Header({
             <ul className="main-nav nav navbar-nav">
               <li className={route.name === 'home' ? 'active' : ''}>
                 <LinkButton to="/" onNavigate={onNavigate}>
-                  Trang chu
+                  Trang chủ
                 </LinkButton>
               </li>
               <li className={route.name === 'store' ? 'active' : ''}>
                 <LinkButton to="/store" onNavigate={onNavigate}>
-                  Cua hang
+                  Cửa hàng
                 </LinkButton>
               </li>
               {featuredCategories.map((category) => (
@@ -478,9 +507,16 @@ function Header({
               ))}
               <li className={route.name === 'orders' ? 'active' : ''}>
                 <LinkButton to="/orders" onNavigate={onNavigate}>
-                  Don hang
+                  Đơn hàng
                 </LinkButton>
               </li>
+              {isAdmin(auth) && (
+                <li className={route.name === 'adminProducts' ? 'active' : ''}>
+                  <LinkButton to="/admin/products" onNavigate={onNavigate}>
+                    Quản trị sản phẩm
+                  </LinkButton>
+                </li>
+              )}
             </ul>
           </div>
         </div>
@@ -497,15 +533,15 @@ function Footer() {
           <div className="row">
             <div className="col-md-4 col-xs-6">
               <div className="footer">
-                <h3 className="footer-title">Ve he thong</h3>
-                <p>
-                  Storefront nay duoc ket noi truc tiep vao microservice gateway
-                  cua FW, su dung giao dien Electro cho phan mua hang.
-                </p>
+                <h3 className="footer-title">Tổng đài liên hệ(08h00 - 22h00)</h3>
+                {/* <p>
+                  Storefront này được kết nối trực tiếp vào microservice gateway
+                  của FW, sử dụng giao diện Electro cho phần mua hàng.
+                </p> */}
                 <ul className="footer-links">
                   <li>
-                    <a href="https://maps.google.com" target="_blank" rel="noreferrer">
-                      <i className="fa fa-map-marker" /> Ho Chi Minh City
+                    <a href="https://www.google.com/maps/place/H%E1%BB%8Dc+vi%E1%BB%87n+K%E1%BB%B9+thu%E1%BA%ADt+Qu%C3%A2n+s%E1%BB%B1/@21.0467556,105.7838428,17z/data=!3m1!4b1!4m6!3m5!1s0x3135ab2d88bb4195:0x3006e474cce20274!8m2!3d21.0467556!4d105.7864177!16s%2Fm%2F03hl9kl?entry=ttu&g_ep=EgoyMDI2MDQyMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noreferrer">
+                      <i className="fa fa-map-marker" /> Học viện Kỹ thuật Quân sự
                     </a>
                   </li>
                   <li>
@@ -513,27 +549,27 @@ function Footer() {
                       <i className="fa fa-phone" /> 0900 000 000
                     </a>
                   </li>
-                  <li>
+                  {/* <li>
                     <a href="mailto:support@basecore.vn">
                       <i className="fa fa-envelope-o" /> support@basecore.vn
                     </a>
-                  </li>
+                  </li> */}
                 </ul>
               </div>
             </div>
 
             <div className="col-md-2 col-xs-6">
               <div className="footer">
-                <h3 className="footer-title">Chuc nang</h3>
+                <h3 className="footer-title">Về công ty</h3>
                 <ul className="footer-links">
                   <li>
-                    <a href="/store">Danh muc san pham</a>
+                    <a href="/store">Địa điểm: 236 Hoàng Quốc Việt, Cổ Nhuế, Nghĩa Đô, Hà Nội, Việt Nam </a>
                   </li>
                   <li>
-                    <a href="/checkout">Thanh toan</a>
+                    <a href="/checkout">Thanh toán</a>
                   </li>
                   <li>
-                    <a href="/orders">Theo doi don</a>
+                    <a href="/orders">Theo dõi đơn</a>
                   </li>
                 </ul>
               </div>
@@ -543,7 +579,7 @@ function Footer() {
 
             <div className="col-md-3 col-xs-6">
               <div className="footer">
-                <h3 className="footer-title">Cong nghe</h3>
+                <h3 className="footer-title">Công nghệ</h3>
                 <ul className="footer-links">
                   <li>
                     <span>React 19 + Vite</span>
@@ -563,11 +599,11 @@ function Footer() {
 
             <div className="col-md-3 col-xs-6">
               <div className="footer">
-                <h3 className="footer-title">Trang thai</h3>
+                <h3 className="footer-title">Trạng thái</h3>
                 <p className="footer-note">
-                  Giao dien Electro da duoc dua vao `WebClient` de hoan thien
-                  phan mua hang, trong khi `BaseCore.WebClient` co the tiep tuc
-                  dung cho admin.
+                  Giao diện Electro đã được đưa vào `WebClient` để hoàn thiện
+                  phần mua hàng, trong khi `BaseCore.WebClient` có thể tiếp tục
+                  dùng cho admin.
                 </p>
               </div>
             </div>
@@ -578,19 +614,19 @@ function Footer() {
   )
 }
 
-function ProductCard({ product, onNavigate, onAddToCart }) {
+function ProductCard({ product, onNavigate, onAddToCart, onBuyNow }) {
   return (
     <div className="col-md-4 col-xs-6" key={product.id}>
       <div className="product">
         <div className="product-img">
           <img src={getProductImage(product)} alt={product.name} />
           <div className="product-label">
-            {product.stock < 5 && <span className="sale">Sap het</span>}
-            <span className="new">Moi</span>
+            {product.stock < 5 && <span className="sale">Sắp hết</span>}
+            <span className="new">Mới</span>
           </div>
         </div>
         <div className="product-body">
-          <p className="product-category">{product.category?.name || 'San pham'}</p>
+          <p className="product-category">{product.category?.name || 'Sản phẩm'}</p>
           <h3 className="product-name">
             <LinkButton to={`/product/${product.id}`} onNavigate={onNavigate}>
               {product.name}
@@ -611,7 +647,7 @@ function ProductCard({ product, onNavigate, onAddToCart }) {
               onClick={() => onNavigate(`/product/${product.id}`)}
             >
               <i className="fa fa-eye" />
-              <span className="tooltipp">Xem chi tiet</span>
+              <span className="tooltipp">Xem chi tiết</span>
             </button>
             <button
               className="quick-view"
@@ -619,14 +655,19 @@ function ProductCard({ product, onNavigate, onAddToCart }) {
               onClick={() => onAddToCart(product, 1)}
             >
               <i className="fa fa-shopping-bag" />
-              <span className="tooltipp">Them vao gio</span>
+              <span className="tooltipp">Thêm vào giỏ</span>
             </button>
           </div>
         </div>
         <div className="add-to-cart">
-          <button className="add-to-cart-btn" type="button" onClick={() => onAddToCart(product, 1)}>
-            <i className="fa fa-shopping-cart" /> Them vao gio
-          </button>
+          <div className="product-action-row">
+            <button className="add-to-cart-btn" type="button" onClick={() => onAddToCart(product, 1)}>
+              <i className="fa fa-shopping-cart" /> Thêm vào giỏ
+            </button>
+            <button className="buy-now-btn" type="button" onClick={() => onBuyNow(product, 1)}>
+              Mua ngay
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -657,7 +698,7 @@ function HeroShops({ categories, onNavigate }) {
                     className="cta-btn"
                     onNavigate={onNavigate}
                   >
-                    Shop now <i className="fa fa-arrow-circle-right" />
+                    Mua ngay <i className="fa fa-arrow-circle-right" />
                   </LinkButton>
                 </div>
               </div>
@@ -677,7 +718,7 @@ function SectionHeader({ title, description, linkTo, onNavigate }) {
         {description && <span className="section-copy">{description}</span>}
         {linkTo && (
           <LinkButton className="section-link" to={linkTo} onNavigate={onNavigate}>
-            Xem tat ca
+            Xem tất cả
           </LinkButton>
         )}
       </div>
@@ -690,6 +731,7 @@ function HomePage({
   highlightedProducts,
   onNavigate,
   onAddToCart,
+  onBuyNow,
 }) {
   const featuredProducts = highlightedProducts.slice(0, 8)
   const topSellingProducts = highlightedProducts.slice(0, 4)
@@ -701,8 +743,8 @@ function HomePage({
       <div className="section">
         <div className="container">
           <SectionHeader
-            title="San pham noi bat"
-            description="Lay du lieu truc tiep tu FW API Gateway"
+            title="Sản phẩm nổi bật"
+            description="Lấy dữ liệu trực tiếp từ FW API Gateway"
             linkTo="/store"
             onNavigate={onNavigate}
           />
@@ -713,6 +755,7 @@ function HomePage({
                 product={product}
                 onNavigate={onNavigate}
                 onAddToCart={onAddToCart}
+                onBuyNow={onBuyNow}
               />
             ))}
           </div>
@@ -728,7 +771,7 @@ function HomePage({
                   <li>
                     <div>
                       <h3>24</h3>
-                      <span>Gio</span>
+                      <span>Giờ</span>
                     </div>
                   </li>
                   <li>
@@ -744,10 +787,10 @@ function HomePage({
                     </div>
                   </li>
                 </ul>
-                <h2 className="text-uppercase">Giao dien Electro + backend FW</h2>
-                <p>Storefront da san sang cho luong dat hang va tai khoan</p>
+                <h2 className="text-uppercase">Giao diện Electro + backend FW</h2>
+                <p>Storefront đã sẵn sàng cho luồng đặt hàng và tài khoản</p>
                 <LinkButton to="/checkout" className="primary-btn cta-btn" onNavigate={onNavigate}>
-                  Di den checkout
+                  Đi đến thanh toán
                 </LinkButton>
               </div>
             </div>
@@ -758,8 +801,8 @@ function HomePage({
       <div className="section">
         <div className="container">
           <SectionHeader
-            title="Ban chay"
-            description="Nhung san pham moi cap nhat trong he thong"
+            title="Bán chạy"
+            description="Những sản phẩm mới cập nhật trong hệ thống"
             linkTo="/store"
             onNavigate={onNavigate}
           />
@@ -771,7 +814,7 @@ function HomePage({
                     <img src={getProductImage(product)} alt={product.name} />
                   </div>
                   <div className="product-body">
-                    <p className="product-category">{product.category?.name || 'San pham'}</p>
+                    <p className="product-category">{product.category?.name || 'Sản phẩm'}</p>
                     <h3 className="product-name">
                       <LinkButton to={`/product/${product.id}`} onNavigate={onNavigate}>
                         {product.name}
@@ -789,7 +832,7 @@ function HomePage({
   )
 }
 
-function StorePage({ categories, route, onNavigate, onAddToCart }) {
+function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [products, setProducts] = useState([])
@@ -846,14 +889,14 @@ function StorePage({ categories, route, onNavigate, onAddToCart }) {
         <div className="container">
           <div className="row">
             <div className="col-md-12">
-              <h3 className="breadcrumb-header">Cua hang</h3>
+              <h3 className="breadcrumb-header">Cửa hàng</h3>
               <ul className="breadcrumb-tree">
                 <li>
                   <LinkButton to="/" onNavigate={onNavigate}>
-                    Trang chu
+                    Trang chủ
                   </LinkButton>
                 </li>
-                <li className="active">Danh sach san pham</li>
+                <li className="active">Danh sách sản phẩm</li>
               </ul>
             </div>
           </div>
@@ -865,7 +908,7 @@ function StorePage({ categories, route, onNavigate, onAddToCart }) {
           <div className="row">
             <div id="aside" className="col-md-3">
               <div className="aside">
-                <h3 className="aside-title">Danh muc</h3>
+                <h3 className="aside-title">Danh mục</h3>
                 <div className="checkbox-filter category-filter-list">
                   <div className="input-checkbox">
                     <label className={!categoryId ? 'is-selected' : ''}>
@@ -873,7 +916,7 @@ function StorePage({ categories, route, onNavigate, onAddToCart }) {
                         to={buildStorePath({ keyword })}
                         onNavigate={onNavigate}
                       >
-                        Tat ca san pham
+                        Tất cả sản phẩm
                       </LinkButton>
                     </label>
                   </div>
@@ -900,13 +943,13 @@ function StorePage({ categories, route, onNavigate, onAddToCart }) {
               </div>
 
               <div className="aside">
-                <h3 className="aside-title">Thong tin bo loc</h3>
+                <h3 className="aside-title">Thông tin bộ lọc</h3>
                 <div className="category-filter-note">
                   <p>
-                    Tu khoa: <strong>{keyword || 'Khong co'}</strong>
+                    Từ khóa: <strong>{keyword || 'Không có'}</strong>
                   </p>
                   <p>
-                    Tong ket qua: <strong>{totalCount}</strong>
+                    Tổng kết quả: <strong>{totalCount}</strong>
                   </p>
                 </div>
               </div>
@@ -916,22 +959,22 @@ function StorePage({ categories, route, onNavigate, onAddToCart }) {
               <div className="store-filter clearfix">
                 <div className="store-sort">
                   <label>
-                    Trang hien tai:
+                    Trang hiện tại:
                     <span className="input-select inline-note">{currentPage}</span>
                   </label>
                 </div>
                 <div className="store-grid">
-                  <span className="store-qty">{totalCount} san pham</span>
+                  <span className="store-qty">{totalCount} sản phẩm</span>
                 </div>
               </div>
 
               {loading ? (
-                <div className="empty-state">Dang tai du lieu san pham...</div>
+                <div className="empty-state">Đang tải dữ liệu sản phẩm...</div>
               ) : error ? (
                 <div className="empty-state error-state">{error}</div>
               ) : products.length === 0 ? (
                 <div className="empty-state">
-                  Khong tim thay san pham phu hop bo loc hien tai.
+                  Không tìm thấy sản phẩm phù hợp bộ lọc hiện tại.
                 </div>
               ) : (
                 <div className="row">
@@ -941,6 +984,7 @@ function StorePage({ categories, route, onNavigate, onAddToCart }) {
                       product={product}
                       onNavigate={onNavigate}
                       onAddToCart={onAddToCart}
+                      onBuyNow={onBuyNow}
                     />
                   ))}
                 </div>
@@ -1009,7 +1053,7 @@ function StorePage({ categories, route, onNavigate, onAddToCart }) {
   )
 }
 
-function ProductPage({ productId, onNavigate, onAddToCart }) {
+function ProductPage({ productId, onNavigate, onAddToCart, onBuyNow }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [product, setProduct] = useState(null)
@@ -1068,19 +1112,19 @@ function ProductPage({ productId, onNavigate, onAddToCart }) {
         <div className="container">
           <div className="row">
             <div className="col-md-12">
-              <h3 className="breadcrumb-header">Chi tiet san pham</h3>
+              <h3 className="breadcrumb-header">Chi tiết sản phẩm</h3>
               <ul className="breadcrumb-tree">
                 <li>
                   <LinkButton to="/" onNavigate={onNavigate}>
-                    Trang chu
+                    Trang chủ
                   </LinkButton>
                 </li>
                 <li>
                   <LinkButton to="/store" onNavigate={onNavigate}>
-                    Cua hang
+                    Cửa hàng
                   </LinkButton>
                 </li>
-                <li className="active">{product?.name || 'Dang tai'}</li>
+                <li className="active">{product?.name || 'Đang tải'}</li>
               </ul>
             </div>
           </div>
@@ -1090,9 +1134,9 @@ function ProductPage({ productId, onNavigate, onAddToCart }) {
       <div className="section">
         <div className="container">
           {loading ? (
-            <div className="empty-state">Dang tai chi tiet san pham...</div>
+            <div className="empty-state">Đang tải chi tiết sản phẩm...</div>
           ) : error || !product ? (
-            <div className="empty-state error-state">{error || 'Khong tim thay san pham.'}</div>
+            <div className="empty-state error-state">{error || 'Không tìm thấy sản phẩm.'}</div>
           ) : (
             <>
               <div className="row">
@@ -1132,15 +1176,15 @@ function ProductPage({ productId, onNavigate, onAddToCart }) {
                       <h3 className="product-price">{formatCurrency(product.price)}</h3>
                       <span className="product-available">
                         {product.stock > 0
-                          ? `Con ${product.stock} san pham`
-                          : 'Tam het hang'}
+                          ? `Còn ${product.stock} sản phẩm`
+                          : 'Tạm hết hàng'}
                       </span>
                     </div>
-                    <p>{product.description || 'Chua co mo ta cho san pham nay.'}</p>
+                    <p>{product.description || 'Chưa có mô tả cho sản phẩm này.'}</p>
 
                     <div className="add-to-cart product-cart-panel">
                       <div className="qty-label">
-                        So luong
+                        Số lượng
                         <div className="input-number">
                           <input
                             type="number"
@@ -1168,18 +1212,26 @@ function ProductPage({ productId, onNavigate, onAddToCart }) {
                         disabled={product.stock <= 0}
                         onClick={() => onAddToCart(product, quantity)}
                       >
-                        <i className="fa fa-shopping-cart" /> Them vao gio
+                        <i className="fa fa-shopping-cart" /> Thêm vào giỏ
+                      </button>
+                      <button
+                        className="buy-now-detail-btn"
+                        type="button"
+                        disabled={product.stock <= 0}
+                        onClick={() => onBuyNow(product, quantity)}
+                      >
+                        Mua ngay
                       </button>
                     </div>
 
                     <ul className="product-links">
-                      <li>Danh muc:</li>
+                      <li>Danh mục:</li>
                       <li>
                         <LinkButton
                           to={buildStorePath({ categoryId: product.categoryId })}
                           onNavigate={onNavigate}
                         >
-                          {product.category?.name || 'Khong xac dinh'}
+                          {product.category?.name || 'Không xác định'}
                         </LinkButton>
                       </li>
                     </ul>
@@ -1189,13 +1241,13 @@ function ProductPage({ productId, onNavigate, onAddToCart }) {
 
               <div className="section">
                 <SectionHeader
-                  title="San pham lien quan"
-                  description="Lay theo danh muc tu backend hien tai"
+                  title="Sản phẩm liên quan"
+                  description="Lấy theo danh mục từ backend hiện tại"
                   onNavigate={onNavigate}
                 />
                 <div className="row">
                   {relatedProducts.length === 0 ? (
-                    <div className="empty-state">Chua co san pham lien quan.</div>
+                    <div className="empty-state">Chưa có sản phẩm liên quan.</div>
                   ) : (
                     relatedProducts.map((item) => (
                       <ProductCard
@@ -1203,6 +1255,7 @@ function ProductPage({ productId, onNavigate, onAddToCart }) {
                         product={item}
                         onNavigate={onNavigate}
                         onAddToCart={onAddToCart}
+                        onBuyNow={onBuyNow}
                       />
                     ))
                   )}
@@ -1224,7 +1277,7 @@ function CheckoutPage({
   submitting,
 }) {
   const [shippingAddress, setShippingAddress] = useState(
-    '227 Nguyen Van Cu, District 5, Ho Chi Minh City',
+    '227 Nguyễn Văn Cừ, Quận 5, Thành phố Hồ Chí Minh',
   )
 
   const totalAmount = cart.reduce(
@@ -1237,10 +1290,10 @@ function CheckoutPage({
       <div className="section">
         <div className="container">
           <div className="empty-state">
-            Gio hang dang trong. Hay them san pham truoc khi thanh toan.
+            Giỏ hàng đang trống. Hãy thêm sản phẩm trước khi thanh toán.
             <div className="empty-actions">
               <LinkButton to="/store" className="primary-btn" onNavigate={onNavigate}>
-                Di den cua hang
+                Đi đến cửa hàng
               </LinkButton>
             </div>
           </div>
@@ -1255,14 +1308,14 @@ function CheckoutPage({
         <div className="container">
           <div className="row">
             <div className="col-md-12">
-              <h3 className="breadcrumb-header">Checkout</h3>
+              <h3 className="breadcrumb-header">Thanh toán</h3>
               <ul className="breadcrumb-tree">
                 <li>
                   <LinkButton to="/" onNavigate={onNavigate}>
-                    Trang chu
+                    Trang chủ
                   </LinkButton>
                 </li>
-                <li className="active">Thanh toan</li>
+                <li className="active">Thanh toán</li>
               </ul>
             </div>
           </div>
@@ -1275,14 +1328,14 @@ function CheckoutPage({
             <div className="col-md-7">
               <div className="billing-details">
                 <div className="section-title">
-                  <h3 className="title">Thong tin giao hang</h3>
+                  <h3 className="title">Thông tin giao hàng</h3>
                 </div>
                 <div className="form-group">
                   <input
                     className="input"
                     value={auth?.name || auth?.username || ''}
                     disabled
-                    placeholder="Ten khach hang"
+                    placeholder="Tên khách hàng"
                   />
                 </div>
                 <div className="form-group">
@@ -1299,12 +1352,12 @@ function CheckoutPage({
                     rows="5"
                     value={shippingAddress}
                     onChange={(event) => setShippingAddress(event.target.value)}
-                    placeholder="Dia chi giao hang"
+                    placeholder="Địa chỉ giao hàng"
                   />
                 </div>
                 {!auth && (
                   <div className="order-note danger-note">
-                    Ban can dang nhap de tao don hang. He thong FW yeu cau JWT token
+                    Bạn cần đăng nhập để tạo đơn hàng. Hệ thống FW yêu cầu JWT token
                     cho endpoint `/api/orders`.
                     <div className="empty-actions">
                       <LinkButton
@@ -1312,7 +1365,7 @@ function CheckoutPage({
                         className="primary-btn"
                         onNavigate={onNavigate}
                       >
-                        Dang nhap ngay
+                        Đăng nhập ngay
                       </LinkButton>
                     </div>
                   </div>
@@ -1322,12 +1375,12 @@ function CheckoutPage({
 
             <div className="col-md-5 order-details">
               <div className="section-title text-center">
-                <h3 className="title">Don hang cua ban</h3>
+                <h3 className="title">Đơn hàng của bạn</h3>
               </div>
               <div className="order-summary">
                 <div className="order-col">
                   <div>
-                    <strong>SAN PHAM</strong>
+                    <strong>SẢN PHẨM</strong>
                   </div>
                   <div>
                     <strong>TONG</strong>
@@ -1344,14 +1397,14 @@ function CheckoutPage({
                   ))}
                 </div>
                 <div className="order-col">
-                  <div>Phi giao hang</div>
+                  <div>Phí giao hàng</div>
                   <div>
-                    <strong>FREE</strong>
+                    <strong>Miễn phí</strong>
                   </div>
                 </div>
                 <div className="order-col">
                   <div>
-                    <strong>TONG CONG</strong>
+                    <strong>TỔNG CỘNG</strong>
                   </div>
                   <div>
                     <strong className="order-total">{formatCurrency(totalAmount)}</strong>
@@ -1365,7 +1418,7 @@ function CheckoutPage({
                 disabled={!auth || submitting}
                 onClick={() => onPlaceOrder(shippingAddress)}
               >
-                {submitting ? 'Dang gui don...' : 'Dat hang'}
+                {submitting ? 'Đang gửi đơn...' : 'Đặt hàng'}
               </button>
             </div>
           </div>
@@ -1423,14 +1476,14 @@ function OrdersPage({ auth, onNavigate }) {
         <div className="container">
           <div className="row">
             <div className="col-md-12">
-              <h3 className="breadcrumb-header">Don hang cua toi</h3>
+              <h3 className="breadcrumb-header">Đơn hàng của tôi</h3>
               <ul className="breadcrumb-tree">
                 <li>
                   <LinkButton to="/" onNavigate={onNavigate}>
-                    Trang chu
+                    Trang chủ
                   </LinkButton>
                 </li>
-                <li className="active">Don hang</li>
+                <li className="active">Đơn hàng</li>
               </ul>
             </div>
           </div>
@@ -1441,40 +1494,391 @@ function OrdersPage({ auth, onNavigate }) {
         <div className="container">
           {!auth ? (
             <div className="empty-state">
-              Ban chua dang nhap nen chua the xem danh sach don hang.
+              Bạn chưa đăng nhập nên chưa thể xem danh sách đơn hàng.
               <div className="empty-actions">
                 <LinkButton to="/login?redirect=/orders" className="primary-btn" onNavigate={onNavigate}>
-                  Dang nhap
+                  Đăng nhập
                 </LinkButton>
               </div>
             </div>
           ) : loading ? (
-            <div className="empty-state">Dang tai lich su don hang...</div>
+            <div className="empty-state">Đang tải lịch sử đơn hàng...</div>
           ) : error ? (
             <div className="empty-state error-state">{error}</div>
           ) : orders.length === 0 ? (
-            <div className="empty-state">Tai khoan nay chua co don hang nao.</div>
+            <div className="empty-state">Tài khoản này chưa có đơn hàng nào.</div>
           ) : (
             <div className="orders-grid">
               {orders.map((order) => (
                 <article className="order-card" key={order.id}>
                   <div className="order-card-header">
-                    <h4>Don #{order.id}</h4>
+                    <h4>Đơn #{order.id}</h4>
                     <span className={`order-status ${order.status?.toLowerCase() || 'pending'}`}>
                       {toOrderStatusLabel(order.status)}
                     </span>
                   </div>
                   <p>
-                    <strong>Ngay tao:</strong> {formatDate(order.orderDate)}
+                    <strong>Ngày tạo:</strong> {formatDate(order.orderDate)}
                   </p>
                   <p>
-                    <strong>Dia chi:</strong> {order.shippingAddress || 'Khong co'}
+                    <strong>Địa chỉ:</strong> {order.shippingAddress || 'Không có'}
                   </p>
                   <p>
-                    <strong>Tong tien:</strong> {formatCurrency(order.totalAmount)}
+                    <strong>Tổng tiền:</strong> {formatCurrency(order.totalAmount)}
                   </p>
                 </article>
               ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </>
+  )
+}
+
+const EMPTY_PRODUCT_FORM = {
+  name: '',
+  price: '',
+  stock: '',
+  categoryId: '',
+  imageUrl: '/electro/img/product01.png',
+  description: '',
+}
+
+function ProductAdminPage({
+  auth,
+  categories,
+  onNavigate,
+  onNotify,
+  onAdminProductsChanged,
+}) {
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(Boolean(auth))
+  const [error, setError] = useState('')
+  const [formData, setFormData] = useState(EMPTY_PRODUCT_FORM)
+  const [editingProductId, setEditingProductId] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+  const [reloadKey, setReloadKey] = useState(0)
+  const canManageProducts = isAdmin(auth)
+
+  useEffect(() => {
+    if (!formData.categoryId && categories.length > 0) {
+      setFormData((current) => ({
+        ...current,
+        categoryId: String(categories[0].id),
+      }))
+    }
+  }, [categories, formData.categoryId])
+
+  useEffect(() => {
+    if (!canManageProducts) {
+      setProducts([])
+      setLoading(false)
+      return
+    }
+
+    let cancelled = false
+
+    async function loadProducts() {
+      setLoading(true)
+      setError('')
+
+      try {
+        const response = await api.getProducts({ page: 1, pageSize: 100 })
+
+        if (!cancelled) {
+          setProducts(response.items || [])
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setError(requestError.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false)
+        }
+      }
+    }
+
+    loadProducts()
+
+    return () => {
+      cancelled = true
+    }
+  }, [canManageProducts, reloadKey])
+
+  const resetForm = () => {
+    setEditingProductId(null)
+    setFormData({
+      ...EMPTY_PRODUCT_FORM,
+      categoryId: categories[0]?.id ? String(categories[0].id) : '',
+    })
+  }
+
+  const changeField = (field, value) => {
+    setFormData((current) => ({
+      ...current,
+      [field]: value,
+    }))
+  }
+
+  const submitProduct = async (event) => {
+    event.preventDefault()
+
+    if (!canManageProducts || !auth?.token) {
+      setError('Bạn cần đăng nhập bằng tài khoản admin để quản lý sản phẩm.')
+      return
+    }
+
+    const payload = {
+      name: formData.name.trim(),
+      price: Number(formData.price),
+      stock: Number(formData.stock),
+      categoryId: Number(formData.categoryId),
+      imageUrl: formData.imageUrl.trim(),
+      description: formData.description.trim(),
+    }
+
+    if (!payload.name || Number.isNaN(payload.price) || Number.isNaN(payload.stock) || !payload.categoryId) {
+      setError('Vui lòng nhập đầy đủ tên, giá, tồn kho và danh mục.')
+      return
+    }
+
+    setSaving(true)
+    setError('')
+
+    try {
+      if (editingProductId) {
+        await api.updateProduct(editingProductId, payload, auth.token)
+        onNotify('success', 'Đã cập nhật sản phẩm.')
+      } else {
+        await api.createProduct(payload, auth.token)
+        onNotify('success', 'Đã thêm sản phẩm mới.')
+      }
+
+      resetForm()
+      setReloadKey((current) => current + 1)
+      await onAdminProductsChanged()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const editProduct = (product) => {
+    setEditingProductId(product.id)
+    setFormData({
+      name: product.name || '',
+      price: String(product.price ?? ''),
+      stock: String(product.stock ?? ''),
+      categoryId: String(product.categoryId || product.category?.id || ''),
+      imageUrl: product.imageUrl || '',
+      description: product.description || '',
+    })
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const deleteProduct = async (product) => {
+    if (!window.confirm(`Xóa sản phẩm "${product.name}"?`)) {
+      return
+    }
+
+    setDeletingId(product.id)
+    setError('')
+
+    try {
+      await api.deleteProduct(product.id, auth.token)
+      onNotify('success', 'Đã xóa sản phẩm.')
+      setReloadKey((current) => current + 1)
+      await onAdminProductsChanged()
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  const getCategoryName = (product) =>
+    product.category?.name ||
+    categories.find((category) => category.id === product.categoryId)?.name ||
+    'Không xác định'
+
+  return (
+    <>
+      <div id="breadcrumb" className="section">
+        <div className="container">
+          <div className="row">
+            <div className="col-md-12">
+              <h3 className="breadcrumb-header">Quản trị sản phẩm</h3>
+              <ul className="breadcrumb-tree">
+                <li>
+                  <LinkButton to="/" onNavigate={onNavigate}>
+                    Trang chủ
+                  </LinkButton>
+                </li>
+                <li className="active">Thêm, sửa, xóa sản phẩm</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="section">
+        <div className="container">
+          {!auth ? (
+            <div className="empty-state">
+              Bạn cần đăng nhập tài khoản admin để quản lý sản phẩm.
+              <div className="empty-actions">
+                <LinkButton to="/login?redirect=/admin/products" className="primary-btn" onNavigate={onNavigate}>
+                  Đăng nhập admin
+                </LinkButton>
+              </div>
+            </div>
+          ) : !canManageProducts ? (
+            <div className="empty-state error-state">
+              Tài khoản hiện tại không có quyền admin nên không thể thêm, sửa, xóa sản phẩm.
+            </div>
+          ) : (
+            <div className="admin-products-layout">
+              <form className="admin-product-form-card" onSubmit={submitProduct}>
+                <div className="section-title">
+                  <h3 className="title">
+                    {editingProductId ? 'Sửa sản phẩm' : 'Thêm sản phẩm'}
+                  </h3>
+                </div>
+
+                {error && <div className="error-banner">{error}</div>}
+
+                <input
+                  className="input"
+                  placeholder="Tên sản phẩm"
+                  value={formData.name}
+                  onChange={(event) => changeField('name', event.target.value)}
+                  required
+                />
+                <div className="admin-form-grid">
+                  <input
+                    className="input"
+                    min="0"
+                    placeholder="Giá"
+                    type="number"
+                    value={formData.price}
+                    onChange={(event) => changeField('price', event.target.value)}
+                    required
+                  />
+                  <input
+                    className="input"
+                    min="0"
+                    placeholder="Tồn kho"
+                    type="number"
+                    value={formData.stock}
+                    onChange={(event) => changeField('stock', event.target.value)}
+                    required
+                  />
+                </div>
+                <select
+                  className="input-select admin-select"
+                  value={formData.categoryId}
+                  onChange={(event) => changeField('categoryId', event.target.value)}
+                  required
+                >
+                  <option value="">Chọn danh mục</option>
+                  {categories.map((category) => (
+                    <option key={category.id} value={category.id}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="input"
+                  placeholder="Ảnh, ví dụ: /electro/img/product01.png"
+                  value={formData.imageUrl}
+                  onChange={(event) => changeField('imageUrl', event.target.value)}
+                />
+                <textarea
+                  className="input"
+                  placeholder="Mô tả sản phẩm"
+                  rows="4"
+                  value={formData.description}
+                  onChange={(event) => changeField('description', event.target.value)}
+                />
+
+                <div className="admin-form-actions">
+                  <button className="primary-btn" type="submit" disabled={saving || categories.length === 0}>
+                    {saving
+                      ? 'Đang lưu...'
+                      : editingProductId
+                        ? 'Cập nhật'
+                        : 'Thêm sản phẩm'}
+                  </button>
+                  {editingProductId && (
+                    <button className="secondary-btn" type="button" onClick={resetForm}>
+                      Hủy sửa
+                    </button>
+                  )}
+                </div>
+              </form>
+
+              <div className="admin-product-table-card">
+                <div className="section-title">
+                  <h3 className="title">Danh sách sản phẩm</h3>
+                </div>
+
+                {loading ? (
+                  <div className="empty-state">Đang tải sản phẩm...</div>
+                ) : products.length === 0 ? (
+                  <div className="empty-state">Chưa có sản phẩm nào.</div>
+                ) : (
+                  <div className="admin-table-wrap">
+                    <table className="admin-products-table">
+                      <thead>
+                        <tr>
+                          <th>Sản phẩm</th>
+                          <th>Danh mục</th>
+                          <th>Giá</th>
+                          <th>Tồn kho</th>
+                          <th>Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {products.map((product) => (
+                          <tr key={product.id}>
+                            <td>
+                              <div className="admin-product-cell">
+                                <img src={getProductImage(product)} alt={product.name} />
+                                <div>
+                                  <strong>{product.name}</strong>
+                                  <span>{product.description || 'Chưa có mô tả'}</span>
+                                </div>
+                              </div>
+                            </td>
+                            <td>{getCategoryName(product)}</td>
+                            <td>{formatCurrency(product.price)}</td>
+                            <td>{product.stock}</td>
+                            <td>
+                              <div className="admin-row-actions">
+                                <button className="secondary-btn" type="button" onClick={() => editProduct(product)}>
+                                  Sửa
+                                </button>
+                                <button
+                                  className="danger-btn"
+                                  type="button"
+                                  disabled={deletingId === product.id}
+                                  onClick={() => deleteProduct(product)}
+                                >
+                                  {deletingId === product.id ? 'Đang xóa...' : 'Xóa'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
@@ -1526,17 +1930,17 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
       <div className="section">
         <div className="container">
           <div className="account-card">
-            <h3>Xin chao, {auth.name || auth.username}</h3>
+            <h3>Xin chào, {auth.name || auth.username}</h3>
             <p>
-              Tai khoan hien tai da dang nhap. Ban co the tiep tuc checkout hoac xem
-              lich su don hang.
+              Tài khoản hiện tại đã đăng nhập. Bạn có thể tiếp tục thanh toán hoặc xem
+              lịch sử đơn hàng.
             </p>
             <div className="empty-actions">
               <LinkButton to={redirectPath} className="primary-btn" onNavigate={onNavigate}>
-                Tiep tuc
+                Tiếp tục
               </LinkButton>
               <button className="secondary-btn" type="button" onClick={onLogout}>
-                Dang xuat
+                Đăng xuất
               </button>
             </div>
           </div>
@@ -1552,16 +1956,16 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
           <div className="row">
             <div className="col-md-12">
               <h3 className="breadcrumb-header">
-                {mode === 'register' ? 'Dang ky tai khoan' : 'Dang nhap'}
+                {mode === 'register' ? 'Đăng ký tài khoản' : 'Đăng nhập'}
               </h3>
               <ul className="breadcrumb-tree">
                 <li>
                   <LinkButton to="/" onNavigate={onNavigate}>
-                    Trang chu
+                    Trang chủ
                   </LinkButton>
                 </li>
                 <li className="active">
-                  {mode === 'register' ? 'Dang ky' : 'Dang nhap'}
+                  {mode === 'register' ? 'Đăng ký' : 'Đăng nhập'}
                 </li>
               </ul>
             </div>
@@ -1579,14 +1983,14 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
                   type="button"
                   onClick={() => setMode('login')}
                 >
-                  Dang nhap
+                  Đăng nhập
                 </button>
                 <button
                   className={mode === 'register' ? 'active' : ''}
                   type="button"
                   onClick={() => setMode('register')}
                 >
-                  Dang ky
+                  Đăng ký
                 </button>
               </div>
 
@@ -1597,7 +2001,7 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
                   <>
                     <input
                       className="input"
-                      placeholder="Ho ten"
+                      placeholder="Họ tên"
                       value={formData.name}
                       onChange={(event) =>
                         setFormData((current) => ({
@@ -1620,7 +2024,7 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
                     />
                     <input
                       className="input"
-                      placeholder="So dien thoai"
+                      placeholder="Số điện thoại"
                       value={formData.phone}
                       onChange={(event) =>
                         setFormData((current) => ({
@@ -1634,7 +2038,7 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
 
                 <input
                   className="input"
-                  placeholder="Ten dang nhap"
+                  placeholder="Tên đăng nhập"
                   value={formData.username}
                   onChange={(event) =>
                     setFormData((current) => ({
@@ -1646,7 +2050,7 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
                 />
                 <input
                   className="input"
-                  placeholder="Mat khau"
+                  placeholder="Mật khẩu"
                   type="password"
                   value={formData.password}
                   onChange={(event) =>
@@ -1660,19 +2064,19 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
 
                 <button className="primary-btn auth-submit" type="submit" disabled={submitting}>
                   {submitting
-                    ? 'Dang xu ly...'
+                    ? 'Đang xử lý...'
                     : mode === 'register'
-                      ? 'Tao tai khoan'
-                      : 'Dang nhap'}
+                      ? 'Tạo tài khoản'
+                      : 'Đăng nhập'}
                 </button>
               </form>
             </div>
 
             <div className="auth-side-note">
-              <h4>FW integration</h4>
+              <h4>Tích hợp FW</h4>
               <p>
-                Dang nhap dung endpoint `/api/auth/login`, dang ky dung
-                `/api/auth/register`, va sau khi dang nhap token se duoc dung cho
+                Đăng nhập dùng endpoint `/api/auth/login`, đăng ký dùng
+                `/api/auth/register`, và sau khi đăng nhập token sẽ được dùng cho
                 `/api/orders`.
               </p>
             </div>
@@ -1688,10 +2092,10 @@ function NotFoundPage({ onNavigate }) {
     <div className="section">
       <div className="container">
         <div className="empty-state">
-          Trang ban truy cap khong ton tai trong storefront nay.
+          Trang bạn truy cập không tồn tại trong storefront này.
           <div className="empty-actions">
             <LinkButton to="/" className="primary-btn" onNavigate={onNavigate}>
-              Ve trang chu
+              Về trang chủ
             </LinkButton>
           </div>
         </div>
@@ -1723,20 +2127,20 @@ function App() {
     }
   }, [auth])
 
-  const syncRoute = useEffectEvent(() => {
-    startTransition(() => setRoute(parseRoute()))
-  })
-
   useEffect(() => {
+    const syncRoute = () => {
+      startTransition(() => setRoute(parseRoute()))
+    }
+
     window.addEventListener('popstate', syncRoute)
     return () => window.removeEventListener('popstate', syncRoute)
-  }, [syncRoute])
+  }, [])
 
-  const openNotice = useEffectEvent((type, message) => {
+  function openNotice(type, message) {
     setNotice({ type, message })
     window.clearTimeout(noticeTimeoutRef.current)
     noticeTimeoutRef.current = window.setTimeout(() => setNotice(null), 3200)
-  })
+  }
 
   useEffect(() => {
     return () => window.clearTimeout(noticeTimeoutRef.current)
@@ -1778,6 +2182,20 @@ function App() {
       cancelled = true
     }
   }, [])
+
+  async function refreshShellData() {
+    try {
+      const [categoryData, productData] = await Promise.all([
+        api.getCategories(),
+        api.getProducts({ page: 1, pageSize: 12 }),
+      ])
+
+      setCategories(Array.isArray(categoryData) ? categoryData : [])
+      setHighlightedProducts(productData.items || [])
+    } catch (requestError) {
+      openNotice('error', requestError.message)
+    }
+  }
 
   function navigate(path) {
     if (`${window.location.pathname}${window.location.search}` === path) {
@@ -1822,29 +2240,34 @@ function App() {
       ]
     })
 
-    openNotice('success', `Da them "${product.name}" vao gio hang.`)
+    openNotice('success', `Đã thêm "${product.name}" vào giỏ hàng.`)
+  }
+
+  function buyNow(product, quantity) {
+    upsertCart(product, quantity)
+    navigate('/checkout')
   }
 
   function removeCartItem(productId) {
     setCart((current) => current.filter((item) => item.id !== productId))
-    openNotice('success', 'Da xoa san pham khoi gio hang.')
+    openNotice('success', 'Đã xóa sản phẩm khỏi giỏ hàng.')
   }
 
   async function login(username, password) {
     const data = await api.login(username, password)
     setAuth(data)
-    openNotice('success', 'Dang nhap thanh cong.')
+    openNotice('success', 'Đăng nhập thành công.')
   }
 
   async function register(payload) {
     await api.register(payload)
     await login(payload.username, payload.password)
-    openNotice('success', 'Tao tai khoan thanh cong.')
+    openNotice('success', 'Tạo tài khoản thành công.')
   }
 
   function logout() {
     setAuth(null)
-    openNotice('success', 'Da dang xuat tai khoan.')
+    openNotice('success', 'Đã đăng xuất tài khoản.')
   }
 
   async function placeOrder(shippingAddress) {
@@ -1854,13 +2277,42 @@ function App() {
     }
 
     if (!shippingAddress.trim()) {
-      openNotice('error', 'Vui long nhap dia chi giao hang.')
+      openNotice('error', 'Vui lòng nhập địa chỉ giao hàng.')
       return
     }
 
     setPlacingOrder(true)
 
     try {
+      const productChecks = await Promise.allSettled(
+        cart.map((item) => api.getProduct(item.id)),
+      )
+      const invalidItems = cart.filter((item, index) => {
+        const result = productChecks[index]
+
+        if (result.status !== 'fulfilled') {
+          return true
+        }
+
+        const latestProduct = result.value
+        return (
+          !latestProduct ||
+          latestProduct.name !== item.name ||
+          latestProduct.stock < item.quantity
+        )
+      })
+
+      if (invalidItems.length > 0) {
+        const invalidIds = new Set(invalidItems.map((item) => item.id))
+
+        setCart((current) => current.filter((item) => !invalidIds.has(item.id)))
+        openNotice(
+          'error',
+          'Giỏ hàng có sản phẩm đã thay đổi hoặc không đủ tồn kho. Tôi đã xóa sản phẩm lỗi, vui lòng kiểm tra lại giỏ hàng.',
+        )
+        return
+      }
+
       const payload = {
         shippingAddress,
         items: cart.map((item) => ({
@@ -1871,7 +2323,7 @@ function App() {
 
       await api.createOrder(payload, auth.token)
       setCart([])
-      openNotice('success', 'Da tao don hang thanh cong.')
+      openNotice('success', 'Đã tạo đơn hàng thành công.')
       navigate('/orders')
     } catch (requestError) {
       openNotice('error', requestError.message)
@@ -1891,7 +2343,7 @@ function App() {
     content = (
       <div className="section">
         <div className="container">
-          <div className="empty-state">Dang dong bo du lieu tu he thong FW...</div>
+          <div className="empty-state">Đang đồng bộ dữ liệu từ hệ thống FW...</div>
         </div>
       </div>
     )
@@ -1904,6 +2356,7 @@ function App() {
             highlightedProducts={highlightedProducts}
             onNavigate={navigate}
             onAddToCart={upsertCart}
+            onBuyNow={buyNow}
           />
         )
         break
@@ -1914,6 +2367,7 @@ function App() {
             route={route}
             onNavigate={navigate}
             onAddToCart={upsertCart}
+            onBuyNow={buyNow}
           />
         )
         break
@@ -1923,6 +2377,7 @@ function App() {
             productId={route.params.id}
             onNavigate={navigate}
             onAddToCart={upsertCart}
+            onBuyNow={buyNow}
           />
         )
         break
@@ -1939,6 +2394,17 @@ function App() {
         break
       case 'orders':
         content = <OrdersPage auth={auth} onNavigate={navigate} />
+        break
+      case 'adminProducts':
+        content = (
+          <ProductAdminPage
+            auth={auth}
+            categories={categories}
+            onNavigate={navigate}
+            onNotify={openNotice}
+            onAdminProductsChanged={refreshShellData}
+          />
+        )
         break
       case 'login':
         content = (
@@ -1960,6 +2426,7 @@ function App() {
   return (
     <div className="app-shell">
       <Header
+        key={`${route.pathname}?keyword=${route.query.keyword || ''}&categoryId=${route.query.categoryId || ''}`}
         auth={auth}
         cart={cart}
         categories={categories}

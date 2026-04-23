@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
+using BaseCore.Repository;
 using BaseCore.Repository.EFCore;
 using System.Security.Claims;
 
@@ -18,15 +20,18 @@ namespace BaseCore.APIService.Controllers
         private readonly IOrderRepositoryEF _orderRepository;
         private readonly IOrderDetailRepositoryEF _orderDetailRepository;
         private readonly IProductRepositoryEF _productRepository;
+        private readonly MySqlDbContext _dbContext;
 
         public OrdersController(
             IOrderRepositoryEF orderRepository,
             IOrderDetailRepositoryEF orderDetailRepository,
-            IProductRepositoryEF productRepository)
+            IProductRepositoryEF productRepository,
+            MySqlDbContext dbContext)
         {
             _orderRepository = orderRepository;
             _orderDetailRepository = orderDetailRepository;
             _productRepository = productRepository;
+            _dbContext = dbContext;
         }
 
         /// <summary>
@@ -40,7 +45,7 @@ namespace BaseCore.APIService.Controllers
                 return Unauthorized();
 
             var orders = await _orderRepository.GetByUserAsync(userId);
-            return Ok(orders);
+            return Ok(orders.Select(ToOrderResponse));
         }
 
         /// <summary>
@@ -51,7 +56,7 @@ namespace BaseCore.APIService.Controllers
         public async Task<IActionResult> GetAllOrders()
         {
             var orders = await _orderRepository.GetAllAsync();
-            return Ok(orders);
+            return Ok(orders.Select(ToOrderResponse));
         }
 
         /// <summary>
@@ -64,7 +69,11 @@ namespace BaseCore.APIService.Controllers
             if (order == null) return NotFound(new { message = "Order not found" });
 
             var details = await _orderDetailRepository.GetByOrderAsync(id);
-            return Ok(new { order, details });
+            return Ok(new
+            {
+                order = ToOrderResponse(order),
+                details = details.Select(ToOrderDetailResponse)
+            });
         }
 
         /// <summary>
@@ -77,51 +86,77 @@ namespace BaseCore.APIService.Controllers
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
+            var userExists = await _dbContext.Users.AnyAsync(user => user.Id == userId);
+            if (!userExists)
+                return Unauthorized(new { message = "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại." });
+
+            if (dto.Items == null || dto.Items.Count == 0)
+                return BadRequest(new { message = "Giỏ hàng đang trống" });
+
+            if (dto.Items.Any(item => item.ProductId <= 0 || item.Quantity <= 0))
+                return BadRequest(new { message = "Dữ liệu sản phẩm trong đơn hàng không hợp lệ" });
+
             // Validate products and calculate total
             decimal totalAmount = 0;
             var orderDetails = new List<OrderDetail>();
 
-            foreach (var item in dto.Items)
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
             {
-                var product = await _productRepository.GetByIdAsync(item.ProductId);
-                if (product == null)
-                    return BadRequest(new { message = $"Product {item.ProductId} not found" });
-
-                if (product.Stock < item.Quantity)
-                    return BadRequest(new { message = $"Insufficient stock for {product.Name}" });
-
-                totalAmount += product.Price * item.Quantity;
-                orderDetails.Add(new OrderDetail
+                foreach (var item in dto.Items)
                 {
-                    ProductId = item.ProductId,
-                    Quantity = item.Quantity,
-                    UnitPrice = product.Price
+                    var product = await _productRepository.GetByIdAsync(item.ProductId);
+                    if (product == null)
+                        return BadRequest(new { message = $"Sản phẩm {item.ProductId} không còn tồn tại" });
+
+                    if (product.Stock < item.Quantity)
+                        return BadRequest(new { message = $"Sản phẩm {product.Name} không đủ tồn kho" });
+
+                    totalAmount += product.Price * item.Quantity;
+                    orderDetails.Add(new OrderDetail
+                    {
+                        ProductId = item.ProductId,
+                        Quantity = item.Quantity,
+                        UnitPrice = product.Price
+                    });
+
+                    // Update stock
+                    product.Stock -= item.Quantity;
+                    await _productRepository.UpdateAsync(product);
+                }
+
+                var order = new Order
+                {
+                    UserId = userId,
+                    OrderDate = DateTime.Now,
+                    TotalAmount = totalAmount,
+                    Status = "Pending",
+                    ShippingAddress = dto.ShippingAddress ?? ""
+                };
+
+                await _orderRepository.AddAsync(order);
+
+                // Add order details
+                foreach (var detail in orderDetails)
+                {
+                    detail.OrderId = order.Id;
+                    await _orderDetailRepository.AddAsync(detail);
+                }
+
+                await transaction.CommitAsync();
+
+                return CreatedAtAction(nameof(GetById), new { id = order.Id }, new
+                {
+                    order = ToOrderResponse(order),
+                    details = orderDetails.Select(ToOrderDetailResponse)
                 });
-
-                // Update stock
-                product.Stock -= item.Quantity;
-                await _productRepository.UpdateAsync(product);
             }
-
-            var order = new Order
+            catch (DbUpdateException)
             {
-                UserId = userId,
-                OrderDate = DateTime.Now,
-                TotalAmount = totalAmount,
-                Status = "Pending",
-                ShippingAddress = dto.ShippingAddress ?? ""
-            };
-
-            await _orderRepository.AddAsync(order);
-
-            // Add order details
-            foreach (var detail in orderDetails)
-            {
-                detail.OrderId = order.Id;
-                await _orderDetailRepository.AddAsync(detail);
+                await transaction.RollbackAsync();
+                return BadRequest(new { message = "Không tạo được đơn hàng. Vui lòng kiểm tra lại tài khoản, sản phẩm và dữ liệu tồn kho." });
             }
-
-            return CreatedAtAction(nameof(GetById), new { id = order.Id }, new { order, details = orderDetails });
         }
 
         /// <summary>
@@ -136,7 +171,7 @@ namespace BaseCore.APIService.Controllers
             order.Status = dto.Status;
             await _orderRepository.UpdateAsync(order);
 
-            return Ok(order);
+            return Ok(ToOrderResponse(order));
         }
 
         /// <summary>
@@ -166,7 +201,43 @@ namespace BaseCore.APIService.Controllers
             order.Status = "Cancelled";
             await _orderRepository.UpdateAsync(order);
 
-            return Ok(new { message = "Order cancelled successfully", order });
+            return Ok(new { message = "Order cancelled successfully", order = ToOrderResponse(order) });
+        }
+
+        private static object ToOrderResponse(Order order)
+        {
+            return new
+            {
+                order.Id,
+                order.UserId,
+                order.OrderDate,
+                order.TotalAmount,
+                order.Status,
+                order.ShippingAddress
+            };
+        }
+
+        private static object ToOrderDetailResponse(OrderDetail detail)
+        {
+            return new
+            {
+                detail.Id,
+                detail.OrderId,
+                detail.ProductId,
+                detail.Quantity,
+                detail.UnitPrice,
+                product = detail.Product == null
+                    ? null
+                    : new
+                    {
+                        detail.Product.Id,
+                        detail.Product.Name,
+                        detail.Product.Price,
+                        detail.Product.ImageUrl,
+                        detail.Product.Description,
+                        detail.Product.CategoryId
+                    }
+            };
         }
     }
 

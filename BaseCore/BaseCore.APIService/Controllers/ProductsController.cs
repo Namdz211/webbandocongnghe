@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
+using BaseCore.Repository;
 using BaseCore.Repository.EFCore;
 
 namespace BaseCore.APIService.Controllers
@@ -15,11 +17,16 @@ namespace BaseCore.APIService.Controllers
     {
         private readonly IProductRepositoryEF _productRepository;
         private readonly ICategoryRepositoryEF _categoryRepository;
+        private readonly MySqlDbContext _dbContext;
 
-        public ProductsController(IProductRepositoryEF productRepository, ICategoryRepositoryEF categoryRepository)
+        public ProductsController(
+            IProductRepositoryEF productRepository,
+            ICategoryRepositoryEF categoryRepository,
+            MySqlDbContext dbContext)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
+            _dbContext = dbContext;
         }
 
         /// <summary>
@@ -58,25 +65,29 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Create new product (requires authentication)
+        /// Create new product (Admin only)
         /// </summary>
         [HttpPost]
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] ProductCreateDto dto)
         {
+            var validationMessage = ValidateCreateDto(dto);
+            if (validationMessage != null)
+                return BadRequest(new { message = validationMessage });
+
             // Validate category exists
             var category = await _categoryRepository.GetByIdAsync(dto.CategoryId);
             if (category == null)
-                return BadRequest(new { message = "Category not found" });
+                return BadRequest(new { message = "Danh mục không tồn tại" });
 
             var product = new Product
             {
-                Name = dto.Name,
+                Name = dto.Name.Trim(),
                 Price = dto.Price,
                 Stock = dto.Stock,
                 CategoryId = dto.CategoryId,
-                Description = dto.Description,
-                ImageUrl = dto.ImageUrl ?? ""
+                Description = dto.Description?.Trim() ?? "",
+                ImageUrl = dto.ImageUrl?.Trim() ?? ""
             };
 
             await _productRepository.AddAsync(product);
@@ -84,40 +95,63 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Update product (requires authentication)
+        /// Update product (Admin only)
         /// </summary>
         [HttpPut("{id}")]
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] ProductUpdateDto dto)
         {
             var product = await _productRepository.GetByIdAsync(id);
             if (product == null)
-                return NotFound(new { message = "Product not found" });
+                return NotFound(new { message = "Không tìm thấy sản phẩm" });
 
-            product.Name = dto.Name ?? product.Name;
+            var validationMessage = ValidateUpdateDto(dto);
+            if (validationMessage != null)
+                return BadRequest(new { message = validationMessage });
+
+            if (dto.CategoryId.HasValue)
+            {
+                var category = await _categoryRepository.GetByIdAsync(dto.CategoryId.Value);
+                if (category == null)
+                    return BadRequest(new { message = "Danh mục không tồn tại" });
+            }
+
+            product.Name = dto.Name?.Trim() ?? product.Name;
             product.Price = dto.Price ?? product.Price;
             product.Stock = dto.Stock ?? product.Stock;
             product.CategoryId = dto.CategoryId ?? product.CategoryId;
-            product.Description = dto.Description ?? product.Description;
-            product.ImageUrl = dto.ImageUrl ?? product.ImageUrl;
+            product.Description = dto.Description?.Trim() ?? product.Description;
+            product.ImageUrl = dto.ImageUrl?.Trim() ?? product.ImageUrl;
 
             await _productRepository.UpdateAsync(product);
             return Ok(product);
         }
 
         /// <summary>
-        /// Delete product (requires authentication)
+        /// Delete product (Admin only)
         /// </summary>
         [HttpDelete("{id}")]
-        [Authorize]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var product = await _productRepository.GetByIdAsync(id);
             if (product == null)
-                return NotFound(new { message = "Product not found" });
+                return NotFound(new { message = "Không tìm thấy sản phẩm" });
 
-            await _productRepository.DeleteAsync(product);
-            return Ok(new { message = "Product deleted successfully" });
+            var productHasOrders = await _dbContext.OrderDetails.AnyAsync(orderDetail => orderDetail.ProductId == id);
+            if (productHasOrders)
+                return BadRequest(new { message = "Không thể xóa sản phẩm đã có trong đơn hàng. Hãy sửa tồn kho hoặc thông tin sản phẩm thay vì xóa." });
+
+            try
+            {
+                await _productRepository.DeleteAsync(product);
+            }
+            catch (DbUpdateException)
+            {
+                return BadRequest(new { message = "Không thể xóa sản phẩm vì đang được dữ liệu khác sử dụng." });
+            }
+
+            return Ok(new { message = "Đã xóa sản phẩm thành công" });
         }
 
         /// <summary>
@@ -128,6 +162,46 @@ namespace BaseCore.APIService.Controllers
         {
             var products = await _productRepository.GetByCategoryAsync(categoryId);
             return Ok(products);
+        }
+
+        private static string? ValidateCreateDto(ProductCreateDto dto)
+        {
+            if (dto == null)
+                return "Dữ liệu sản phẩm không hợp lệ";
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                return "Tên sản phẩm không được để trống";
+
+            if (dto.Price < 0)
+                return "Giá sản phẩm không được âm";
+
+            if (dto.Stock < 0)
+                return "Tồn kho không được âm";
+
+            if (dto.CategoryId <= 0)
+                return "Vui lòng chọn danh mục hợp lệ";
+
+            return null;
+        }
+
+        private static string? ValidateUpdateDto(ProductUpdateDto dto)
+        {
+            if (dto == null)
+                return "Dữ liệu sản phẩm không hợp lệ";
+
+            if (dto.Name != null && string.IsNullOrWhiteSpace(dto.Name))
+                return "Tên sản phẩm không được để trống";
+
+            if (dto.Price.HasValue && dto.Price.Value < 0)
+                return "Giá sản phẩm không được âm";
+
+            if (dto.Stock.HasValue && dto.Stock.Value < 0)
+                return "Tồn kho không được âm";
+
+            if (dto.CategoryId.HasValue && dto.CategoryId.Value <= 0)
+                return "Vui lòng chọn danh mục hợp lệ";
+
+            return null;
         }
     }
 

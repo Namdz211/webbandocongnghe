@@ -771,11 +771,40 @@ DECLARE @CategorySeeds TABLE
 
 INSERT INTO @CategorySeeds (Name, Description)
 VALUES
-    (N'Electronics', N'Electronic devices and gadgets'),
-    (N'Clothing', N'Apparel and fashion items'),
-    (N'Books', N'Books and publications'),
-    (N'Home & Garden', N'Home and garden products'),
-    (N'Sports', N'Sports equipment and accessories');
+    (N'Điện thoại', N'Điện thoại thông minh chính hãng, cấu hình mạnh và camera chất lượng.'),
+    (N'Laptop', N'Laptop phục vụ học tập, văn phòng, đồ họa và gaming.'),
+    (N'Smartwatch', N'Đồng hồ thông minh theo dõi sức khỏe, luyện tập và thông báo.'),
+    (N'Tablet', N'Máy tính bảng cho học tập, giải trí, ghi chú và làm việc di động.');
+
+DECLARE @LegacyCategoryMap TABLE
+(
+    OldName NVARCHAR(100) NOT NULL,
+    NewName NVARCHAR(100) NOT NULL
+);
+
+INSERT INTO @LegacyCategoryMap (OldName, NewName)
+VALUES
+    (N'Electronics', N'Điện thoại'),
+    (N'Clothing', N'Laptop'),
+    (N'Books', N'Smartwatch'),
+    (N'Home & Garden', N'Tablet');
+
+UPDATE c
+SET
+    c.Name = lcm.NewName,
+    c.Description = cs.Description
+FROM dbo.Categories c
+INNER JOIN @LegacyCategoryMap lcm
+    ON lcm.OldName = c.Name
+INNER JOIN @CategorySeeds cs
+    ON cs.Name = lcm.NewName
+WHERE NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.Categories existing
+    WHERE existing.Name = lcm.NewName
+      AND existing.Id <> c.Id
+);
 
 INSERT INTO dbo.Categories (Name, Description)
 SELECT cs.Name, cs.Description
@@ -786,6 +815,12 @@ WHERE NOT EXISTS
     FROM dbo.Categories c
     WHERE c.Name = cs.Name
 );
+
+UPDATE c
+SET c.Description = cs.Description
+FROM dbo.Categories c
+INNER JOIN @CategorySeeds cs
+    ON cs.Name = c.Name;
 GO
 
 DECLARE @ProductSeeds TABLE
@@ -800,23 +835,69 @@ DECLARE @ProductSeeds TABLE
 
 INSERT INTO @ProductSeeds (Name, Price, Stock, CategoryName, Description, ImageUrl)
 VALUES
-    (N'Laptop Dell XPS 15', 35000000, 10, N'Electronics', N'Laptop man hinh 15 inch, phu hop cho hoc tap va cong viec nang.', N'/electro/img/product01.png'),
-    (N'iPhone 15 Pro', 28000000, 15, N'Electronics', N'Dien thoai cao cap voi camera tot va hieu nang manh.', N'/electro/img/product02.png'),
-    (N'Samsung Galaxy S24 Ultra', 26500000, 12, N'Electronics', N'Mau flagship Android voi but S Pen va pin lon.', N'/electro/img/product03.png'),
-    (N'iPad Air M2', 18900000, 14, N'Electronics', N'May tinh bang gon nhe cho hoc tap, giai tri va ghi chu.', N'/electro/img/product04.png'),
-    (N'Sony WH-1000XM5', 7990000, 20, N'Electronics', N'Tai nghe chong on chu dong, nghe nhac va lam viec tap trung.', N'/electro/img/product05.png'),
-    (N'Apple Watch Series 9', 10990000, 18, N'Electronics', N'Dong ho thong minh theo doi suc khoe va thong bao hang ngay.', N'/electro/img/product06.png'),
-    (N'Ao Thun Cotton Premium', 250000, 100, N'Clothing', N'Ao thun cotton mac thoai mai, de phoi do.', N'/electro/img/product07.png'),
-    (N'Ao Hoodie Basic', 490000, 60, N'Clothing', N'Hoodie form rong, phu hop thoi tiet se lanh.', N'/electro/img/product08.png'),
-    (N'Quan Jean Slim Fit', 650000, 45, N'Clothing', N'Quan jean dang slim fit cho phong cach tre trung.', N'/electro/img/product09.png'),
-    (N'Clean Code', 320000, 40, N'Books', N'Sach ve thuc hanh viet code sach va de bao tri.', N'/electro/img/product01.png'),
-    (N'ASP.NET Core Thuc Chien', 410000, 30, N'Books', N'Tai lieu thuc hanh xay dung web API va ung dung .NET.', N'/electro/img/product02.png'),
-    (N'Noi Chien Khong Dau 6L', 1590000, 22, N'Home & Garden', N'Thiet bi nau an tien loi cho gia dinh hien dai.', N'/electro/img/product03.png'),
-    (N'Den Ban LED Thong Minh', 690000, 28, N'Home & Garden', N'Den ban co the dieu chinh do sang va nhiet do mau.', N'/electro/img/product04.png'),
-    (N'Bo Dung Cu Lam Vuon', 850000, 25, N'Home & Garden', N'Bo dung cu co ban de cham soc cay canh tai nha.', N'/electro/img/product05.png'),
-    (N'Tham Yoga Cao Su', 390000, 55, N'Sports', N'Tham tap co do bam tot, phu hop yoga va pilates.', N'/electro/img/product06.png'),
-    (N'Ta Tay 10kg', 720000, 35, N'Sports', N'Cap ta tay phuc vu tap luyen tai nha.', N'/electro/img/product07.png'),
-    (N'Vot Cau Long Carbon', 1290000, 24, N'Sports', N'Vot nhe, de danh, phu hop nguoi moi va ban chuyen.', N'/electro/img/product08.png');
+    (N'iPhone 15 Pro', 28000000, 15, N'Điện thoại', N'Điện thoại cao cấp với chip A17 Pro, camera tốt và hiệu năng mạnh.', N'/electro/img/product02.png'),
+    (N'Samsung Galaxy S24 Ultra', 26500000, 12, N'Điện thoại', N'Flagship Android với bút S Pen, màn hình lớn và camera zoom sắc nét.', N'/electro/img/product03.png'),
+    (N'Xiaomi 14', 18990000, 18, N'Điện thoại', N'Điện thoại nhỏ gọn, hiệu năng cao, sạc nhanh và camera Leica.', N'/electro/img/product04.png'),
+    (N'OPPO Reno 11 5G', 10990000, 24, N'Điện thoại', N'Mẫu điện thoại tầm trung nổi bật với thiết kế mỏng và chụp chân dung đẹp.', N'/electro/img/product05.png'),
+    (N'Laptop Dell XPS 15', 35000000, 10, N'Laptop', N'Laptop màn hình 15 inch, phù hợp cho học tập và công việc nặng.', N'/electro/img/product01.png'),
+    (N'MacBook Air M3', 31990000, 14, N'Laptop', N'Laptop mỏng nhẹ, pin lâu, phù hợp học tập, văn phòng và sáng tạo nội dung.', N'/electro/img/product06.png'),
+    (N'ASUS ROG Zephyrus G14', 39990000, 8, N'Laptop', N'Laptop gaming nhỏ gọn với hiệu năng mạnh cho game và đồ họa.', N'/electro/img/product07.png'),
+    (N'Lenovo ThinkPad X1 Carbon', 42990000, 9, N'Laptop', N'Laptop doanh nhân bền nhẹ, bàn phím tốt và bảo mật cao.', N'/electro/img/product08.png'),
+    (N'Apple Watch Series 9', 10990000, 18, N'Smartwatch', N'Đồng hồ thông minh theo dõi sức khỏe và thông báo hằng ngày.', N'/electro/img/product06.png'),
+    (N'Samsung Galaxy Watch 6', 7490000, 20, N'Smartwatch', N'Đồng hồ Android theo dõi luyện tập, giấc ngủ và sức khỏe tổng quát.', N'/electro/img/product09.png'),
+    (N'Garmin Venu 3', 10990000, 11, N'Smartwatch', N'Smartwatch thể thao với GPS chính xác và pin dùng nhiều ngày.', N'/electro/img/product01.png'),
+    (N'Xiaomi Watch 2 Pro', 6490000, 16, N'Smartwatch', N'Đồng hồ thông minh Wear OS, hỗ trợ nhiều chế độ luyện tập.', N'/electro/img/product02.png'),
+    (N'iPad Air M2', 18900000, 14, N'Tablet', N'Máy tính bảng gọn nhẹ cho học tập, giải trí và ghi chú.', N'/electro/img/product04.png'),
+    (N'Samsung Galaxy Tab S9', 19990000, 13, N'Tablet', N'Tablet Android cao cấp với màn hình AMOLED và bút S Pen.', N'/electro/img/product03.png'),
+    (N'Xiaomi Pad 6', 8990000, 22, N'Tablet', N'Tablet giá tốt với màn hình tần số quét cao và hiệu năng ổn định.', N'/electro/img/product05.png'),
+    (N'Lenovo Tab P12', 11990000, 17, N'Tablet', N'Tablet màn hình lớn phục vụ học online, xem phim và làm việc nhẹ.', N'/electro/img/product07.png');
+
+DECLARE @ObsoleteProductSeeds TABLE
+(
+    Name NVARCHAR(200) NOT NULL
+);
+
+INSERT INTO @ObsoleteProductSeeds (Name)
+VALUES
+    (N'Sony WH-1000XM5'),
+    (N'Ao Thun Cotton Premium'),
+    (N'Ao Hoodie Basic'),
+    (N'Quan Jean Slim Fit'),
+    (N'Clean Code'),
+    (N'ASP.NET Core Thuc Chien'),
+    (N'Noi Chien Khong Dau 6L'),
+    (N'Den Ban LED Thong Minh'),
+    (N'Bo Dung Cu Lam Vuon'),
+    (N'Tham Yoga Cao Su'),
+    (N'Ta Tay 10kg'),
+    (N'Vot Cau Long Carbon'),
+    (N'T-Shirt Cotton'),
+    (N'Programming Book'),
+    (N'Garden Tools Set');
+
+DELETE p
+FROM dbo.Products p
+INNER JOIN @ObsoleteProductSeeds ops
+    ON ops.Name = p.Name
+WHERE NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.OrderDetails od
+    WHERE od.ProductId = p.Id
+);
+
+UPDATE p
+SET
+    p.Price = ps.Price,
+    p.Stock = ps.Stock,
+    p.CategoryId = c.Id,
+    p.Description = ps.Description,
+    p.ImageUrl = ps.ImageUrl
+FROM dbo.Products p
+INNER JOIN @ProductSeeds ps
+    ON ps.Name = p.Name
+INNER JOIN dbo.Categories c
+    ON c.Name = ps.CategoryName;
 
 INSERT INTO dbo.Products (Name, Price, Stock, CategoryId, Description, ImageUrl)
 SELECT
@@ -834,6 +915,30 @@ WHERE NOT EXISTS
     SELECT 1
     FROM dbo.Products p
     WHERE p.Name = ps.Name
+);
+
+DECLARE @ObsoleteCategorySeeds TABLE
+(
+    Name NVARCHAR(100) NOT NULL
+);
+
+INSERT INTO @ObsoleteCategorySeeds (Name)
+VALUES
+    (N'Electronics'),
+    (N'Clothing'),
+    (N'Books'),
+    (N'Home & Garden'),
+    (N'Sports');
+
+DELETE c
+FROM dbo.Categories c
+INNER JOIN @ObsoleteCategorySeeds ocs
+    ON ocs.Name = c.Name
+WHERE NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.Products p
+    WHERE p.CategoryId = c.Id
 );
 GO
 

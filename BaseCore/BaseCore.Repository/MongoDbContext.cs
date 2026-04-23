@@ -27,11 +27,10 @@ namespace BaseCore.Repository
             {
                 var categories = new List<Category>
                 {
-                    new Category { Id = 1, Name = "Electronics", Description = "Electronic devices and gadgets" },
-                    new Category { Id = 2, Name = "Clothing", Description = "Apparel and fashion items" },
-                    new Category { Id = 3, Name = "Books", Description = "Books and publications" },
-                    new Category { Id = 4, Name = "Home & Garden", Description = "Home and garden products" },
-                    new Category { Id = 5, Name = "Sports", Description = "Sports equipment and accessories" }
+                    new Category { Id = 1, Name = "Điện thoại", Description = "Điện thoại thông minh chính hãng, cấu hình mạnh và camera chất lượng." },
+                    new Category { Id = 2, Name = "Laptop", Description = "Laptop phục vụ học tập, văn phòng, đồ họa và gaming." },
+                    new Category { Id = 3, Name = "Smartwatch", Description = "Đồng hồ thông minh theo dõi sức khỏe, luyện tập và thông báo." },
+                    new Category { Id = 4, Name = "Tablet", Description = "Máy tính bảng cho học tập, giải trí, ghi chú và làm việc di động." }
                 };
                 await Categories.InsertManyAsync(categories);
             }
@@ -83,11 +82,14 @@ namespace BaseCore.Repository
             {
                 var products = new List<Product>
                 {
-                    new Product { Id = 1, Name = "Laptop Dell XPS 15", Price = 35000000, Stock = 10, CategoryId = 1, Description = "High-performance laptop", ImageUrl = "" },
-                    new Product { Id = 2, Name = "iPhone 15 Pro", Price = 28000000, Stock = 15, CategoryId = 1, Description = "Latest Apple smartphone", ImageUrl = "" },
-                    new Product { Id = 3, Name = "T-Shirt Cotton", Price = 250000, Stock = 100, CategoryId = 2, Description = "Comfortable cotton t-shirt", ImageUrl = "" },
-                    new Product { Id = 4, Name = "Programming Book", Price = 450000, Stock = 50, CategoryId = 3, Description = "Learn programming basics", ImageUrl = "" },
-                    new Product { Id = 5, Name = "Garden Tools Set", Price = 850000, Stock = 25, CategoryId = 4, Description = "Complete gardening toolkit", ImageUrl = "" }
+                    new Product { Id = 1, Name = "iPhone 15 Pro", Price = 28000000, Stock = 15, CategoryId = 1, Description = "Điện thoại cao cấp với chip A17 Pro, camera tốt và hiệu năng mạnh.", ImageUrl = "/electro/img/product02.png" },
+                    new Product { Id = 2, Name = "Samsung Galaxy S24 Ultra", Price = 26500000, Stock = 12, CategoryId = 1, Description = "Flagship Android với bút S Pen, màn hình lớn và camera zoom sắc nét.", ImageUrl = "/electro/img/product03.png" },
+                    new Product { Id = 3, Name = "Laptop Dell XPS 15", Price = 35000000, Stock = 10, CategoryId = 2, Description = "Laptop màn hình 15 inch, phù hợp cho học tập và công việc nặng.", ImageUrl = "/electro/img/product01.png" },
+                    new Product { Id = 4, Name = "MacBook Air M3", Price = 31990000, Stock = 14, CategoryId = 2, Description = "Laptop mỏng nhẹ, pin lâu, phù hợp học tập, văn phòng và sáng tạo nội dung.", ImageUrl = "/electro/img/product06.png" },
+                    new Product { Id = 5, Name = "Apple Watch Series 9", Price = 10990000, Stock = 18, CategoryId = 3, Description = "Đồng hồ thông minh theo dõi sức khỏe và thông báo hằng ngày.", ImageUrl = "/electro/img/product06.png" },
+                    new Product { Id = 6, Name = "Samsung Galaxy Watch 6", Price = 7490000, Stock = 20, CategoryId = 3, Description = "Đồng hồ Android theo dõi luyện tập, giấc ngủ và sức khỏe tổng quát.", ImageUrl = "/electro/img/product09.png" },
+                    new Product { Id = 7, Name = "iPad Air M2", Price = 18900000, Stock = 14, CategoryId = 4, Description = "Máy tính bảng gọn nhẹ cho học tập, giải trí và ghi chú.", ImageUrl = "/electro/img/product04.png" },
+                    new Product { Id = 8, Name = "Samsung Galaxy Tab S9", Price = 19990000, Stock = 13, CategoryId = 4, Description = "Tablet Android cao cấp với màn hình AMOLED và bút S Pen.", ImageUrl = "/electro/img/product03.png" }
                 };
                 await Products.InsertManyAsync(products);
             }
