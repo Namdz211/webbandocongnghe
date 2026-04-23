@@ -3,9 +3,15 @@ _build/
 **/obj/
 **/_obj/
 **/node_modules/
+_build/
+**/bin/
+**/obj/
+**/_obj/
+**/node_modules/
 .vs/
 *.user
 *.suo
 *.cache
 *.pdb
 *.log
+**/dist/

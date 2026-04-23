@@ -76,4 +76,10 @@ export const orderApi = {
     getById: (id) => api.get(`/orders/${id}`),
 };
 
+// Statistics API
+export const statisticsApi = {
+    getRevenue: (startDate, endDate) => api.get('/statistics/revenue', { params: { startDate, endDate } }),
+    getInventory: () => api.get('/statistics/inventory'),
+};
+
 export default api;

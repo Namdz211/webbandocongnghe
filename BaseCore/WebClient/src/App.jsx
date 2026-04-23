@@ -211,10 +211,24 @@ async function request(path, options = {}) {
   return data
 }
 
+function toQueryString(params = {}) {
+  const searchParams = new URLSearchParams()
+
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') {
+      return
+    }
+
+    searchParams.set(key, String(value))
+  })
+
+  return searchParams.toString()
+}
+
 const api = {
   getCategories: () => request('/categories'),
   getProducts: (params = {}) =>
-    request(`/products?${new URLSearchParams(params).toString()}`),
+    request(`/products?${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),
   createProduct: (payload, token) =>
     request('/products', {
@@ -292,6 +306,17 @@ function Header({
   const [keyword, setKeyword] = useState(route.query.keyword || '')
   const [categoryId, setCategoryId] = useState(route.query.categoryId || '')
   const [isCartOpen, setIsCartOpen] = useState(false)
+  const suggestDebounceRef = useRef(null)
+  const [suggestions, setSuggestions] = useState([])
+  const [isSuggestOpen, setIsSuggestOpen] = useState(false)
+  const suggestRequestRef = useRef(0)
+  const suggestRootRef = useRef(null)
+  const suggestInputRef = useRef(null)
+
+  useEffect(() => {
+    setKeyword(route.query.keyword || '')
+    setCategoryId(route.query.categoryId || '')
+  }, [route.query.keyword, route.query.categoryId])
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const cartTotal = cart.reduce(
@@ -300,8 +325,48 @@ function Header({
   )
   const featuredCategories = categories.slice(0, 4)
 
+  useEffect(() => {
+    const normalizedKeyword = keyword.trim()
+
+    window.clearTimeout(suggestDebounceRef.current)
+
+    if (!normalizedKeyword) {
+      setSuggestions([])
+      return
+    }
+
+    const requestId = ++suggestRequestRef.current
+
+    suggestDebounceRef.current = window.setTimeout(async () => {
+      try {
+        const data = await api.getProducts({
+          keyword: normalizedKeyword,
+          categoryId: categoryId || undefined,
+          page: 1,
+          pageSize: 6,
+        })
+
+        if (requestId !== suggestRequestRef.current) {
+          return
+        }
+
+        setSuggestions(Array.isArray(data?.items) ? data.items : [])
+        setIsSuggestOpen(true)
+      } catch {
+        if (requestId !== suggestRequestRef.current) {
+          return
+        }
+
+        setSuggestions([])
+      }
+    }, 220)
+
+    return () => window.clearTimeout(suggestDebounceRef.current)
+  }, [keyword, categoryId])
+
   const submitSearch = (event) => {
     event.preventDefault()
+    setIsSuggestOpen(false)
     onNavigate(buildStorePath({ keyword, categoryId, page: 1 }))
   }
 
@@ -375,12 +440,53 @@ function Header({
                         </option>
                       ))}
                     </select>
-                    <input
-                      className="input"
-                      placeholder="Tìm sản phẩm, mô tả, danh mục..."
-                      value={keyword}
-                      onChange={(event) => setKeyword(event.target.value)}
-                    />
+                    <div className="search-input-wrap" ref={suggestRootRef}>
+                      <input
+                        className="input"
+                        placeholder="Tìm sản phẩm, mô tả, danh mục..."
+                        ref={suggestInputRef}
+                        value={keyword}
+                        onChange={(event) => {
+                          setKeyword(event.target.value)
+                          setIsSuggestOpen(true)
+                        }}
+                        onFocus={() => setIsSuggestOpen(true)}
+                        autoComplete="off"
+                      />
+                      {isSuggestOpen && suggestions.length > 0 && (
+                        <div className="search-suggestions" role="listbox">
+                          {suggestions.map((product) => (
+                            <button
+                              key={product.id}
+                              className="search-suggestion"
+                              type="button"
+                              onMouseDown={(event) => event.preventDefault()}
+                              onClick={() => {
+                                setIsSuggestOpen(false)
+                                onNavigate(`/product/${product.id}`)
+                              }}
+                            >
+                              <img
+                                className="search-suggestion-image"
+                                src={getProductImage(product)}
+                                alt={product.name}
+                              />
+                              <span className="search-suggestion-info">
+                                <span className="search-suggestion-name">{product.name}</span>
+                                <span className="search-suggestion-price">
+                                  {formatCurrency(product.price)}
+                                </span>
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                      {isSuggestOpen && keyword.trim() && suggestions.length === 0 && (
+                        <div className="search-suggestions search-suggestions-empty" role="status">
+                          <div className="search-suggestion-empty">Không có sản phẩm phù hợp.</div>
+                        </div>
+                      )}
+                    </div>
                     <button className="search-btn" type="submit">
                       Tìm kiếm
                     </button>
@@ -2203,7 +2309,12 @@ function App() {
     }
 
     window.history.pushState({}, '', path)
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+
+    const currentPathname = window.location.pathname
+    const targetPathname = new URL(path, window.location.origin).pathname
+    if (currentPathname !== targetPathname) {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
     startTransition(() => setRoute(parseRoute()))
   }
 
