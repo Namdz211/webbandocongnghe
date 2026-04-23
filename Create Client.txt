@@ -1,0 +1,12 @@
+Vào Visual Code
+Chọn Terminal , gõ lệnh:
+
+npm create vite@latest WebClient -- --template react
+
+Nếu hỏi thì chọn Y hết
+
+gõ:
+
+npm run dev
+
+=> truy cập vào đường link theo thông báo từ terminal

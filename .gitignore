@@ -1,0 +1,11 @@
+_build/
+**/bin/
+**/obj/
+**/_obj/
+**/node_modules/
+.vs/
+*.user
+*.suo
+*.cache
+*.pdb
+*.log

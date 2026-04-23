@@ -1,0 +1,8 @@
+D:\nam\năm 3\kì 2\cnw\FW\BaseCore\BaseCore.ApiGateway\.codexobj\Debug\net8.0\BaseCore.ApiGateway.csproj.AssemblyReference.cache
+D:\nam\năm 3\kì 2\cnw\FW\BaseCore\BaseCore.ApiGateway\.codexobj\Debug\net8.0\rpswa.dswa.cache.json
+D:\nam\năm 3\kì 2\cnw\FW\BaseCore\BaseCore.ApiGateway\.codexobj\Debug\net8.0\BaseCore.ApiGateway.GeneratedMSBuildEditorConfig.editorconfig
+D:\nam\năm 3\kì 2\cnw\FW\BaseCore\BaseCore.ApiGateway\.codexobj\Debug\net8.0\BaseCore.ApiGateway.AssemblyInfoInputs.cache
+D:\nam\năm 3\kì 2\cnw\FW\BaseCore\BaseCore.ApiGateway\.codexobj\Debug\net8.0\BaseCore.ApiGateway.AssemblyInfo.cs
+D:\nam\năm 3\kì 2\cnw\FW\BaseCore\BaseCore.ApiGateway\.codexobj\Debug\net8.0\BaseCore.ApiGateway.csproj.CoreCompileInputs.cache
+D:\nam\năm 3\kì 2\cnw\FW\BaseCore\BaseCore.ApiGateway\.codexobj\Debug\net8.0\BaseCore.ApiGateway.MvcApplicationPartsAssemblyInfo.cs
+D:\nam\năm 3\kì 2\cnw\FW\BaseCore\BaseCore.ApiGateway\.codexobj\Debug\net8.0\BaseCore.ApiGateway.MvcApplicationPartsAssemblyInfo.cache
