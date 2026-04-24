@@ -14,6 +14,7 @@ const FALLBACK_IMAGES = [
   '/electro/img/product06.png',
   '/electro/img/product07.png',
   '/electro/img/product08.png',
+  '/electro/img/macbookneo.png',
 ]
 
 const SHOP_IMAGES = [
@@ -51,6 +52,79 @@ function writeStorage(key, value) {
   localStorage.setItem(key, JSON.stringify(value))
 }
 
+function getAuthToken(auth) {
+  return auth?.token || auth?.Token || ''
+}
+
+function getJwtPayload(token) {
+  if (!token) {
+    return null
+  }
+
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) {
+      return null
+    }
+
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized.padEnd(
+      normalized.length + ((4 - (normalized.length % 4)) % 4),
+      '=',
+    )
+
+    return JSON.parse(window.atob(padded))
+  } catch {
+    return null
+  }
+}
+
+function isExpiredToken(token) {
+  const payload = getJwtPayload(token)
+
+  if (!payload?.exp) {
+    return false
+  }
+
+  return payload.exp * 1000 <= Date.now()
+}
+
+function getResponseMessage(data, response) {
+  if (response.status === 401) {
+    return 'Phiên đăng nhập đã hết hạn hoặc token không hợp lệ. Hãy đăng nhập lại bằng tài khoản admin.'
+  }
+
+  if (response.status === 403) {
+    return 'Tài khoản hiện tại không có quyền admin để thực hiện thao tác này.'
+  }
+
+  if (typeof data === 'string' && data.trim()) {
+    return data
+  }
+
+  if (data && typeof data === 'object') {
+    if (typeof data.message === 'string' && data.message.trim()) {
+      return data.message
+    }
+
+    if (data.errors && typeof data.errors === 'object') {
+      const validationMessages = Object.values(data.errors)
+        .flat()
+        .filter(Boolean)
+
+      if (validationMessages.length > 0) {
+        return validationMessages.join(' ')
+      }
+    }
+
+    if (typeof data.title === 'string' && data.title.trim()) {
+      return data.title
+    }
+  }
+
+  return `Backend trả lỗi ${response.status}. Kiểm tra lại API/gateway và dữ liệu SQL Server.`
+}
+
 function formatCurrency(value) {
   return currencyFormatter.format(Number(value || 0))
 }
@@ -67,23 +141,53 @@ function formatDate(value) {
   }
 }
 
+function normalizeProductImageUrl(rawImageUrl) {
+  const imageUrl = rawImageUrl?.trim()
+
+  if (!imageUrl) {
+    return ''
+  }
+
+  if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+    return imageUrl
+  }
+
+  const normalizedPath = imageUrl.replace(/\\/g, '/')
+
+  if (normalizedPath.startsWith('/electro/img/')) {
+    return normalizedPath
+  }
+
+  if (normalizedPath.startsWith('electro/img/')) {
+    return `/${normalizedPath}`
+  }
+
+  if (normalizedPath.startsWith('/img/')) {
+    return normalizedPath
+  }
+
+  if (normalizedPath.startsWith('img/')) {
+    return `/${normalizedPath}`
+  }
+
+  if (/^[a-zA-Z]:\//.test(normalizedPath) || normalizedPath.startsWith('file:///')) {
+    const fileName = normalizedPath.split('/').filter(Boolean).pop()
+    return fileName ? `/electro/img/${fileName}` : ''
+  }
+
+  if (normalizedPath.startsWith('/')) {
+    return normalizedPath
+  }
+
+  const fileName = normalizedPath.split('/').filter(Boolean).pop()
+  return fileName ? `/electro/img/${fileName}` : ''
+}
+
 function getProductImage(product) {
-  const imageUrl = product?.imageUrl?.trim()
+  const imageUrl = normalizeProductImageUrl(product?.imageUrl)
 
   if (imageUrl) {
-    if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
-      return imageUrl
-    }
-
-    if (imageUrl.startsWith('/')) {
-      return imageUrl
-    }
-
-    if (imageUrl.startsWith('img/')) {
-      return `/${imageUrl}`
-    }
-
-    return `/electro/img/${imageUrl}`
+    return imageUrl
   }
 
   const fallbackIndex = Number(product?.id || 0) % FALLBACK_IMAGES.length
@@ -201,11 +305,10 @@ async function request(path, options = {}) {
   }
 
   if (!response.ok) {
-    const message =
-      (typeof data === 'object' && data?.message) ||
-      (typeof data === 'string' && data) ||
-      'Backend đang trả lời lỗi. Kiểm tra lại API/gateway và dữ liệu SQL Server.'
-    throw new Error(message)
+    const error = new Error(getResponseMessage(data, response))
+    error.status = response.status
+    error.data = data
+    throw error
   }
 
   return data
@@ -1538,9 +1641,10 @@ function OrdersPage({ auth, onNavigate }) {
   const [loading, setLoading] = useState(Boolean(auth))
   const [error, setError] = useState('')
   const [orders, setOrders] = useState([])
+  const authToken = getAuthToken(auth)
 
   useEffect(() => {
-    if (!auth?.token) {
+    if (!authToken) {
       setOrders([])
       setLoading(false)
       return
@@ -1553,7 +1657,7 @@ function OrdersPage({ auth, onNavigate }) {
       setError('')
 
       try {
-        const response = await api.getOrders(auth.token)
+        const response = await api.getOrders(authToken)
 
         if (!cancelled) {
           setOrders(Array.isArray(response) ? response : [])
@@ -1574,7 +1678,7 @@ function OrdersPage({ auth, onNavigate }) {
     return () => {
       cancelled = true
     }
-  }, [auth])
+  }, [authToken])
 
   return (
     <>
@@ -1667,6 +1771,8 @@ function ProductAdminPage({
   const [deletingId, setDeletingId] = useState(null)
   const [reloadKey, setReloadKey] = useState(0)
   const canManageProducts = isAdmin(auth)
+  const authToken = getAuthToken(auth)
+  const adminTokenExpired = isExpiredToken(authToken)
 
   useEffect(() => {
     if (!formData.categoryId && categories.length > 0) {
@@ -1732,8 +1838,13 @@ function ProductAdminPage({
   const submitProduct = async (event) => {
     event.preventDefault()
 
-    if (!canManageProducts || !auth?.token) {
+    if (!canManageProducts || !authToken) {
       setError('Bạn cần đăng nhập bằng tài khoản admin để quản lý sản phẩm.')
+      return
+    }
+
+    if (adminTokenExpired) {
+      setError('Phiên đăng nhập admin đã hết hạn. Hãy đăng nhập lại rồi thêm sản phẩm.')
       return
     }
 
@@ -1742,7 +1853,7 @@ function ProductAdminPage({
       price: Number(formData.price),
       stock: Number(formData.stock),
       categoryId: Number(formData.categoryId),
-      imageUrl: formData.imageUrl.trim(),
+      imageUrl: normalizeProductImageUrl(formData.imageUrl),
       description: formData.description.trim(),
     }
 
@@ -1756,10 +1867,10 @@ function ProductAdminPage({
 
     try {
       if (editingProductId) {
-        await api.updateProduct(editingProductId, payload, auth.token)
+        await api.updateProduct(editingProductId, payload, authToken)
         onNotify('success', 'Đã cập nhật sản phẩm.')
       } else {
-        await api.createProduct(payload, auth.token)
+        await api.createProduct(payload, authToken)
         onNotify('success', 'Đã thêm sản phẩm mới.')
       }
 
@@ -1780,7 +1891,7 @@ function ProductAdminPage({
       price: String(product.price ?? ''),
       stock: String(product.stock ?? ''),
       categoryId: String(product.categoryId || product.category?.id || ''),
-      imageUrl: product.imageUrl || '',
+      imageUrl: normalizeProductImageUrl(product.imageUrl),
       description: product.description || '',
     })
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -1791,11 +1902,16 @@ function ProductAdminPage({
       return
     }
 
+    if (!authToken || adminTokenExpired) {
+      setError('Phiên đăng nhập admin đã hết hạn. Hãy đăng nhập lại rồi xóa sản phẩm.')
+      return
+    }
+
     setDeletingId(product.id)
     setError('')
 
     try {
-      await api.deleteProduct(product.id, auth.token)
+      await api.deleteProduct(product.id, authToken)
       onNotify('success', 'Đã xóa sản phẩm.')
       setReloadKey((current) => current + 1)
       await onAdminProductsChanged()
@@ -1839,6 +1955,15 @@ function ProductAdminPage({
               <div className="empty-actions">
                 <LinkButton to="/login?redirect=/admin/products" className="primary-btn" onNavigate={onNavigate}>
                   Đăng nhập admin
+                </LinkButton>
+              </div>
+            </div>
+          ) : adminTokenExpired ? (
+            <div className="empty-state error-state">
+              Phiên đăng nhập admin đã hết hạn. Hãy đăng nhập lại để thêm, sửa, xóa sản phẩm.
+              <div className="empty-actions">
+                <LinkButton to="/login?redirect=/admin/products" className="primary-btn" onNavigate={onNavigate}>
+                  Đăng nhập lại
                 </LinkButton>
               </div>
             </div>
@@ -1899,7 +2024,7 @@ function ProductAdminPage({
                 </select>
                 <input
                   className="input"
-                  placeholder="Ảnh, ví dụ: /electro/img/product01.png"
+                  placeholder="Ảnh, ví dụ: macbookneo.png hoặc /electro/img/product01.png"
                   value={formData.imageUrl}
                   onChange={(event) => changeField('imageUrl', event.target.value)}
                 />
@@ -2018,9 +2143,15 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
 
     try {
       if (mode === 'register') {
-        await onRegister(formData)
+        await onRegister({
+          username: formData.username.trim(),
+          password: formData.password.trim(),
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          phone: formData.phone.trim(),
+        })
       } else {
-        await onLogin(formData.username, formData.password)
+        await onLogin(formData.username.trim(), formData.password.trim())
       }
 
       onNavigate(redirectPath)
@@ -2371,8 +2502,16 @@ function App() {
   }
 
   async function register(payload) {
-    await api.register(payload)
-    await login(payload.username, payload.password)
+    const normalizedPayload = {
+      username: payload.username.trim(),
+      password: payload.password.trim(),
+      name: payload.name?.trim() || '',
+      email: payload.email?.trim() || '',
+      phone: payload.phone?.trim() || '',
+    }
+
+    await api.register(normalizedPayload)
+    await login(normalizedPayload.username, normalizedPayload.password)
     openNotice('success', 'Tạo tài khoản thành công.')
   }
 
@@ -2382,7 +2521,15 @@ function App() {
   }
 
   async function placeOrder(shippingAddress) {
-    if (!auth?.token) {
+    const authToken = getAuthToken(auth)
+
+    if (!authToken) {
+      navigate('/login?redirect=/checkout')
+      return
+    }
+
+    if (isExpiredToken(authToken)) {
+      openNotice('error', 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trước khi đặt hàng.')
       navigate('/login?redirect=/checkout')
       return
     }
@@ -2432,7 +2579,7 @@ function App() {
         })),
       }
 
-      await api.createOrder(payload, auth.token)
+      await api.createOrder(payload, authToken)
       setCart([])
       openNotice('success', 'Đã tạo đơn hàng thành công.')
       navigate('/orders')
