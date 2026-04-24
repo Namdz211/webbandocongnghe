@@ -76,6 +76,32 @@ namespace BaseCore.Services.Authen
 
         public async Task<User> Create(User user, string password)
         {
+            if (user == null)
+            {
+                throw new ArgumentNullException(nameof(user));
+            }
+
+            user.UserName = user.UserName?.Trim();
+            user.Name = user.Name?.Trim();
+            user.Email = user.Email?.Trim();
+            user.Phone = user.Phone?.Trim();
+
+            if (string.IsNullOrWhiteSpace(user.UserName))
+            {
+                throw new InvalidOperationException("Tên đăng nhập là bắt buộc.");
+            }
+
+            if (string.IsNullOrWhiteSpace(password))
+            {
+                throw new InvalidOperationException("Mật khẩu là bắt buộc.");
+            }
+
+            var existingUser = await _userRepository.GetByUsernameAsync(user.UserName);
+            if (existingUser != null)
+            {
+                throw new InvalidOperationException("Tên đăng nhập đã tồn tại.");
+            }
+
             user.Id ??= Guid.NewGuid().ToString("N");
             user.Name ??= user.UserName ?? "";
             user.Contact ??= "";

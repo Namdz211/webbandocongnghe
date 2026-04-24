@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using BaseCore.Common;
 using BaseCore.Services.Authen;
 using System.Threading.Tasks;
@@ -62,6 +63,12 @@ namespace BaseCore.AuthService.Controllers
                 return BadRequest(new { message = "Invalid request" });
             }
 
+            request.Username = request.Username?.Trim();
+            request.Password = request.Password?.Trim();
+            request.Name = request.Name?.Trim();
+            request.Email = request.Email?.Trim();
+            request.Phone = request.Phone?.Trim();
+
             if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
             {
                 return BadRequest(new { message = "Username and password are required" });
@@ -87,10 +94,27 @@ namespace BaseCore.AuthService.Controllers
 
                 return Ok(new { message = "Registration successful", userId = createdUser.Id });
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (DbUpdateException ex) when (IsDuplicateUsername(ex))
+            {
+                return BadRequest(new { message = "Tên đăng nhập đã tồn tại." });
+            }
             catch (System.Exception ex)
             {
-                return BadRequest(new { message = "Registration failed: " + ex.Message });
+                var detail = ex.InnerException?.Message ?? ex.Message;
+                return BadRequest(new { message = "Registration failed: " + detail });
             }
+        }
+
+        private static bool IsDuplicateUsername(DbUpdateException ex)
+        {
+            var message = $"{ex.Message} {ex.InnerException?.Message}";
+            return message.Contains("IX_Users_UserName", System.StringComparison.OrdinalIgnoreCase)
+                || message.Contains("duplicate", System.StringComparison.OrdinalIgnoreCase)
+                || message.Contains("UNIQUE", System.StringComparison.OrdinalIgnoreCase);
         }
     }
 
