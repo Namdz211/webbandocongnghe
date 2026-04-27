@@ -206,7 +206,7 @@ function AdminLogin({ auth, route, onNavigate, onLogin }) {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    if (auth) {
+    if (isAdmin(auth)) {
       onNavigate(route.query.redirect || '/admin')
     }
   }, [auth, onNavigate, route.query.redirect])
@@ -273,7 +273,7 @@ function AdminLogin({ auth, route, onNavigate, onLogin }) {
 }
 
 function RequireAdmin({ auth, route, onNavigate, onLogin, children }) {
-  if (!auth) {
+  if (!auth || !isAdmin(auth)) {
     return (
       <AdminLogin
         auth={auth}
@@ -281,20 +281,6 @@ function RequireAdmin({ auth, route, onNavigate, onLogin, children }) {
         onNavigate={onNavigate}
         onLogin={onLogin}
       />
-    )
-  }
-
-  if (!isAdmin(auth)) {
-    return (
-      <div className="admin-empty-page">
-        <div className="admin-empty">
-          <h2>Access denied</h2>
-          <p>This account is not an admin account.</p>
-          <LinkButton className="admin-btn primary" to="/admin/login" onNavigate={onNavigate}>
-            Login with admin account
-          </LinkButton>
-        </div>
-      </div>
     )
   }
 
