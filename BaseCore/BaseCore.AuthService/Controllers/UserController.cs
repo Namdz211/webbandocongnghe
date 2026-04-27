@@ -4,6 +4,7 @@ using BaseCore.Entities;
 using BaseCore.Services.Authen;
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace BaseCore.AuthService.Controllers
@@ -120,12 +121,20 @@ namespace BaseCore.AuthService.Controllers
         }
 
         [HttpPut("{id}")]
-        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(string id, [FromBody] UpdateUserRequest request)
         {
             if (request == null)
             {
                 return BadRequest(new { message = "Invalid request" });
+            }
+
+            var currentUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var isAdmin = User.IsInRole("Admin");
+            var isSelfUpdate = string.Equals(currentUserId, id, StringComparison.OrdinalIgnoreCase);
+
+            if (!isAdmin && !isSelfUpdate)
+            {
+                return Forbid();
             }
 
             var existingUser = await _userService.GetById(id);
@@ -137,9 +146,13 @@ namespace BaseCore.AuthService.Controllers
             existingUser.Name = request.Name ?? existingUser.Name;
             existingUser.Email = request.Email ?? existingUser.Email;
             existingUser.Phone = request.Phone ?? existingUser.Phone;
-            existingUser.Position = request.Position ?? existingUser.Position;
-            existingUser.UserType = request.UserType ?? existingUser.UserType;
-            existingUser.IsActive = request.IsActive ?? existingUser.IsActive;
+
+            if (isAdmin)
+            {
+                existingUser.Position = request.Position ?? existingUser.Position;
+                existingUser.UserType = request.UserType ?? existingUser.UserType;
+                existingUser.IsActive = request.IsActive ?? existingUser.IsActive;
+            }
 
             await _userService.Update(existingUser, request.Password);
 

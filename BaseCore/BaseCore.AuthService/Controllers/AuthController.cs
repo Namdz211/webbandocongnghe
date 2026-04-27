@@ -50,6 +50,7 @@ namespace BaseCore.AuthService.Controllers
                 Username = user.UserName,
                 Name = user.Name,
                 Email = user.Email,
+                Phone = user.Phone,
                 Role = user.UserType == 1 ? "Admin" : "User",
                 ExpiresIn = TokenExpirationMinutes * 60
             });
@@ -131,6 +132,7 @@ namespace BaseCore.AuthService.Controllers
         public string Username { get; set; }
         public string Name { get; set; }
         public string Email { get; set; }
+        public string Phone { get; set; }
         public string Role { get; set; }
         public int ExpiresIn { get; set; }
     }

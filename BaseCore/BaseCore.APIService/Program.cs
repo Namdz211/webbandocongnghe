@@ -107,6 +107,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MySqlDbContext>();
     db.Database.EnsureCreated();
+    EnsureOrderPaymentColumns(db);
     SeedProductCatalog(db);
 }
 
@@ -270,3 +271,21 @@ static void SeedProductCatalog(MySqlDbContext db)
     db.Categories.RemoveRange(obsoleteCategories);
     db.SaveChanges();
 }
+
+static void EnsureOrderPaymentColumns(MySqlDbContext db)
+{
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'PaymentCode') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD PaymentCode NVARCHAR(50) NOT NULL
+        CONSTRAINT DF_Orders_PaymentCode DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+UPDATE dbo.Orders
+SET PaymentCode = CONCAT(N'LEGACY-', Id)
+WHERE ISNULL(PaymentCode, N'') = N'';");
+}
+
+

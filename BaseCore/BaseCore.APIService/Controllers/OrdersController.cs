@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authorization;
+﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
@@ -10,13 +10,23 @@ namespace BaseCore.APIService.Controllers
 {
     /// <summary>
     /// Order API Controller
-    /// Teaching: RESTful API, Business Logic, Authentication (Bài 10, 11)
+    /// Teaching: RESTful API, Business Logic, Authentication (Bai 10, 11)
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
     public class OrdersController : ControllerBase
     {
+        private const string DeliveryMessage = "Đơn hàng sẽ được giao đến bạn trong vòng 7 ngày, vui lòng chú ý điện thoại.";
+
+        private static readonly Dictionary<string, (string Label, string Status, string Note, string CodePrefix)> PaymentOptions = new()
+        {
+            ["momo"] = ("Ví MoMo", "Paid", "Đã ghi nhận thanh toán qua ví MoMo.", "MOMO"),
+            ["zalopay"] = ("Ví ZaloPay", "Paid", "Đã ghi nhận thanh toán qua ví ZaloPay.", "ZALO"),
+            ["bank_transfer"] = ("Chuyển khoản ngân hàng", "Paid", "Đã ghi nhận thanh toán chuyển khoản ngân hàng.", "BANK"),
+            ["counter"] = ("Thanh toán tại quầy/văn phòng", "PayAtCounter", "Thanh toán trực tiếp tại quầy hoặc văn phòng khi đến nhận/xác nhận đơn.", "COUNTER")
+        };
+
         private readonly IOrderRepositoryEF _orderRepository;
         private readonly IOrderDetailRepositoryEF _orderDetailRepository;
         private readonly IProductRepositoryEF _productRepository;
@@ -66,7 +76,7 @@ namespace BaseCore.APIService.Controllers
         public async Task<IActionResult> GetById(int id)
         {
             var order = await _orderRepository.GetByIdAsync(id);
-            if (order == null) return NotFound(new { message = "Order not found" });
+            if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
 
             var details = await _orderDetailRepository.GetByOrderAsync(id);
             return Ok(new
@@ -96,7 +106,13 @@ namespace BaseCore.APIService.Controllers
             if (dto.Items.Any(item => item.ProductId <= 0 || item.Quantity <= 0))
                 return BadRequest(new { message = "Dữ liệu sản phẩm trong đơn hàng không hợp lệ" });
 
-            // Validate products and calculate total
+            var paymentMethod = string.IsNullOrWhiteSpace(dto.PaymentMethod)
+                ? "counter"
+                : dto.PaymentMethod.Trim().ToLowerInvariant();
+
+            if (!PaymentOptions.TryGetValue(paymentMethod, out var paymentOption))
+                return BadRequest(new { message = "Phương thức thanh toán không hợp lệ" });
+
             decimal totalAmount = 0;
             var orderDetails = new List<OrderDetail>();
 
@@ -121,7 +137,6 @@ namespace BaseCore.APIService.Controllers
                         UnitPrice = product.Price
                     });
 
-                    // Update stock
                     product.Stock -= item.Quantity;
                     await _productRepository.UpdateAsync(product);
                 }
@@ -132,12 +147,15 @@ namespace BaseCore.APIService.Controllers
                     OrderDate = DateTime.Now,
                     TotalAmount = totalAmount,
                     Status = "Pending",
-                    ShippingAddress = dto.ShippingAddress ?? ""
+                    ShippingAddress = dto.ShippingAddress ?? "",
+                    PaymentMethod = paymentMethod,
+                    PaymentStatus = paymentOption.Status,
+                    PaymentCode = GeneratePaymentCode(paymentOption.CodePrefix),
+                    PaymentNote = paymentOption.Note
                 };
 
                 await _orderRepository.AddAsync(order);
 
-                // Add order details
                 foreach (var detail in orderDetails)
                 {
                     detail.OrderId = order.Id;
@@ -146,8 +164,13 @@ namespace BaseCore.APIService.Controllers
 
                 await transaction.CommitAsync();
 
+                var successMessage = IsPaidPayment(order.PaymentStatus)
+                    ? "Đã thanh toán và đặt hàng thành công. " + DeliveryMessage
+                    : "Đặt hàng thành công. Vui lòng hoàn tất thanh toán để đơn hàng được xử lý.";
+
                 return CreatedAtAction(nameof(GetById), new { id = order.Id }, new
                 {
+                    message = successMessage,
                     order = ToOrderResponse(order),
                     details = orderDetails.Select(ToOrderDetailResponse)
                 });
@@ -166,7 +189,7 @@ namespace BaseCore.APIService.Controllers
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusDto dto)
         {
             var order = await _orderRepository.GetByIdAsync(id);
-            if (order == null) return NotFound(new { message = "Order not found" });
+            if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
 
             order.Status = dto.Status;
             await _orderRepository.UpdateAsync(order);
@@ -181,12 +204,11 @@ namespace BaseCore.APIService.Controllers
         public async Task<IActionResult> CancelOrder(int id)
         {
             var order = await _orderRepository.GetByIdAsync(id);
-            if (order == null) return NotFound(new { message = "Order not found" });
+            if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
 
             if (order.Status == "Completed")
-                return BadRequest(new { message = "Cannot cancel completed order" });
+                return BadRequest(new { message = "Không thể hủy đơn hàng đã hoàn thành" });
 
-            // Restore stock
             var details = await _orderDetailRepository.GetByOrderAsync(id);
             foreach (var detail in details)
             {
@@ -201,7 +223,7 @@ namespace BaseCore.APIService.Controllers
             order.Status = "Cancelled";
             await _orderRepository.UpdateAsync(order);
 
-            return Ok(new { message = "Order cancelled successfully", order = ToOrderResponse(order) });
+            return Ok(new { message = "Đã hủy đơn hàng", order = ToOrderResponse(order) });
         }
 
         private static object ToOrderResponse(Order order)
@@ -213,8 +235,44 @@ namespace BaseCore.APIService.Controllers
                 order.OrderDate,
                 order.TotalAmount,
                 order.Status,
-                order.ShippingAddress
+                order.ShippingAddress,
+                order.PaymentMethod,
+                PaymentMethodLabel = GetPaymentMethodLabel(order.PaymentMethod),
+                order.PaymentStatus,
+                PaymentStatusLabel = GetPaymentStatusLabel(order.PaymentStatus),
+                order.PaymentCode,
+                order.PaymentNote,
+                DeliveryMessage = IsPaidPayment(order.PaymentStatus) ? DeliveryMessage : null
             };
+        }
+
+        private static bool IsPaidPayment(string paymentStatus)
+        {
+            return string.Equals(paymentStatus, "Paid", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string GetPaymentMethodLabel(string paymentMethod)
+        {
+            return PaymentOptions.TryGetValue(paymentMethod ?? "", out var option)
+                ? option.Label
+                : "Chưa xác định";
+        }
+
+        private static string GetPaymentStatusLabel(string paymentStatus)
+        {
+            return (paymentStatus ?? "").ToLowerInvariant() switch
+            {
+                "pending" => "Chưa thanh toán",
+                "paid" => "Đã thanh toán",
+                "payatcounter" => "Thanh toán tại quầy",
+                _ => "Chưa xác định"
+            };
+        }
+
+        private static string GeneratePaymentCode(string prefix)
+        {
+            var suffix = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
+            return $"{prefix}-{DateTime.Now:yyyyMMdd}-{suffix}";
         }
 
         private static object ToOrderDetailResponse(OrderDetail detail)
@@ -245,6 +303,7 @@ namespace BaseCore.APIService.Controllers
     {
         public List<OrderItemDto> Items { get; set; } = new();
         public string? ShippingAddress { get; set; }
+        public string? PaymentMethod { get; set; }
     }
 
     public class OrderItemDto

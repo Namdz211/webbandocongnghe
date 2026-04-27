@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace BaseCore.Entities
@@ -16,6 +16,14 @@ namespace BaseCore.Entities
         public string Status { get; set; } = ""; // Pending, Completed, Cancelled
 
         public string ShippingAddress { get; set; } = "";
+
+        public string PaymentMethod { get; set; } = "";
+
+        public string PaymentStatus { get; set; } = "";
+
+        public string PaymentCode { get; set; } = "";
+
+        public string PaymentNote { get; set; } = "";
 
         public List<OrderDetail> OrderDetails { get; set; } = new();
     }
