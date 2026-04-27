@@ -39,6 +39,33 @@ const STORAGE_KEYS = {
   cart: 'electro-store-cart',
 }
 
+const PAYMENT_METHODS = [
+  {
+    id: 'momo',
+    name: 'V\u00ed MoMo',
+    description: 'Thanh to\u00e1n b\u1eb1ng v\u00ed MoMo \u0111\u1ec3 \u0111\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.',
+    icon: 'fa-mobile',
+  },
+  {
+    id: 'zalopay',
+    name: 'V\u00ed ZaloPay',
+    description: 'Thanh to\u00e1n b\u1eb1ng v\u00ed ZaloPay \u0111\u1ec3 \u0111\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.',
+    icon: 'fa-credit-card',
+  },
+  {
+    id: 'bank_transfer',
+    name: 'Chuy\u1ec3n kho\u1ea3n ng\u00e2n h\u00e0ng',
+    description: 'Chuy\u1ec3n kho\u1ea3n theo m\u00e3 thanh to\u00e1n c\u1ee7a \u0111\u01a1n h\u00e0ng.',
+    icon: 'fa-university',
+  },
+  {
+    id: 'counter',
+    name: 'Thanh to\u00e1n t\u1ea1i qu\u1ea7y/v\u0103n ph\u00f2ng',
+    description: 'Thanh to\u00e1n tr\u1ef1c ti\u1ebfp t\u1ea1i qu\u1ea7y ho\u1eb7c v\u0103n ph\u00f2ng khi nh\u1eadn/x\u00e1c nh\u1eadn \u0111\u01a1n.',
+    icon: 'fa-building-o',
+  },
+]
+
 function readStorage(key, fallbackValue) {
   try {
     const raw = localStorage.getItem(key)
@@ -54,6 +81,10 @@ function writeStorage(key, value) {
 
 function getAuthToken(auth) {
   return auth?.token || auth?.Token || ''
+}
+
+function getAuthUserId(auth) {
+  return auth?.userId || auth?.UserId || auth?.id || auth?.Id || ''
 }
 
 function getJwtPayload(token) {
@@ -197,11 +228,11 @@ function getProductImage(product) {
 function toOrderStatusLabel(status) {
   switch ((status || '').toLowerCase()) {
     case 'completed':
-      return 'Hoàn tất'
+      return 'Ho\u00e0n t\u1ea5t'
     case 'cancelled':
-      return 'Đã hủy'
+      return '\u0110\u00e3 h\u1ee7y'
     default:
-      return 'Đang xử lý'
+      return '\u0110ang x\u1eed l\u00fd'
   }
 }
 
@@ -265,6 +296,10 @@ function parseRoute() {
 
   if (pathname === '/admin/products') {
     return { name: 'adminProducts', pathname, query }
+  }
+
+  if (pathname === '/account') {
+    return { name: 'account', pathname, query }
   }
 
   if (pathname === '/login') {
@@ -360,6 +395,12 @@ const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
+  updateUser: (id, payload, token) =>
+    request(`/users/${id}`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(payload),
+    }),
   getOrders: (token) =>
     request('/orders', {
       token,
@@ -409,17 +450,34 @@ function Header({
   const [keyword, setKeyword] = useState(route.query.keyword || '')
   const [categoryId, setCategoryId] = useState(route.query.categoryId || '')
   const [isCartOpen, setIsCartOpen] = useState(false)
+  const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false)
   const suggestDebounceRef = useRef(null)
   const [suggestions, setSuggestions] = useState([])
   const [isSuggestOpen, setIsSuggestOpen] = useState(false)
   const suggestRequestRef = useRef(0)
   const suggestRootRef = useRef(null)
   const suggestInputRef = useRef(null)
+  const accountMenuRef = useRef(null)
 
   useEffect(() => {
     setKeyword(route.query.keyword || '')
     setCategoryId(route.query.categoryId || '')
   }, [route.query.keyword, route.query.categoryId])
+
+  useEffect(() => {
+    if (!isAccountMenuOpen) {
+      return undefined
+    }
+
+    const closeAccountMenu = (event) => {
+      if (!accountMenuRef.current?.contains(event.target)) {
+        setIsAccountMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', closeAccountMenu)
+    return () => document.removeEventListener('mousedown', closeAccountMenu)
+  }, [isAccountMenuOpen])
 
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0)
   const cartTotal = cart.reduce(
@@ -501,11 +559,57 @@ function Header({
                   <i className="fa fa-dollar" /> VND
                 </button>
               </li>
-              <li>
+              <li className="account-menu-wrap" ref={accountMenuRef}>
                 {auth ? (
-                  <button className="header-link-button" type="button" onClick={onLogout}>
-                    <i className="fa fa-user-o" /> {auth.name || auth.username}
-                  </button>
+                  <>
+                    <button
+                      className="header-link-button account-menu-trigger"
+                      type="button"
+                      aria-expanded={isAccountMenuOpen}
+                      onClick={() => setIsAccountMenuOpen((current) => !current)}
+                    >
+                      <i className="fa fa-user-o" /> {auth.name || auth.Name || auth.username || auth.Username}
+                      <i className="fa fa-angle-down" />
+                    </button>
+                    {isAccountMenuOpen && (
+                      <div className="account-menu">
+                        <div className="account-menu-user">
+                          <span>{auth.name || auth.Name || auth.username || auth.Username}</span>
+                          <small>{auth.email || auth.Email || 'Chưa có email'}</small>
+                        </div>
+                        <button
+                          className="account-menu-item"
+                          type="button"
+                          onClick={() => {
+                            setIsAccountMenuOpen(false)
+                            onNavigate('/account')
+                          }}
+                        >
+                          <i className="fa fa-id-card-o" /> Thông tin cá nhân
+                        </button>
+                        <button
+                          className="account-menu-item"
+                          type="button"
+                          onClick={() => {
+                            setIsAccountMenuOpen(false)
+                            onNavigate('/account?section=password')
+                          }}
+                        >
+                          <i className="fa fa-key" /> Đổi mật khẩu
+                        </button>
+                        <button
+                          className="account-menu-item"
+                          type="button"
+                          onClick={() => {
+                            setIsAccountMenuOpen(false)
+                            onLogout()
+                          }}
+                        >
+                          <i className="fa fa-sign-out" /> Đăng xuất
+                        </button>
+                      </div>
+                    )}
+                  </>
                 ) : (
                   <LinkButton to="/login" className="header-link-button" onNavigate={onNavigate}>
                     <i className="fa fa-user-o" /> Đăng nhập
@@ -1486,8 +1590,9 @@ function CheckoutPage({
   submitting,
 }) {
   const [shippingAddress, setShippingAddress] = useState(
-    '227 Nguyễn Văn Cừ, Quận 5, Thành phố Hồ Chí Minh',
+    '227 Nguy\u1ec5n V\u0103n C\u1eeb, Qu\u1eadn 5, Th\u00e0nh ph\u1ed1 H\u1ed3 Ch\u00ed Minh',
   )
+  const [paymentMethod, setPaymentMethod] = useState('counter')
 
   const totalAmount = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -1499,10 +1604,10 @@ function CheckoutPage({
       <div className="section">
         <div className="container">
           <div className="empty-state">
-            Giỏ hàng đang trống. Hãy thêm sản phẩm trước khi thanh toán.
+            {'Gi\u1ecf h\u00e0ng \u0111ang tr\u1ed1ng. H\u00e3y th\u00eam s\u1ea3n ph\u1ea9m tr\u01b0\u1edbc khi thanh to\u00e1n.'}
             <div className="empty-actions">
               <LinkButton to="/store" className="primary-btn" onNavigate={onNavigate}>
-                Đi đến cửa hàng
+                {'\u0110i \u0111\u1ebfn c\u1eeda h\u00e0ng'}
               </LinkButton>
             </div>
           </div>
@@ -1517,14 +1622,14 @@ function CheckoutPage({
         <div className="container">
           <div className="row">
             <div className="col-md-12">
-              <h3 className="breadcrumb-header">Thanh toán</h3>
+              <h3 className="breadcrumb-header">{'Thanh to\u00e1n'}</h3>
               <ul className="breadcrumb-tree">
                 <li>
                   <LinkButton to="/" onNavigate={onNavigate}>
-                    Trang chủ
+                    {'Trang ch\u1ee7'}
                   </LinkButton>
                 </li>
-                <li className="active">Thanh toán</li>
+                <li className="active">{'Thanh to\u00e1n'}</li>
               </ul>
             </div>
           </div>
@@ -1537,14 +1642,14 @@ function CheckoutPage({
             <div className="col-md-7">
               <div className="billing-details">
                 <div className="section-title">
-                  <h3 className="title">Thông tin giao hàng</h3>
+                  <h3 className="title">{'Th\u00f4ng tin giao h\u00e0ng'}</h3>
                 </div>
                 <div className="form-group">
                   <input
                     className="input"
                     value={auth?.name || auth?.username || ''}
                     disabled
-                    placeholder="Tên khách hàng"
+                    placeholder={'T\u00ean kh\u00e1ch h\u00e0ng'}
                   />
                 </div>
                 <div className="form-group">
@@ -1561,38 +1666,63 @@ function CheckoutPage({
                     rows="5"
                     value={shippingAddress}
                     onChange={(event) => setShippingAddress(event.target.value)}
-                    placeholder="Địa chỉ giao hàng"
+                    placeholder={'\u0110\u1ecba ch\u1ec9 giao h\u00e0ng'}
                   />
                 </div>
                 {!auth && (
                   <div className="order-note danger-note">
-                    Bạn cần đăng nhập để tạo đơn hàng. Hệ thống FW yêu cầu JWT token
-                    cho endpoint `/api/orders`.
+                    {'B\u1ea1n c\u1ea7n \u0111\u0103ng nh\u1eadp \u0111\u1ec3 t\u1ea1o \u0111\u01a1n h\u00e0ng. H\u1ec7 th\u1ed1ng FW y\u00eau c\u1ea7u JWT token cho endpoint `/api/orders`.'}
                     <div className="empty-actions">
                       <LinkButton
                         to="/login?redirect=/checkout"
                         className="primary-btn"
                         onNavigate={onNavigate}
                       >
-                        Đăng nhập ngay
+                        {'\u0110\u0103ng nh\u1eadp ngay'}
                       </LinkButton>
                     </div>
                   </div>
                 )}
+                <div className="section-title payment-section-title">
+                  <h3 className="title">{'Ph\u01b0\u01a1ng th\u1ee9c thanh to\u00e1n'}</h3>
+                </div>
+                <div className="payment-method-grid">
+                  {PAYMENT_METHODS.map((method) => (
+                    <label
+                      className={`payment-method-card ${paymentMethod === method.id ? 'active' : ''}`}
+                      key={method.id}
+                    >
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={method.id}
+                        checked={paymentMethod === method.id}
+                        onChange={() => setPaymentMethod(method.id)}
+                      />
+                      <span className="payment-method-icon">
+                        <i className={`fa ${method.icon}`} />
+                      </span>
+                      <span>
+                        <strong>{method.name}</strong>
+                        <small>{method.description}</small>
+                      </span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
 
             <div className="col-md-5 order-details">
               <div className="section-title text-center">
-                <h3 className="title">Đơn hàng của bạn</h3>
+                <h3 className="title">{'\u0110\u01a1n h\u00e0ng c\u1ee7a b\u1ea1n'}</h3>
               </div>
               <div className="order-summary">
                 <div className="order-col">
                   <div>
-                    <strong>SẢN PHẨM</strong>
+                    <strong>{'S\u1ea2N PH\u1ea8M'}</strong>
                   </div>
                   <div>
-                    <strong>TONG</strong>
+                    <strong>{'T\u1ed4NG'}</strong>
                   </div>
                 </div>
                 <div className="order-products">
@@ -1606,14 +1736,14 @@ function CheckoutPage({
                   ))}
                 </div>
                 <div className="order-col">
-                  <div>Phí giao hàng</div>
+                  <div>{'Ph\u00ed giao h\u00e0ng'}</div>
                   <div>
-                    <strong>Miễn phí</strong>
+                    <strong>{'Mi\u1ec5n ph\u00ed'}</strong>
                   </div>
                 </div>
                 <div className="order-col">
                   <div>
-                    <strong>TỔNG CỘNG</strong>
+                    <strong>{'T\u1ed4NG C\u1ed8NG'}</strong>
                   </div>
                   <div>
                     <strong className="order-total">{formatCurrency(totalAmount)}</strong>
@@ -1625,9 +1755,9 @@ function CheckoutPage({
                 className="primary-btn order-submit"
                 type="button"
                 disabled={!auth || submitting}
-                onClick={() => onPlaceOrder(shippingAddress)}
+                onClick={() => onPlaceOrder(shippingAddress, paymentMethod)}
               >
-                {submitting ? 'Đang gửi đơn...' : 'Đặt hàng'}
+                {submitting ? '\u0110ang g\u1eedi \u0111\u01a1n...' : 'Thanh to\u00e1n v\u00e0 \u0111\u1eb7t h\u00e0ng'}
               </button>
             </div>
           </div>
@@ -1686,14 +1816,14 @@ function OrdersPage({ auth, onNavigate }) {
         <div className="container">
           <div className="row">
             <div className="col-md-12">
-              <h3 className="breadcrumb-header">Đơn hàng của tôi</h3>
+              <h3 className="breadcrumb-header">{'\u0110\u01a1n h\u00e0ng c\u1ee7a t\u00f4i'}</h3>
               <ul className="breadcrumb-tree">
                 <li>
                   <LinkButton to="/" onNavigate={onNavigate}>
-                    Trang chủ
+                    {'Trang ch\u1ee7'}
                   </LinkButton>
                 </li>
-                <li className="active">Đơn hàng</li>
+                <li className="active">{'\u0110\u01a1n h\u00e0ng'}</li>
               </ul>
             </div>
           </div>
@@ -1704,38 +1834,52 @@ function OrdersPage({ auth, onNavigate }) {
         <div className="container">
           {!auth ? (
             <div className="empty-state">
-              Bạn chưa đăng nhập nên chưa thể xem danh sách đơn hàng.
+              {'B\u1ea1n ch\u01b0a \u0111\u0103ng nh\u1eadp n\u00ean ch\u01b0a th\u1ec3 xem danh s\u00e1ch \u0111\u01a1n h\u00e0ng.'}
               <div className="empty-actions">
                 <LinkButton to="/login?redirect=/orders" className="primary-btn" onNavigate={onNavigate}>
-                  Đăng nhập
+                  {'\u0110\u0103ng nh\u1eadp'}
                 </LinkButton>
               </div>
             </div>
           ) : loading ? (
-            <div className="empty-state">Đang tải lịch sử đơn hàng...</div>
+            <div className="empty-state">{'\u0110ang t\u1ea3i l\u1ecbch s\u1eed \u0111\u01a1n h\u00e0ng...'}</div>
           ) : error ? (
             <div className="empty-state error-state">{error}</div>
           ) : orders.length === 0 ? (
-            <div className="empty-state">Tài khoản này chưa có đơn hàng nào.</div>
+            <div className="empty-state">{'T\u00e0i kho\u1ea3n n\u00e0y ch\u01b0a c\u00f3 \u0111\u01a1n h\u00e0ng n\u00e0o.'}</div>
           ) : (
             <div className="orders-grid">
               {orders.map((order) => (
                 <article className="order-card" key={order.id}>
                   <div className="order-card-header">
-                    <h4>Đơn #{order.id}</h4>
+                    <h4>{'\u0110\u01a1n'} #{order.id}</h4>
                     <span className={`order-status ${order.status?.toLowerCase() || 'pending'}`}>
                       {toOrderStatusLabel(order.status)}
                     </span>
                   </div>
                   <p>
-                    <strong>Ngày tạo:</strong> {formatDate(order.orderDate)}
+                    <strong>{'Ng\u00e0y t\u1ea1o:'}</strong> {formatDate(order.orderDate)}
                   </p>
                   <p>
-                    <strong>Địa chỉ:</strong> {order.shippingAddress || 'Không có'}
+                    <strong>{'\u0110\u1ecba ch\u1ec9:'}</strong> {order.shippingAddress || 'Kh\u00f4ng c\u00f3'}
                   </p>
                   <p>
-                    <strong>Tổng tiền:</strong> {formatCurrency(order.totalAmount)}
+                    <strong>{'T\u1ed5ng ti\u1ec1n:'}</strong> {formatCurrency(order.totalAmount)}
                   </p>
+                  <p>
+                    <strong>{'Thanh to\u00e1n:'}</strong> {order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}
+                  </p>
+                  <p>
+                    <strong>{'Tr\u1ea1ng th\u00e1i thanh to\u00e1n:'}</strong> {order.paymentStatusLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}
+                  </p>
+                  <p className="order-payment-code">
+                    <strong>{'M\u00e3 thanh to\u00e1n:'}</strong> {order.paymentCode || `FW-${order.id}`}
+                  </p>
+                  {(order.paymentStatus || '').toLowerCase() === 'paid' && (
+                    <p className="order-delivery-note">
+                      {order.deliveryMessage || '\u0110\u01a1n h\u00e0ng s\u1ebd \u0111\u01b0\u1ee3c giao \u0111\u1ebfn b\u1ea1n trong v\u00f2ng 7 ng\u00e0y, vui l\u00f2ng ch\u00fa \u00fd \u0111i\u1ec7n tho\u1ea1i.'}
+                    </p>
+                  )}
                 </article>
               ))}
             </div>
@@ -2118,7 +2262,7 @@ function ProductAdminPage({
   )
 }
 
-function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
+function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, onUpdateProfile, route }) {
   const [mode, setMode] = useState(route.query.mode === 'register' ? 'register' : 'login')
   const [formData, setFormData] = useState({
     username: '',
@@ -2127,12 +2271,36 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
     email: '',
     phone: '',
   })
+  const [profileData, setProfileData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+  })
+  const [passwordData, setPasswordData] = useState({
+    password: '',
+    confirmPassword: '',
+  })
   const [submitting, setSubmitting] = useState(false)
+  const [profileSubmitting, setProfileSubmitting] = useState(false)
   const [error, setError] = useState('')
+  const [profileError, setProfileError] = useState('')
+  const isPasswordSection = route.query.section === 'password'
 
   useEffect(() => {
     setMode(route.query.mode === 'register' ? 'register' : 'login')
   }, [route.query.mode])
+
+  useEffect(() => {
+    if (!auth) {
+      return
+    }
+
+    setProfileData({
+      name: auth.name || auth.Name || '',
+      email: auth.email || auth.Email || '',
+      phone: auth.phone || auth.Phone || '',
+    })
+  }, [auth])
 
   const redirectPath = route.query.redirect || '/orders'
 
@@ -2162,27 +2330,211 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, route }) {
     }
   }
 
+  const submitProfile = async (event) => {
+    event.preventDefault()
+    setProfileSubmitting(true)
+    setProfileError('')
+
+    try {
+      await onUpdateProfile({
+        name: profileData.name.trim(),
+        email: profileData.email.trim(),
+        phone: profileData.phone.trim(),
+      })
+    } catch (requestError) {
+      setProfileError(requestError.message)
+    } finally {
+      setProfileSubmitting(false)
+    }
+  }
+
+  const submitPassword = async (event) => {
+    event.preventDefault()
+    setProfileSubmitting(true)
+    setProfileError('')
+
+    try {
+      const password = passwordData.password.trim()
+      const confirmPassword = passwordData.confirmPassword.trim()
+
+      if (password.length < 6) {
+        throw new Error('Mật khẩu mới phải có ít nhất 6 ký tự.')
+      }
+
+      if (password !== confirmPassword) {
+        throw new Error('Xác nhận mật khẩu không khớp.')
+      }
+
+      await onUpdateProfile({ password })
+      setPasswordData({ password: '', confirmPassword: '' })
+    } catch (requestError) {
+      setProfileError(requestError.message)
+    } finally {
+      setProfileSubmitting(false)
+    }
+  }
+
   if (auth) {
     return (
-      <div className="section">
-        <div className="container">
-          <div className="account-card">
-            <h3>Xin chào, {auth.name || auth.username}</h3>
-            <p>
-              Tài khoản hiện tại đã đăng nhập. Bạn có thể tiếp tục thanh toán hoặc xem
-              lịch sử đơn hàng.
-            </p>
-            <div className="empty-actions">
-              <LinkButton to={redirectPath} className="primary-btn" onNavigate={onNavigate}>
-                Tiếp tục
-              </LinkButton>
-              <button className="secondary-btn" type="button" onClick={onLogout}>
-                Đăng xuất
-              </button>
+      <>
+        <div id="breadcrumb" className="section account-breadcrumb">
+          <div className="container">
+            <div className="row">
+              <div className="col-md-12">
+                <h3 className="breadcrumb-header">Thông tin cá nhân</h3>
+                <ul className="breadcrumb-tree">
+                  <li>
+                    <LinkButton to="/" onNavigate={onNavigate}>
+                      Trang chủ
+                    </LinkButton>
+                  </li>
+                  <li className="active">Thông tin cá nhân</li>
+                </ul>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+
+        <div className="section">
+          <div className="container">
+            <div className="profile-panel">
+              <div className="profile-title">
+                <i className="fa fa-id-card" />
+                <span>{isPasswordSection ? 'Đổi mật khẩu' : 'Thông tin cá nhân'}</span>
+              </div>
+
+              <form className="profile-form" onSubmit={isPasswordSection ? submitPassword : submitProfile}>
+                {profileError && <div className="error-banner">{profileError}</div>}
+
+                {isPasswordSection ? (
+                  <>
+                    <div className="profile-row">
+                      <label>Tên đăng nhập</label>
+                      <input
+                        className="input profile-input"
+                        value={auth.username || auth.Username || ''}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="profile-row">
+                      <label>Mật khẩu mới</label>
+                      <input
+                        className="input profile-input"
+                        placeholder="Nhập mật khẩu mới"
+                        type="password"
+                        value={passwordData.password}
+                        onChange={(event) =>
+                          setPasswordData((current) => ({
+                            ...current,
+                            password: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="profile-row">
+                      <label>Xác nhận mật khẩu</label>
+                      <input
+                        className="input profile-input"
+                        placeholder="Nhập lại mật khẩu mới"
+                        type="password"
+                        value={passwordData.confirmPassword}
+                        onChange={(event) =>
+                          setPasswordData((current) => ({
+                            ...current,
+                            confirmPassword: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="profile-row profile-avatar-row">
+                      <label>Ảnh đại diện</label>
+                      <div className="profile-avatar-block">
+                        <div className="profile-avatar">
+                          {(auth.name || auth.Name || auth.username || auth.Username || 'U').charAt(0).toUpperCase()}
+                          <button className="profile-avatar-edit" type="button" aria-label="Đổi ảnh đại diện">
+                            <i className="fa fa-pencil" />
+                          </button>
+                        </div>
+                        <span>Tải file có định dạng: png, jpg, jpeg.</span>
+                      </div>
+                    </div>
+
+                    <div className="profile-row">
+                      <label>Tên đăng nhập</label>
+                      <input
+                        className="input profile-input"
+                        value={auth.username || auth.Username || ''}
+                        disabled
+                      />
+                    </div>
+
+                    <div className="profile-row">
+                      <label>Họ và tên</label>
+                      <input
+                        className="input profile-input"
+                        placeholder="Họ và tên"
+                        value={profileData.name}
+                        onChange={(event) =>
+                          setProfileData((current) => ({
+                            ...current,
+                            name: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="profile-row">
+                      <label>Email</label>
+                      <input
+                        className="input profile-input"
+                        placeholder="Email"
+                        type="email"
+                        value={profileData.email}
+                        onChange={(event) =>
+                          setProfileData((current) => ({
+                            ...current,
+                            email: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+
+                    <div className="profile-row">
+                      <label>Số điện thoại</label>
+                      <input
+                        className="input profile-input"
+                        placeholder="Số điện thoại"
+                        value={profileData.phone}
+                        onChange={(event) =>
+                          setProfileData((current) => ({
+                            ...current,
+                            phone: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="profile-actions">
+                  <button className="primary-btn" type="submit" disabled={profileSubmitting}>
+                    {profileSubmitting
+                      ? 'Đang cập nhật...'
+                      : isPasswordSection
+                        ? 'Đổi mật khẩu'
+                        : 'Cập nhật'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      </>
     )
   }
 
@@ -2515,12 +2867,33 @@ function App() {
     openNotice('success', 'Tạo tài khoản thành công.')
   }
 
+  async function updateProfile(payload) {
+    const authToken = getAuthToken(auth)
+    const userId = getAuthUserId(auth)
+
+    if (!authToken || !userId) {
+      throw new Error('Không tìm thấy phiên đăng nhập. Hãy đăng nhập lại.')
+    }
+
+    const updatedUser = await api.updateUser(userId, payload, authToken)
+    setAuth((current) => ({
+      ...current,
+      name: updatedUser.name || updatedUser.Name || payload.name || current?.name || current?.Name,
+      Name: updatedUser.name || updatedUser.Name || payload.name || current?.Name || current?.name,
+      email: updatedUser.email || updatedUser.Email || payload.email || current?.email || current?.Email,
+      Email: updatedUser.email || updatedUser.Email || payload.email || current?.Email || current?.email,
+      phone: updatedUser.phone || updatedUser.Phone || payload.phone || current?.phone || current?.Phone,
+      Phone: updatedUser.phone || updatedUser.Phone || payload.phone || current?.Phone || current?.phone,
+    }))
+    openNotice('success', payload.password ? 'Đã đổi mật khẩu.' : 'Đã cập nhật thông tin tài khoản.')
+  }
+
   function logout() {
     setAuth(null)
     openNotice('success', 'Đã đăng xuất tài khoản.')
   }
 
-  async function placeOrder(shippingAddress) {
+  async function placeOrder(shippingAddress, paymentMethod) {
     const authToken = getAuthToken(auth)
 
     if (!authToken) {
@@ -2573,15 +2946,16 @@ function App() {
 
       const payload = {
         shippingAddress,
+        paymentMethod,
         items: cart.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
         })),
       }
 
-      await api.createOrder(payload, authToken)
+      const createdOrder = await api.createOrder(payload, authToken)
       setCart([])
-      openNotice('success', 'Đã tạo đơn hàng thành công.')
+      openNotice('success', createdOrder?.message || '\u0110\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.')
       navigate('/orders')
     } catch (requestError) {
       openNotice('error', requestError.message)
@@ -2672,6 +3046,20 @@ function App() {
             onLogin={login}
             onRegister={register}
             onLogout={logout}
+            onUpdateProfile={updateProfile}
+            route={route}
+          />
+        )
+        break
+      case 'account':
+        content = (
+          <AuthPage
+            auth={auth}
+            onNavigate={navigate}
+            onLogin={login}
+            onRegister={register}
+            onLogout={logout}
+            onUpdateProfile={updateProfile}
             route={route}
           />
         )
@@ -2718,3 +3106,5 @@ function App() {
 }
 
 export default App
+
+

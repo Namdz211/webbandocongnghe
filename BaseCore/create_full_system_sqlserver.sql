@@ -423,6 +423,10 @@ BEGIN
         TotalAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_Orders_TotalAmount DEFAULT ((0)),
         Status NVARCHAR(50) NOT NULL CONSTRAINT DF_Orders_Status DEFAULT (N'Pending'),
         ShippingAddress NVARCHAR(500) NOT NULL CONSTRAINT DF_Orders_ShippingAddress DEFAULT (N''),
+        PaymentMethod NVARCHAR(50) NOT NULL CONSTRAINT DF_Orders_PaymentMethod DEFAULT (N'counter'),
+        PaymentStatus NVARCHAR(50) NOT NULL CONSTRAINT DF_Orders_PaymentStatus DEFAULT (N'PayAtCounter'),
+        PaymentCode NVARCHAR(50) NOT NULL CONSTRAINT DF_Orders_PaymentCode DEFAULT (N''),
+        PaymentNote NVARCHAR(500) NOT NULL CONSTRAINT DF_Orders_PaymentNote DEFAULT (N'Thanh toán trực tiếp tại quầy hoặc văn phòng khi đến nhận/xác nhận đơn.'),
         CONSTRAINT FK_Orders_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id),
         CONSTRAINT CK_Orders_Status CHECK (Status IN (N'Pending', N'Completed', N'Cancelled'))
     );
@@ -981,3 +985,4 @@ GO
 
 PRINT N'BaseCoreSales database script completed successfully.';
 GO
+
