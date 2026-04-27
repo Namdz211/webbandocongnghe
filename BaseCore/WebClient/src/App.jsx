@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import AdminApp from './admin/AdminApp.jsx'
 
 const FALLBACK_IMAGES = [
   '/electro/img/product01.png',
@@ -294,8 +295,20 @@ function parseRoute() {
     return { name: 'orders', pathname, query }
   }
 
+  if (pathname === '/admin' || pathname === '/admin/login') {
+    return { name: pathname === '/admin/login' ? 'adminLogin' : 'adminDashboard', pathname, query }
+  }
+
   if (pathname === '/admin/products') {
     return { name: 'adminProducts', pathname, query }
+  }
+
+  if (pathname === '/admin/categories') {
+    return { name: 'adminCategories', pathname, query }
+  }
+
+  if (pathname === '/admin/users') {
+    return { name: 'adminUsers', pathname, query }
   }
 
   if (pathname === '/account') {
@@ -824,9 +837,9 @@ function Header({
                 </LinkButton>
               </li>
               {isAdmin(auth) && (
-                <li className={route.name === 'adminProducts' ? 'active' : ''}>
-                  <LinkButton to="/admin/products" onNavigate={onNavigate}>
-                    Quản trị sản phẩm
+                <li className={route.name.startsWith('admin') ? 'active' : ''}>
+                  <LinkButton to="/admin" onNavigate={onNavigate}>
+                    Admin
                   </LinkButton>
                 </li>
               )}
@@ -2967,6 +2980,21 @@ function App() {
   const cartSummary = {
     count: cart.reduce((sum, item) => sum + item.quantity, 0),
     total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
+  }
+
+  if (route.name.startsWith('admin')) {
+    return (
+      <AdminApp
+        auth={auth}
+        route={route}
+        onNavigate={navigate}
+        onLogin={(adminAuth) => {
+          setAuth(adminAuth)
+        }}
+        onLogout={logout}
+        onDataChanged={refreshShellData}
+      />
+    )
   }
 
   let content = null
