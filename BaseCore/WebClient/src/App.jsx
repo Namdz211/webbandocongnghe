@@ -1,10 +1,10 @@
+
 import {
   startTransition,
   useEffect,
   useRef,
   useState,
 } from 'react'
-import AdminApp from './admin/AdminApp.jsx'
 
 const FALLBACK_IMAGES = [
   '/electro/img/product01.png',
@@ -295,20 +295,8 @@ function parseRoute() {
     return { name: 'orders', pathname, query }
   }
 
-  if (pathname === '/admin' || pathname === '/admin/login') {
-    return { name: pathname === '/admin/login' ? 'adminLogin' : 'adminDashboard', pathname, query }
-  }
-
   if (pathname === '/admin/products') {
     return { name: 'adminProducts', pathname, query }
-  }
-
-  if (pathname === '/admin/categories') {
-    return { name: 'adminCategories', pathname, query }
-  }
-
-  if (pathname === '/admin/users') {
-    return { name: 'adminUsers', pathname, query }
   }
 
   if (pathname === '/account') {
@@ -837,9 +825,9 @@ function Header({
                 </LinkButton>
               </li>
               {isAdmin(auth) && (
-                <li className={route.name.startsWith('admin') ? 'active' : ''}>
-                  <LinkButton to="/admin" onNavigate={onNavigate}>
-                    Admin
+                <li className={route.name === 'adminProducts' ? 'active' : ''}>
+                  <LinkButton to="/admin/products" onNavigate={onNavigate}>
+                    Quản trị sản phẩm
                   </LinkButton>
                 </li>
               )}
@@ -853,85 +841,73 @@ function Header({
 
 function Footer() {
   return (
-    <footer id="footer">
-      <div className="section">
+    <footer id="footer" className="ecommerce-footer">
+      <div className="footer-main-section">
         <div className="container">
-          <div className="row">
-            <div className="col-md-4 col-xs-6">
-              <div className="footer">
-                <h3 className="footer-title">Tổng đài liên hệ(08h00 - 22h00)</h3>
-                {/* <p>
-                  Storefront này được kết nối trực tiếp vào microservice gateway
-                  của FW, sử dụng giao diện Electro cho phần mua hàng.
-                </p> */}
-                <ul className="footer-links">
-                  <li>
-                    <a href="https://www.google.com/maps/place/H%E1%BB%8Dc+vi%E1%BB%87n+K%E1%BB%B9+thu%E1%BA%ADt+Qu%C3%A2n+s%E1%BB%B1/@21.0467556,105.7838428,17z/data=!3m1!4b1!4m6!3m5!1s0x3135ab2d88bb4195:0x3006e474cce20274!8m2!3d21.0467556!4d105.7864177!16s%2Fm%2F03hl9kl?entry=ttu&g_ep=EgoyMDI2MDQyMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noreferrer">
-                      <i className="fa fa-map-marker" /> Học viện Kỹ thuật Quân sự
-                    </a>
-                  </li>
-                  <li>
-                    <a href="tel:+84000000000">
-                      <i className="fa fa-phone" /> 0900 000 000
-                    </a>
-                  </li>
-                  {/* <li>
-                    <a href="mailto:support@basecore.vn">
-                      <i className="fa fa-envelope-o" /> support@basecore.vn
-                    </a>
-                  </li> */}
-                </ul>
+          <div className="footer-grid">
+
+            <div className="footer-col">
+              <h3 className="footer-title">Liên hệ &amp; Hỗ trợ</h3>
+              <ul className="footer-contact">
+                <li><i className="fa fa-map-marker" /><a href="https://www.google.com/maps/place/H%E1%BB%8Dc+vi%E1%BB%87n+K%E1%BB%B9+thu%E1%BA%ADt+Qu%C3%A2n+s%E1%BB%B1/@21.0467556,105.7838428,17z" target="_blank" rel="noreferrer">236 Hoàng Quốc Việt, Hà Nội</a></li>
+                <li><i className="fa fa-phone" /><a href="tel:+84900000000">0900 000 000</a></li>
+                <li><i className="fa fa-clock-o" /><span>08h00 – 22h00 mỗi ngày</span></li>
+                <li><i className="fa fa-envelope-o" /><a href="mailto:support@basecore.vn">support@basecore.vn</a></li>
+              </ul>
+            </div>
+
+            <div className="footer-col">
+              <h3 className="footer-title">Về chúng tôi</h3>
+              <ul className="footer-links">
+                <li><a href="/store"><i className="fa fa-angle-right" /> Cửa hàng</a></li>
+                <li><a href="/checkout"><i className="fa fa-angle-right" /> Thanh toán</a></li>
+                <li><a href="/orders"><i className="fa fa-angle-right" /> Theo dõi đơn hàng</a></li>
+                <li><a href="#"><i className="fa fa-angle-right" /> Chính sách đổi trả</a></li>
+                <li><a href="#"><i className="fa fa-angle-right" /> Bảo hành sản phẩm</a></li>
+              </ul>
+            </div>
+
+            <div className="footer-col">
+              <h3 className="footer-title">Công nghệ</h3>
+              <ul className="footer-links">
+                <li><a href="#"><i className="fa fa-angle-right" /> React 19 + Vite</a></li>
+                <li><a href="#"><i className="fa fa-angle-right" /> Gateway Ocelot</a></li>
+                <li><a href="#"><i className="fa fa-angle-right" /> Auth JWT</a></li>
+                <li><a href="#"><i className="fa fa-angle-right" /> Product + Order API</a></li>
+              </ul>
+            </div>
+
+            <div className="footer-col">
+              <h3 className="footer-title">Kết nối với chúng tôi</h3>
+              <div className="social-links" style={{marginBottom: "20px"}}>
+                <a href="#" className="social-link facebook" title="Facebook"><i className="fa fa-facebook" /></a>
+                <a href="#" className="social-link instagram" title="Instagram"><i className="fa fa-instagram" /></a>
+                <a href="#" className="social-link youtube" title="YouTube"><i className="fa fa-youtube" /></a>
+                <a href="#" className="social-link twitter" title="Twitter"><i className="fa fa-twitter" /></a>
+              </div>
+              <h4 style={{color:"#fff", fontSize:"14px", marginBottom:"10px", fontWeight:500}}>Phương thức thanh toán</h4>
+              <div style={{display:"flex", flexWrap:"wrap", gap:"8px"}}>
+                {["COD","VNPay","Momo","ZaloPay","Thẻ ATM"].map(pm => (
+                  <span key={pm} style={{padding:"4px 10px", background:"#2a2a2a", border:"1px solid #444", borderRadius:"4px", fontSize:"12px", color:"#ccc"}}>{pm}</span>
+                ))}
               </div>
             </div>
 
-            <div className="col-md-2 col-xs-6">
-              <div className="footer">
-                <h3 className="footer-title">Về công ty</h3>
-                <ul className="footer-links">
-                  <li>
-                    <a href="/store">Địa điểm: 236 Hoàng Quốc Việt, Cổ Nhuế, Nghĩa Đô, Hà Nội, Việt Nam </a>
-                  </li>
-                  <li>
-                    <a href="/checkout">Thanh toán</a>
-                  </li>
-                  <li>
-                    <a href="/orders">Theo dõi đơn</a>
-                  </li>
-                </ul>
-              </div>
-            </div>
+          </div>
+        </div>
+      </div>
 
-            <div className="clearfix visible-xs" />
-
-            <div className="col-md-3 col-xs-6">
-              <div className="footer">
-                <h3 className="footer-title">Công nghệ</h3>
-                <ul className="footer-links">
-                  <li>
-                    <span>React 19 + Vite</span>
-                  </li>
-                  <li>
-                    <span>Gateway Ocelot</span>
-                  </li>
-                  <li>
-                    <span>Auth JWT</span>
-                  </li>
-                  <li>
-                    <span>Product + Order API</span>
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="col-md-3 col-xs-6">
-              <div className="footer">
-                <h3 className="footer-title">Trạng thái</h3>
-                <p className="footer-note">
-                  Giao diện Electro đã được đưa vào `WebClient` để hoàn thiện
-                  phần mua hàng, trong khi `BaseCore.WebClient` có thể tiếp tục
-                  dùng cho admin.
-                </p>
-              </div>
+      <div className="footer-bottom">
+        <div className="container">
+          <div className="footer-bottom-inner">
+            <ul className="legal-links">
+              <li><a href="#">Điều khoản sử dụng</a></li>
+              <li><a href="#">Chính sách bảo mật</a></li>
+              <li><a href="#">Cookie</a></li>
+            </ul>
+            <div className="footer-copyright">
+              <p>© {new Date().getFullYear()} BaseCore WebClient. All rights reserved.</p>
+              <p className="powered-by">Powered by React + Vite + Ocelot Gateway</p>
             </div>
           </div>
         </div>
@@ -1303,7 +1279,7 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
                   Không tìm thấy sản phẩm phù hợp bộ lọc hiện tại.
                 </div>
               ) : (
-                <div className="row">
+                <div className="products-grid">
                   {products.map((product) => (
                     <ProductCard
                       key={product.id}
@@ -2982,21 +2958,6 @@ function App() {
     total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
   }
 
-  if (route.name.startsWith('admin')) {
-    return (
-      <AdminApp
-        auth={auth}
-        route={route}
-        onNavigate={navigate}
-        onLogin={(adminAuth) => {
-          setAuth(adminAuth)
-        }}
-        onLogout={logout}
-        onDataChanged={refreshShellData}
-      />
-    )
-  }
-
   let content = null
 
   if (loadingHomeData && (route.name === 'home' || route.name === 'store')) {
@@ -3134,5 +3095,3 @@ function App() {
 }
 
 export default App
-
-
