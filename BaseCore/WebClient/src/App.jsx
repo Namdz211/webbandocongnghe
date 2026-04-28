@@ -2323,19 +2323,18 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, onUpdatePro
     setError('')
 
     try {
-      if (mode === 'register') {
-        await onRegister({
-          username: formData.username.trim(),
-          password: formData.password.trim(),
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          phone: formData.phone.trim(),
-        })
-      } else {
-        await onLogin(formData.username.trim(), formData.password.trim())
-      }
+      const loggedInAuth =
+        mode === 'register'
+          ? await onRegister({
+              username: formData.username.trim(),
+              password: formData.password.trim(),
+              name: formData.name.trim(),
+              email: formData.email.trim(),
+              phone: formData.phone.trim(),
+            })
+          : await onLogin(formData.username.trim(), formData.password.trim())
 
-      onNavigate(redirectPath)
+      onNavigate(isAdmin(loggedInAuth) ? '/admin' : redirectPath)
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -2708,7 +2707,7 @@ function NotFoundPage({ onNavigate }) {
 
 function App() {
   const [route, setRoute] = useState(parseRoute)
-  const [auth, setAuth] = useState(() => readStorage(STORAGE_KEYS.auth, null))
+  const [auth, setAuth] = useState(null)
   const [cart, setCart] = useState(() => readStorage(STORAGE_KEYS.cart, []))
   const [categories, setCategories] = useState([])
   const [highlightedProducts, setHighlightedProducts] = useState([])
@@ -2864,6 +2863,7 @@ function App() {
     const data = await api.login(username, password)
     setAuth(data)
     openNotice('success', 'Đăng nhập thành công.')
+    return data
   }
 
   async function register(payload) {
@@ -2876,8 +2876,9 @@ function App() {
     }
 
     await api.register(normalizedPayload)
-    await login(normalizedPayload.username, normalizedPayload.password)
+    const data = await login(normalizedPayload.username, normalizedPayload.password)
     openNotice('success', 'Tạo tài khoản thành công.')
+    return data
   }
 
   async function updateProfile(payload) {
@@ -2998,8 +2999,28 @@ function App() {
   }
 
   let content = null
+  const needsAuthFirst = !auth && route.name !== 'login'
 
-  if (loadingHomeData && (route.name === 'home' || route.name === 'store')) {
+  if (needsAuthFirst) {
+    content = (
+      <AuthPage
+        auth={auth}
+        onNavigate={navigate}
+        onLogin={login}
+        onRegister={register}
+        onLogout={logout}
+        onUpdateProfile={updateProfile}
+        route={{
+          ...route,
+          name: 'login',
+          pathname: '/login',
+          query: {
+            redirect: `${route.pathname}${window.location.search}`,
+          },
+        }}
+      />
+    )
+  } else if (loadingHomeData && (route.name === 'home' || route.name === 'store')) {
     content = (
       <div className="section">
         <div className="container">
