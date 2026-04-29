@@ -73,7 +73,7 @@ namespace BaseCore.Repository
                 entity.Property(e => e.PaymentCode).HasMaxLength(50).HasDefaultValue("");
                 entity.Property(e => e.PaymentNote).HasMaxLength(500).HasDefaultValue("");
 
-                entity.HasOne<User>()
+                entity.HasOne(e => e.User)
                       .WithMany()
                       .HasForeignKey(e => e.UserId)
                       .OnDelete(DeleteBehavior.Restrict);

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import './admin.css'
+import './admin-orders.css'
 
 const ADMIN_TOKEN_KEY = 'electro-store-auth'
 
@@ -148,6 +149,19 @@ const adminApi = {
   deleteUser: (id, token) =>
     request(`/users/${id}`, {
       method: 'DELETE',
+      token,
+    }),
+  getOrders: (params = {}, token) => request(`/orders/all?${toQuery(params)}`, { token }),
+  getOrderById: (id, token) => request(`/orders/${id}`, { token }),
+  updateOrderStatus: (id, status, token) =>
+    request(`/orders/${id}/status`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify({ status }),
+    }),
+  cancelOrder: (id, token) =>
+    request(`/orders/${id}/cancel`, {
+      method: 'PUT',
       token,
     }),
 }
@@ -903,6 +917,288 @@ function Users({ auth }) {
         </AdminModal>
       )}
     </>
+  )
+}
+
+function Orders({ auth }) {
+  const token = getToken(auth)
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [selectedOrder, setSelectedOrder] = useState(null)
+  const [showModal, setShowModal] = useState(false)
+  const [error, setError] = useState('')
+  const [keyword, setKeyword] = useState('')
+  const [statusFilter, setStatusFilter] = useState('')
+  const [orderDetails, setOrderDetails] = useState([])
+
+  async function loadData() {
+    setLoading(true)
+    try {
+      const params = {}
+      if (keyword) params.keyword = keyword
+      if (statusFilter) params.status = statusFilter
+      
+      const data = await adminApi.getOrders(params, token)
+      setOrders(Array.isArray(data) ? data : data?.data || [])
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+  }, [])
+
+  async function viewOrderDetails(orderId) {
+    try {
+      const data = await adminApi.getOrderById(orderId, token)
+      setSelectedOrder(data.order)
+      setOrderDetails(data.details || [])
+      setShowModal(true)
+    } catch (error) {
+      setError(error.message)
+    }
+  }
+
+  async function updateOrderStatus(orderId, newStatus) {
+    try {
+      await adminApi.updateOrderStatus(orderId, newStatus, token)
+      await loadData()
+      if (selectedOrder && selectedOrder.id === orderId) {
+        setSelectedOrder({ ...selectedOrder, status: newStatus })
+      }
+    } catch (error) {
+      setError(error.message)
+    }
+  }
+
+  async function cancelOrder(orderId) {
+    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) {
+      return
+    }
+    try {
+      await adminApi.cancelOrder(orderId, token)
+      await loadData()
+      setShowModal(false)
+    } catch (error) {
+      setError(error.message)
+    }
+  }
+
+  function formatDate(dateString) {
+    return new Date(dateString).toLocaleDateString('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  function getStatusBadge(status) {
+    const colors = {
+      'Pending': 'warning',
+      'Processing': 'info',
+      'Completed': 'success',
+      'Cancelled': 'danger'
+    }
+    return <span className={`admin-badge ${colors[status] || 'secondary'}`}>{status}</span>
+  }
+
+  function getPaymentBadge(status) {
+    const colors = {
+      'Paid': 'success',
+      'Pending': 'warning',
+      'PayAtCounter': 'info'
+    }
+    const labels = {
+      'Paid': 'Đã thanh toán',
+      'Pending': 'Chưa thanh toán',
+      'PayAtCounter': 'Thanh toán tại quầy'
+    }
+    return <span className={`admin-badge ${colors[status] || 'secondary'}`}>{labels[status] || status}</span>
+  }
+
+  return (
+    <>
+      <PageHeader title="Orders Management" />
+      <section className="admin-card">
+        <div className="admin-card-toolbar">
+          <form
+            className="admin-search"
+            onSubmit={(event) => {
+              event.preventDefault()
+              loadData()
+            }}
+          >
+            <input className="admin-control" placeholder="Search by ID, customer..." value={keyword} onChange={(event) => setKeyword(event.target.value)} />
+            <select className="admin-control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="">All Status</option>
+              <option value="Pending">Pending</option>
+              <option value="Processing">Processing</option>
+              <option value="Completed">Completed</option>
+              <option value="Cancelled">Cancelled</option>
+            </select>
+            <button className="admin-btn primary" type="submit">
+              <i className="fa fa-search" /> Search
+            </button>
+          </form>
+        </div>
+        {error && <div className="admin-alert danger">{error}</div>}
+        {loading ? (
+          <Spinner />
+        ) : (
+          <DataTable
+            emptyText="No orders found"
+            headers={['ID', 'Customer', 'Date', 'Total', 'Status', 'Payment', 'Actions']}
+            rows={orders.map((order) => [
+              order.id,
+              order.user?.name || 'Unknown',
+              formatDate(order.orderDate),
+              formatCurrency(order.totalAmount),
+              getStatusBadge(order.status),
+              getPaymentBadge(order.paymentStatus),
+              <OrderActions key="actions" order={order} onView={viewOrderDetails} onUpdateStatus={updateOrderStatus} onCancel={cancelOrder} />,
+            ])}
+          />
+        )}
+      </section>
+      {showModal && selectedOrder && (
+        <AdminModal title={`Order #${selectedOrder.id}`} onClose={() => setShowModal(false)}>
+          <OrderDetailsModal order={selectedOrder} details={orderDetails} onClose={() => setShowModal(false)} onUpdateStatus={updateOrderStatus} onCancelOrder={cancelOrder} />
+        </AdminModal>
+      )}
+    </>
+  )
+}
+
+function OrderActions({ order, onView, onUpdateStatus, onCancel }) {
+  return (
+    <div className="admin-row-actions">
+      <button className="admin-btn small info" type="button" onClick={() => onView(order.id)}>
+        <i className="fa fa-eye" />
+      </button>
+      {order.status !== 'Completed' && order.status !== 'Cancelled' && (
+        <select 
+          className="admin-btn small warning" 
+          value={order.status} 
+          onChange={(e) => onUpdateStatus(order.id, e.target.value)}
+        >
+          <option value="Pending">Pending</option>
+          <option value="Processing">Processing</option>
+          <option value="Completed">Completed</option>
+        </select>
+      )}
+      {order.status !== 'Completed' && order.status !== 'Cancelled' && (
+        <button className="admin-btn small danger" type="button" onClick={() => onCancel(order.id)}>
+          <i className="fa fa-times" />
+        </button>
+      )}
+    </div>
+  )
+}
+
+function OrderDetailsModal({ order, details, onClose, onUpdateStatus, onCancel }) {
+  return (
+    <div className="order-details">
+      <div className="order-info-section">
+        <h4>Order Information</h4>
+        <div className="order-info-grid">
+          <div>
+            <strong>Order Date:</strong> {new Date(order.orderDate).toLocaleDateString('vi-VN')}
+          </div>
+          <div>
+            <strong>Total Amount:</strong> {formatCurrency(order.totalAmount)}
+          </div>
+          <div>
+            <strong>Status:</strong> {getStatusBadge(order.status)}
+          </div>
+          <div>
+            <strong>Payment Method:</strong> {order.paymentMethodLabel || order.paymentMethod}
+          </div>
+          <div>
+            <strong>Payment Status:</strong> {getPaymentBadge(order.paymentStatus)}
+          </div>
+          <div>
+            <strong>Payment Code:</strong> {order.paymentCode || 'N/A'}
+          </div>
+        </div>
+        <div className="shipping-address">
+          <strong>Shipping Address:</strong> {order.shippingAddress || 'N/A'}
+        </div>
+        {order.paymentNote && (
+          <div className="payment-note">
+            <strong>Payment Note:</strong> {order.paymentNote}
+          </div>
+        )}
+      </div>
+
+      <div className="order-items-section">
+        <h4>Order Items</h4>
+        <div className="admin-table-wrap">
+          <table className="admin-table">
+            <thead>
+              <tr>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th>Subtotal</th>
+              </tr>
+            </thead>
+            <tbody>
+              {details.map((detail) => (
+                <tr key={detail.id}>
+                  <td>
+                    <div className="product-info">
+                      <strong>{detail.product?.name || 'Unknown Product'}</strong>
+                      {detail.product?.description && (
+                        <small className="text-muted d-block">{detail.product.description}</small>
+                      )}
+                    </div>
+                  </td>
+                  <td>{detail.quantity}</td>
+                  <td>{formatCurrency(detail.unitPrice)}</td>
+                  <td>{formatCurrency(detail.quantity * detail.unitPrice)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div className="order-actions-section">
+        <h4>Order Actions</h4>
+        <div className="order-actions-buttons">
+          {order.status !== 'Completed' && order.status !== 'Cancelled' && (
+            <>
+              <div className="action-group">
+                <label>Update Status:</label>
+                <select 
+                  className="admin-control" 
+                  value={order.status} 
+                  onChange={(e) => onUpdateStatus(order.id, e.target.value)}
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="Processing">Processing</option>
+                  <option value="Completed">Completed</option>
+                </select>
+              </div>
+              <button 
+                className="admin-btn danger" 
+                onClick={() => onCancel(order.id)}
+              >
+                <i className="fa fa-times" /> Cancel Order
+              </button>
+            </>
+          )}
+          <button className="admin-btn secondary" onClick={onClose}>
+            <i className="fa fa-close" /> Close
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 

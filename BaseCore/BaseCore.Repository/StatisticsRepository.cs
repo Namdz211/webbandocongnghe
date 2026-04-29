@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using BaseCore.DTO.Statistics;
+using BaseCore.Entities;
 
 namespace BaseCore.Repository
 {
@@ -32,17 +33,42 @@ namespace BaseCore.Repository
 
         public async Task<IEnumerable<InventoryDto>> GetInventoryAsync()
         {
-            var inventory = await _context.Products
-                .Include(p => p.Category)
-                .GroupBy(p => p.Category.Name)
-                .Select(g => new InventoryDto
-                {
-                    CategoryName = g.Key,
-                    QuantityInStock = g.Sum(p => p.Stock)
-                })
-                .ToListAsync();
+            var inventory = await (from p in _context.Products
+                                  join c in _context.Categories on p.CategoryId equals c.Id into catGroup
+                                  from c in catGroup.DefaultIfEmpty()
+                                  group p by c.Name ?? "Uncategorized" into g
+                                  select new InventoryDto
+                                  {
+                                      CategoryName = g.Key,
+                                      QuantityInStock = g.Sum(p => p.Stock)
+                                  }).ToListAsync();
 
             return inventory;
+        }
+
+        public async Task<IEnumerable<InventoryDto>> GetInventoryByCategoryAsync()
+        {
+            return await GetInventoryAsync();
+        }
+
+        public async Task<IEnumerable<OrderByCategoryDto>> GetOrderStatsByCategoryAsync()
+        {
+            var orderStats = await (from od in _context.OrderDetails
+                                   join p in _context.Products on od.ProductId equals p.Id
+                                   join c in _context.Categories on p.CategoryId equals c.Id into catGroup
+                                   from c in catGroup.DefaultIfEmpty()
+                                   join o in _context.Orders on od.OrderId equals o.Id
+                                   where o.Status == "Completed"
+                                   group new { od, p, c } by c.Name ?? "Uncategorized" into g
+                                   select new OrderByCategoryDto
+                                   {
+                                       CategoryName = g.Key,
+                                       OrderCount = g.Select(x => x.od.OrderId).Distinct().Count(),
+                                       TotalQuantitySold = g.Sum(x => x.od.Quantity),
+                                       TotalRevenue = g.Sum(x => x.od.Quantity * x.od.UnitPrice)
+                                   }).ToListAsync();
+
+            return orderStats;
         }
     }
 }

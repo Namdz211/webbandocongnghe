@@ -9,5 +9,7 @@ namespace BaseCore.Services
     {
         Task<RevenueDto> GetRevenueAsync(DateTime startDate, DateTime endDate);
         Task<IEnumerable<InventoryDto>> GetInventoryAsync();
+        Task<IEnumerable<OrderByCategoryDto>> GetOrderStatsByCategoryAsync();
+        Task<IEnumerable<InventoryDto>> GetInventoryByCategoryAsync();
     }
 }

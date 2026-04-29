@@ -1,9 +1,10 @@
-﻿using Microsoft.AspNetCore.Authorization;
+﻿﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
 using BaseCore.Repository;
 using BaseCore.Repository.EFCore;
+using BaseCore.Services;
 using System.Security.Claims;
 
 namespace BaseCore.APIService.Controllers
@@ -31,17 +32,20 @@ namespace BaseCore.APIService.Controllers
         private readonly IOrderDetailRepositoryEF _orderDetailRepository;
         private readonly IProductRepositoryEF _productRepository;
         private readonly MySqlDbContext _dbContext;
+        private readonly IOrderService _orderService;
 
         public OrdersController(
             IOrderRepositoryEF orderRepository,
             IOrderDetailRepositoryEF orderDetailRepository,
             IProductRepositoryEF productRepository,
-            MySqlDbContext dbContext)
+            MySqlDbContext dbContext,
+            IOrderService orderService)
         {
             _orderRepository = orderRepository;
             _orderDetailRepository = orderDetailRepository;
             _productRepository = productRepository;
             _dbContext = dbContext;
+            _orderService = orderService;
         }
 
         /// <summary>
@@ -61,11 +65,24 @@ namespace BaseCore.APIService.Controllers
         /// <summary>
         /// Get all orders (Admin only)
         /// </summary>
-        [HttpGet("all")]
+[HttpGet("all")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllOrders()
+        public async Task<IActionResult> GetAllOrders(
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null,
+            [FromQuery] string? keyword = null,
+            [FromQuery] string? status = null)
         {
-            var orders = await _orderRepository.GetAllAsync();
+            // Thêm Include(o => o.User) để lấy thông tin khách hàng
+            var query = _dbContext.Orders
+                .Include(o => o.User)
+                .AsNoTracking()
+                .AsQueryable();
+            if (fromDate.HasValue) query = query.Where(o => o.OrderDate >= fromDate.Value.Date);
+            if (toDate.HasValue) query = query.Where(o => o.OrderDate <= toDate.Value.Date.AddDays(1));
+            if (!string.IsNullOrEmpty(keyword)) query = query.Where(o => o.Id.ToString().Contains(keyword));
+            if (!string.IsNullOrEmpty(status)) query = query.Where(o => o.Status == status);
+            var orders = await query.OrderByDescending(o => o.OrderDate).ToListAsync();
             return Ok(orders.Select(ToOrderResponse));
         }
 
@@ -78,7 +95,12 @@ namespace BaseCore.APIService.Controllers
             var order = await _orderRepository.GetByIdAsync(id);
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
 
-            var details = await _orderDetailRepository.GetByOrderAsync(id);
+            // Sử dụng DbContext để Include(Product) đảm bảo có dữ liệu sản phẩm
+            var details = await _dbContext.OrderDetails
+                .Include(d => d.Product)
+                .Where(d => d.OrderId == id)
+                .ToListAsync();
+
             return Ok(new
             {
                 order = ToOrderResponse(order),
@@ -226,12 +248,51 @@ namespace BaseCore.APIService.Controllers
             return Ok(new { message = "Đã hủy đơn hàng", order = ToOrderResponse(order) });
         }
 
+        /// <summary>
+        /// Assign transport unit to order (Admin)
+        /// </summary>
+        [HttpPost("{id}/assign-transport")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AssignTransport(int id, [FromBody] AssignTransportDto dto)
+        {
+            try
+            {
+                await _orderService.AssignTransportAsync(id, dto.TransportUnit, dto.TrackingCode);
+                var order = await _orderRepository.GetByIdAsync(id);
+                return Ok(new { message = "Đã giao cho đơn vị vận chuyển", order = ToOrderResponse(order) });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>
+        /// Update delivery status (Admin)
+        /// </summary>
+        [HttpPut("{id}/update-delivery")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateDeliveryStatus(int id, [FromBody] UpdateDeliveryDto dto)
+        {
+            try
+            {
+                await _orderService.UpdateDeliveryStatusAsync(id, dto.DeliveryStatus, dto.DeliveryDate);
+                var order = await _orderRepository.GetByIdAsync(id);
+                return Ok(new { message = "Đã cập nhật trạng thái giao hàng", order = ToOrderResponse(order) });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         private static object ToOrderResponse(Order order)
         {
             return new
             {
                 order.Id,
                 order.UserId,
+                user = order.User == null ? null : new { name = order.User.Name },
                 order.OrderDate,
                 order.TotalAmount,
                 order.Status,
@@ -242,6 +303,10 @@ namespace BaseCore.APIService.Controllers
                 PaymentStatusLabel = GetPaymentStatusLabel(order.PaymentStatus),
                 order.PaymentCode,
                 order.PaymentNote,
+                order.TransportUnit,
+                DeliveryStatus = NormalizeDeliveryStatus(order.DeliveryStatus),
+                order.DeliveryDate,
+                order.TransportTrackingCode,
                 DeliveryMessage = IsPaidPayment(order.PaymentStatus) ? DeliveryMessage : null
             };
         }
@@ -273,6 +338,23 @@ namespace BaseCore.APIService.Controllers
         {
             var suffix = Guid.NewGuid().ToString("N").Substring(0, 8).ToUpperInvariant();
             return $"{prefix}-{DateTime.Now:yyyyMMdd}-{suffix}";
+        }
+
+        private static string NormalizeDeliveryStatus(string? deliveryStatus)
+        {
+            var normalized = deliveryStatus?.Trim();
+            if (string.IsNullOrEmpty(normalized))
+                return "Chờ lấy hàng";
+
+            return normalized switch
+            {
+                "Chá» láº¥y hÃ ng" => "Chờ lấy hàng",
+                "ÄÃ£ giao Ä‘Æ¡n vá»‹ váº­n chuyá»ƒn" => "Đã giao đơn vị vận chuyển",
+                "Äang giao" => "Đang giao",
+                "ÄÃ£ giao thÃ nh cÃ´ng" => "Đã giao thành công",
+                "Giao tháº¥t báº¡i" => "Giao thất bại",
+                _ => normalized
+            };
         }
 
         private static object ToOrderDetailResponse(OrderDetail detail)
@@ -315,5 +397,17 @@ namespace BaseCore.APIService.Controllers
     public class UpdateStatusDto
     {
         public string Status { get; set; } = "";
+    }
+
+    public class AssignTransportDto
+    {
+        public string TransportUnit { get; set; } = "";
+        public string TrackingCode { get; set; } = "";
+    }
+
+    public class UpdateDeliveryDto
+    {
+        public string DeliveryStatus { get; set; } = "";
+        public DateTime? DeliveryDate { get; set; }
     }
 }

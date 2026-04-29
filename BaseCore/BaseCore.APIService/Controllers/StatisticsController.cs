@@ -42,5 +42,19 @@ namespace BaseCore.APIService.Controllers
             var inventory = await _statisticsService.GetInventoryAsync();
             return Ok(inventory);
         }
+
+        [HttpGet("orders-by-category")]
+        public async Task<IActionResult> GetOrdersByCategory()
+        {
+            var orderStats = await _statisticsService.GetOrderStatsByCategoryAsync();
+            return Ok(orderStats);
+        }
+
+        [HttpGet("inventory-by-category")]
+        public async Task<IActionResult> GetInventoryByCategory()
+        {
+            var stats = await _statisticsService.GetInventoryByCategoryAsync();
+            return Ok(stats);
+        }
     }
 }

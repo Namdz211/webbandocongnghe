@@ -86,12 +86,20 @@ const MainLayout = ({ children }) => {
                                 </Link>
                             </li>
                             {isAdmin() && (
-                                <li className="nav-item">
-                                    <Link to="/users" className={`nav-link ${isActive('/users')}`}>
-                                        <i className="nav-icon fas fa-users"></i>
-                                        <p>Users</p>
-                                    </Link>
-                                </li>
+                                <>
+                                    <li className="nav-item">
+                                        <Link to="/orders" className={`nav-link ${isActive('/orders')}`}>
+                                            <i className="nav-icon fas fa-shopping-cart"></i>
+                                            <p>Orders</p>
+                                        </Link>
+                                    </li>
+                                    <li className="nav-item">
+                                        <Link to="/users" className={`nav-link ${isActive('/users')}`}>
+                                            <i className="nav-icon fas fa-users"></i>
+                                            <p>Users</p>
+                                        </Link>
+                                    </li>
+                                </>
                             )}
                         </ul>
                     </nav>

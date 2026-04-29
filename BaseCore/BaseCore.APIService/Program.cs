@@ -79,6 +79,7 @@ builder.Services.AddScoped<IOrderRepositoryEF, OrderRepositoryEF>();
 builder.Services.AddScoped<IOrderDetailRepositoryEF, OrderDetailRepositoryEF>();
 builder.Services.AddScoped<IStatisticsRepository, StatisticsRepository>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 // JWT Authentication
 var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:SecretKey"] ?? "YourSecretKeyForAuthenticationShouldBeLongEnough");
@@ -107,7 +108,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MySqlDbContext>();
     db.Database.EnsureCreated();
-    EnsureOrderPaymentColumns(db);
+    EnsureOrderSchema(db);
     SeedProductCatalog(db);
 }
 
@@ -272,7 +273,7 @@ static void SeedProductCatalog(MySqlDbContext db)
     db.SaveChanges();
 }
 
-static void EnsureOrderPaymentColumns(MySqlDbContext db)
+static void EnsureOrderSchema(MySqlDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 IF COL_LENGTH(N'dbo.Orders', N'PaymentCode') IS NULL
@@ -286,6 +287,52 @@ END;");
 UPDATE dbo.Orders
 SET PaymentCode = CONCAT(N'LEGACY-', Id)
 WHERE ISNULL(PaymentCode, N'') = N'';");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'PaymentNote') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD PaymentNote NVARCHAR(500) NOT NULL
+        CONSTRAINT DF_Orders_PaymentNote DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'TransportUnit') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD TransportUnit NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_TransportUnit DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'DeliveryStatus') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DeliveryStatus NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_DeliveryStatus DEFAULT (N'Chờ lấy hàng');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'DeliveryDate') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DeliveryDate DATETIME2 NULL;
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'TransportTrackingCode') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD TransportTrackingCode NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_TransportTrackingCode DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+UPDATE dbo.Orders
+SET PaymentNote = ISNULL(PaymentNote, N''),
+    TransportUnit = ISNULL(TransportUnit, N''),
+    DeliveryStatus = CASE WHEN ISNULL(DeliveryStatus, N'') = N'' THEN N'Chờ lấy hàng' ELSE DeliveryStatus END,
+    TransportTrackingCode = ISNULL(TransportTrackingCode, N'');");
 }
 
 

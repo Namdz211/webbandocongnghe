@@ -22,9 +22,14 @@ namespace BaseCore.Entities
         public string PaymentStatus { get; set; } = "";
 
         public string PaymentCode { get; set; } = "";
-
         public string PaymentNote { get; set; } = "";
 
+        public string TransportUnit { get; set; } = "";
+        public string DeliveryStatus { get; set; } = "Chờ lấy hàng";
+        public DateTime? DeliveryDate { get; set; }
+        public string TransportTrackingCode { get; set; } = "";
+
+        public User? User { get; set; }
         public List<OrderDetail> OrderDetails { get; set; } = new();
     }
 }

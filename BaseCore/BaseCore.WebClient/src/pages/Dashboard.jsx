@@ -34,6 +34,7 @@ const Dashboard = () => {
     
     const [revenueData, setRevenueData] = useState({ totalRevenue: 0, orderCount: 0 });
     const [inventoryData, setInventoryData] = useState([]);
+    const [statsError, setStatsError] = useState('');
     
     const [loading, setLoading] = useState(true);
     const [statsLoading, setStatsLoading] = useState(false);
@@ -77,21 +78,39 @@ const Dashboard = () => {
 
     const loadAdvancedStats = async () => {
         setStatsLoading(true);
+        setStatsError('');
         try {
-            const [revenueRes, inventoryRes] = await Promise.all([
+            const [revenueResult, inventoryResult] = await Promise.allSettled([
                 statisticsApi.getRevenue(startDate, endDate),
-                statisticsApi.getInventory(),
+                statisticsApi.getInventoryByCategory(),
             ]);
-            
-            setRevenueData(revenueRes.data || { totalRevenue: 0, orderCount: 0 });
-            
-            // Map inventory for Recharts
-            const mappedInventory = (inventoryRes.data || []).map(item => ({
-                name: item.categoryName,
-                value: item.quantityInStock
-            }));
-            setInventoryData(mappedInventory);
+
+            if (revenueResult.status === 'fulfilled') {
+                setRevenueData(revenueResult.value.data || { totalRevenue: 0, orderCount: 0 });
+            } else {
+                setRevenueData({ totalRevenue: 0, orderCount: 0 });
+            }
+
+            if (inventoryResult.status === 'fulfilled') {
+                const mappedInventory = (inventoryResult.value.data || []).map(item => ({
+                    name: item.categoryName,
+                    value: item.quantityInStock
+                }));
+                setInventoryData(mappedInventory);
+            } else {
+                setInventoryData([]);
+            }
+
+            if (revenueResult.status === 'rejected' || inventoryResult.status === 'rejected') {
+                setStatsError('Không tải được đầy đủ dữ liệu thống kê. Vui lòng kiểm tra API doanh thu/đơn hàng.');
+            }
+
+            console.log('Revenue API result:', revenueResult);
+            console.log('Inventory API result:', inventoryResult);
         } catch (error) {
+            setStatsError('Không tải được dữ liệu thống kê.');
+            setRevenueData({ totalRevenue: 0, orderCount: 0 });
+            setInventoryData([]);
             console.error('Failed to load advanced stats:', error);
         } finally {
             setStatsLoading(false);
@@ -121,6 +140,11 @@ const Dashboard = () => {
 
             <section className="content">
                 <div className="container-fluid">
+                    {statsError && (
+                        <div className="alert alert-warning">
+                            {statsError}
+                        </div>
+                    )}
                     {/* Basic Stats Row */}
                     {loading ? (
                         <div className="text-center py-5">

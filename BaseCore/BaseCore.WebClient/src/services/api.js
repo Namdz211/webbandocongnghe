@@ -74,12 +74,19 @@ export const orderApi = {
     create: (data) => api.post('/orders', data),
     getMyOrders: () => api.get('/orders'),
     getById: (id) => api.get(`/orders/${id}`),
+    // Admin Order Management APIs
+    getAll: (params) => api.get('/orders/all', { params }),
+    updateStatus: (id, status) => api.put(`/orders/${id}/status`, { status }),
+    cancel: (id) => api.put(`/orders/${id}/cancel`),
+    assignTransport: (id, data) => api.post(`/orders/${id}/assign-transport`, data),
+    updateDelivery: (id, data) => api.put(`/orders/${id}/update-delivery`, data),
 };
 
 // Statistics API
 export const statisticsApi = {
     getRevenue: (startDate, endDate) => api.get('/statistics/revenue', { params: { startDate, endDate } }),
     getInventory: () => api.get('/statistics/inventory'),
+    getInventoryByCategory: () => api.get('/statistics/inventory-by-category'),
 };
 
 export default api;
