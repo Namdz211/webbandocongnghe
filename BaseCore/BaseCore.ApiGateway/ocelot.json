@@ -100,6 +100,24 @@
       "UpstreamHttpMethod": [ "GET", "POST", "OPTIONS" ]
     },
     {
+      "DownstreamPathTemplate": "/api/customers/{everything}",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5001 }
+      ],
+      "UpstreamPathTemplate": "/api/customers/{everything}",
+      "UpstreamHttpMethod": [ "GET", "OPTIONS" ]
+    },
+    {
+      "DownstreamPathTemplate": "/api/customers",
+      "DownstreamScheme": "http",
+      "DownstreamHostAndPorts": [
+        { "Host": "localhost", "Port": 5001 }
+      ],
+      "UpstreamPathTemplate": "/api/customers",
+      "UpstreamHttpMethod": [ "GET", "OPTIONS" ]
+    },
+    {
       "DownstreamPathTemplate": "/api/statistics/{everything}",
       "DownstreamScheme": "http",
       "DownstreamHostAndPorts": [

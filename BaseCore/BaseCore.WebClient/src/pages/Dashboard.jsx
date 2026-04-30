@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { productApi, userApi, categoryApi, statisticsApi } from '../services/api';
+import { productApi, userApi, categoryApi, statisticsApi, customerApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
@@ -9,6 +9,7 @@ const Dashboard = () => {
     const [stats, setStats] = useState({
         products: 0,
         categories: 0,
+        customers: 0,
         users: 0,
     });
     
@@ -55,6 +56,7 @@ const Dashboard = () => {
             ]);
 
             let usersCount = 0;
+            let customersCount = 0;
             if (isAdmin()) {
                 try {
                     const usersRes = await userApi.getAll({ page: 1, pageSize: 1 });
@@ -62,11 +64,19 @@ const Dashboard = () => {
                 } catch (e) {
                     console.log('Cannot fetch users count');
                 }
+
+                try {
+                    const customersRes = await customerApi.getAll();
+                    customersCount = Array.isArray(customersRes.data) ? customersRes.data.length : 0;
+                } catch (e) {
+                    console.log('Cannot fetch customers count');
+                }
             }
 
             setStats({
                 products: productsRes.data?.totalCount || productsRes.data?.items?.length || productsRes.data?.length || 0,
                 categories: categoriesRes.data?.length || 0,
+                customers: customersCount,
                 users: usersCount,
             });
         } catch (error) {
@@ -182,6 +192,22 @@ const Dashboard = () => {
                                     </a>
                                 </div>
                             </div>
+                            {isAdmin() && (
+                                <div className="col-lg-3 col-6">
+                                    <div className="small-box bg-danger" style={{ transition: 'all 0.3s' }}>
+                                        <div className="inner">
+                                            <h3>{stats.customers}</h3>
+                                            <p>Khách hàng</p>
+                                        </div>
+                                        <div className="icon">
+                                            <i className="fas fa-address-book"></i>
+                                        </div>
+                                        <a href="/customers" className="small-box-footer">
+                                            Xem chi tiết <i className="fas fa-arrow-circle-right"></i>
+                                        </a>
+                                    </div>
+                                </div>
+                            )}
                             {isAdmin() && (
                                 <div className="col-lg-3 col-6">
                                     <div className="small-box bg-warning" style={{ transition: 'all 0.3s' }}>

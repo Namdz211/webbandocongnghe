@@ -82,6 +82,12 @@ export const orderApi = {
     updateDelivery: (id, data) => api.put(`/orders/${id}/update-delivery`, data),
 };
 
+// Customer API
+export const customerApi = {
+    getAll: (params) => api.get('/customers', { params }),
+    getById: (id) => api.get(`/customers/${id}`),
+};
+
 // Statistics API
 export const statisticsApi = {
     getRevenue: (startDate, endDate) => api.get('/statistics/revenue', { params: { startDate, endDate } }),

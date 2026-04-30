@@ -94,6 +94,12 @@ const MainLayout = ({ children }) => {
                                         </Link>
                                     </li>
                                     <li className="nav-item">
+                                        <Link to="/customers" className={`nav-link ${isActive('/customers')}`}>
+                                            <i className="nav-icon fas fa-address-book"></i>
+                                            <p>Customers</p>
+                                        </Link>
+                                    </li>
+                                    <li className="nav-item">
                                         <Link to="/users" className={`nav-link ${isActive('/users')}`}>
                                             <i className="nav-icon fas fa-users"></i>
                                             <p>Users</p>

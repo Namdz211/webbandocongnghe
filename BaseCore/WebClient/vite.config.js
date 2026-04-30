@@ -19,6 +19,10 @@ export default defineConfig({
         target: 'http://localhost:5001',
         changeOrigin: true,
       },
+      '/api/customers': {
+        target: 'http://localhost:5001',
+        changeOrigin: true,
+      },
       '/api/auth': {
         target: 'http://localhost:5002',
         changeOrigin: true,

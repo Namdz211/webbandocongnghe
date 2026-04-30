@@ -5,6 +5,15 @@
   gap: 20px;
 }
 
+.admin-orders-card .admin-table th,
+.admin-orders-card .admin-table td {
+  white-space: nowrap;
+}
+
+.admin-orders-card .admin-table td:nth-child(9) {
+  min-width: 190px;
+}
+
 .order-info-section h4,
 .order-items-section h4,
 .order-actions-section h4 {
@@ -60,7 +69,12 @@
 .action-group {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
+  padding: 12px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 4px;
 }
 
 .action-group label {
@@ -71,6 +85,11 @@
 
 .action-group .admin-control {
   min-width: 150px;
+  max-width: 240px;
+}
+
+.action-group .admin-btn {
+  white-space: nowrap;
 }
 
 /* Status and Payment Badges */

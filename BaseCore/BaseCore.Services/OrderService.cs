@@ -53,9 +53,26 @@ namespace BaseCore.Services
             var order = await _orderRepository.GetByIdAsync(orderId);
             if (order == null) throw new Exception("Order not found");
 
-            order.TransportUnit = transportUnit;
-            order.TransportTrackingCode = trackingCode;
+            var normalizedTransportUnit = transportUnit?.Trim() ?? "";
+            var normalizedTrackingCode = trackingCode?.Trim() ?? "";
+
+            if (string.IsNullOrWhiteSpace(transportUnit))
+                throw new Exception("Vui lòng chọn đơn vị vận chuyển");
+            if (string.IsNullOrWhiteSpace(trackingCode))
+                throw new Exception("Vui lòng nhập mã vận đơn");
+            if (normalizedTransportUnit.Length > 100)
+                throw new Exception("Đơn vị vận chuyển không được vượt quá 100 ký tự");
+            if (normalizedTrackingCode.Length > 100)
+                throw new Exception("Mã vận đơn không được vượt quá 100 ký tự");
+            if (string.Equals(order.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("Không thể bàn giao vận chuyển cho đơn hàng đã hoàn thành");
+            if (string.Equals(order.Status, "Cancelled", StringComparison.OrdinalIgnoreCase))
+                throw new Exception("Không thể bàn giao vận chuyển cho đơn hàng đã hủy");
+
+            order.TransportUnit = normalizedTransportUnit;
+            order.TransportTrackingCode = normalizedTrackingCode;
             order.DeliveryStatus = "Đã giao đơn vị vận chuyển";
+            order.Status = "Processing";
 
             await _orderRepository.UpdateAsync(order);
         }
@@ -65,16 +82,37 @@ namespace BaseCore.Services
             var order = await _orderRepository.GetByIdAsync(orderId);
             if (order == null) throw new Exception("Order not found");
 
-            order.DeliveryStatus = NormalizeDeliveryStatus(deliveryStatus);
+            var nextDeliveryStatus = NormalizeDeliveryStatus(deliveryStatus);
+            if (RequiresTransport(nextDeliveryStatus) &&
+                (string.IsNullOrWhiteSpace(order.TransportUnit) || string.IsNullOrWhiteSpace(order.TransportTrackingCode)))
+            {
+                throw new Exception("Vui lòng bàn giao đơn cho đơn vị vận chuyển trước khi cập nhật trạng thái giao hàng");
+            }
+
+            order.DeliveryStatus = nextDeliveryStatus;
             if (deliveryDate.HasValue)
                 order.DeliveryDate = deliveryDate.Value;
 
-            if (order.DeliveryStatus == "Đã giao thành công")
+            if (IsDelivered(order.DeliveryStatus))
             {
                 order.Status = "Completed";
             }
+            else if (string.Equals(order.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+            {
+                order.Status = "Processing";
+            }
 
             await _orderRepository.UpdateAsync(order);
+        }
+
+        private static bool IsDelivered(string? deliveryStatus)
+        {
+            return string.Equals(deliveryStatus, "Đã giao thành công", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool RequiresTransport(string? deliveryStatus)
+        {
+            return !string.Equals(deliveryStatus, "Chờ lấy hàng", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string NormalizeDeliveryStatus(string? deliveryStatus)

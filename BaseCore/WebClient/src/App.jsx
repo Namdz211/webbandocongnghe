@@ -4,6 +4,7 @@ import {
   useRef,
   useState,
 } from 'react'
+import AdminApp from './admin/AdminApp'
 
 const FALLBACK_IMAGES = [
   '/electro/img/product01.png',
@@ -294,8 +295,8 @@ function parseRoute() {
     return { name: 'orders', pathname, query }
   }
 
-  if (pathname === '/admin/products') {
-    return { name: 'adminProducts', pathname, query }
+  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
+    return { name: 'admin', pathname, query }
   }
 
   if (pathname === '/account') {
@@ -1852,7 +1853,15 @@ function OrdersPage({ auth, onNavigate }) {
                     <strong>{'\u0110\u1ecba ch\u1ec9:'}</strong> {order.shippingAddress || 'Kh\u00f4ng c\u00f3'}
                   </p>
                   <p>
-                    <strong>{'T\u1ed5ng ti\u1ec1n:'}</strong> {formatCurrency(order.totalAmount)}
+                    <strong>{'T\u1ea1m t\u00ednh:'}</strong> {formatCurrency(order.originalAmount || order.totalAmount)}
+                  </p>
+                  {(order.discountAmount || 0) > 0 && (
+                    <p>
+                      <strong>{'\u01afu \u0111\u00e3i:'}</strong> -{formatCurrency(order.discountAmount)} ({order.discountPercent}%)
+                    </p>
+                  )}
+                  <p>
+                    <strong>{'T\u1ed5ng thanh to\u00e1n:'}</strong> {formatCurrency(order.totalAmount)}
                   </p>
                   <p>
                     <strong>{'Thanh to\u00e1n:'}</strong> {order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}
@@ -3015,14 +3024,15 @@ function App() {
       case 'orders':
         content = <OrdersPage auth={auth} onNavigate={navigate} />
         break
-      case 'adminProducts':
+      case 'admin':
         content = (
-          <ProductAdminPage
+          <AdminApp
             auth={auth}
-            categories={categories}
+            route={route}
             onNavigate={navigate}
-            onNotify={openNotice}
-            onAdminProductsChanged={refreshShellData}
+            onLogin={setAuth}
+            onLogout={logout}
+            onDataChanged={refreshShellData}
           />
         )
         break

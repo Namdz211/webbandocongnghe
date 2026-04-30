@@ -135,7 +135,7 @@ namespace BaseCore.APIService.Controllers
             if (!PaymentOptions.TryGetValue(paymentMethod, out var paymentOption))
                 return BadRequest(new { message = "Phương thức thanh toán không hợp lệ" });
 
-            decimal totalAmount = 0;
+            decimal originalAmount = 0;
             var orderDetails = new List<OrderDetail>();
 
             await using var transaction = await _dbContext.Database.BeginTransactionAsync();
@@ -151,7 +151,7 @@ namespace BaseCore.APIService.Controllers
                     if (product.Stock < item.Quantity)
                         return BadRequest(new { message = $"Sản phẩm {product.Name} không đủ tồn kho" });
 
-                    totalAmount += product.Price * item.Quantity;
+                    originalAmount += product.Price * item.Quantity;
                     orderDetails.Add(new OrderDetail
                     {
                         ProductId = item.ProductId,
@@ -163,11 +163,17 @@ namespace BaseCore.APIService.Controllers
                     await _productRepository.UpdateAsync(product);
                 }
 
+                var discount = await CalculateCustomerDiscountAsync(userId, originalAmount);
+
                 var order = new Order
                 {
                     UserId = userId,
                     OrderDate = DateTime.Now,
-                    TotalAmount = totalAmount,
+                    OriginalAmount = originalAmount,
+                    DiscountPercent = discount.Percent,
+                    DiscountAmount = discount.Amount,
+                    PromotionName = discount.PromotionName,
+                    TotalAmount = originalAmount - discount.Amount,
                     Status = "Pending",
                     ShippingAddress = dto.ShippingAddress ?? "",
                     PaymentMethod = paymentMethod,
@@ -208,12 +214,33 @@ namespace BaseCore.APIService.Controllers
         /// Update order status
         /// </summary>
         [HttpPut("{id}/status")]
+        [Authorize(Roles = "Admin")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateStatusDto dto)
         {
             var order = await _orderRepository.GetByIdAsync(id);
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
 
-            order.Status = dto.Status;
+            var nextStatus = dto.Status?.Trim();
+            if (string.IsNullOrWhiteSpace(nextStatus))
+                return BadRequest(new { message = "Trạng thái đơn hàng không hợp lệ" });
+
+            if (string.Equals(nextStatus, "Completed", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Chỉ được hoàn thành đơn hàng khi trạng thái giao hàng là đã giao thành công." });
+
+            var allowedStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "Pending",
+                "Processing",
+                "Cancelled"
+            };
+
+            if (!allowedStatuses.Contains(nextStatus))
+                return BadRequest(new { message = "Trạng thái đơn hàng không hợp lệ" });
+
+            if (string.Equals(order.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Không thể đổi trạng thái đơn hàng đã hoàn thành." });
+
+            order.Status = nextStatus;
             await _orderRepository.UpdateAsync(order);
 
             return Ok(ToOrderResponse(order));
@@ -263,7 +290,7 @@ namespace BaseCore.APIService.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(new { message = GetExceptionMessage(ex) });
             }
         }
 
@@ -282,8 +309,13 @@ namespace BaseCore.APIService.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new { message = ex.Message });
+                return BadRequest(new { message = GetExceptionMessage(ex) });
             }
+        }
+
+        private static string GetExceptionMessage(Exception ex)
+        {
+            return ex.InnerException?.Message ?? ex.Message;
         }
 
         private static object ToOrderResponse(Order order)
@@ -294,6 +326,10 @@ namespace BaseCore.APIService.Controllers
                 order.UserId,
                 user = order.User == null ? null : new { name = order.User.Name },
                 order.OrderDate,
+                order.OriginalAmount,
+                order.DiscountAmount,
+                order.DiscountPercent,
+                order.PromotionName,
                 order.TotalAmount,
                 order.Status,
                 order.ShippingAddress,
@@ -314,6 +350,48 @@ namespace BaseCore.APIService.Controllers
         private static bool IsPaidPayment(string paymentStatus)
         {
             return string.Equals(paymentStatus, "Paid", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private async Task<CustomerDiscount> CalculateCustomerDiscountAsync(string userId, decimal originalAmount)
+        {
+            var completedOrders = await _dbContext.Orders
+                .Where(order => order.UserId == userId && order.Status == "Completed")
+                .Select(order => new { order.TotalAmount })
+                .ToListAsync();
+
+            var completedOrderCount = completedOrders.Count;
+            var totalSpent = completedOrders.Sum(order => order.TotalAmount);
+            var segment = CalculateCustomerSegment(completedOrderCount, totalSpent);
+            var percent = GetDiscountPercent(segment);
+            var amount = Math.Round(originalAmount * percent / 100, 0, MidpointRounding.AwayFromZero);
+
+            return new CustomerDiscount
+            {
+                Percent = percent,
+                Amount = amount,
+                PromotionName = percent > 0 ? $"{segment} customer discount" : ""
+            };
+        }
+
+        private static string CalculateCustomerSegment(int completedOrders, decimal totalSpent)
+        {
+            if (completedOrders >= 5 || totalSpent >= 50000000) return "VIP";
+            if (completedOrders >= 3 || totalSpent >= 20000000) return "Loyal";
+            if (completedOrders >= 2 || totalSpent >= 10000000) return "Potential";
+            if (completedOrders == 1) return "New";
+            return "NoOrders";
+        }
+
+        private static decimal GetDiscountPercent(string segment)
+        {
+            return segment switch
+            {
+                "VIP" => 10,
+                "Loyal" => 7,
+                "Potential" => 5,
+                "New" => 3,
+                _ => 0
+            };
         }
 
         private static string GetPaymentMethodLabel(string paymentMethod)
@@ -409,5 +487,12 @@ namespace BaseCore.APIService.Controllers
     {
         public string DeliveryStatus { get; set; } = "";
         public DateTime? DeliveryDate { get; set; }
+    }
+
+    public class CustomerDiscount
+    {
+        public decimal Percent { get; set; }
+        public decimal Amount { get; set; }
+        public string PromotionName { get; set; } = "";
     }
 }

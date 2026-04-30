@@ -276,6 +276,18 @@ static void SeedProductCatalog(MySqlDbContext db)
 static void EnsureOrderSchema(MySqlDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'dbo.CK_Orders_Status', N'C') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Orders DROP CONSTRAINT CK_Orders_Status;
+END;
+
+IF OBJECT_ID(N'dbo.CK_Orders_Status', N'C') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD CONSTRAINT CK_Orders_Status CHECK (Status IN (N'Pending', N'Processing', N'Completed', N'Cancelled'));
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
 IF COL_LENGTH(N'dbo.Orders', N'PaymentCode') IS NULL
 BEGIN
     ALTER TABLE dbo.Orders
@@ -287,6 +299,45 @@ END;");
 UPDATE dbo.Orders
 SET PaymentCode = CONCAT(N'LEGACY-', Id)
 WHERE ISNULL(PaymentCode, N'') = N'';");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'OriginalAmount') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD OriginalAmount DECIMAL(18, 2) NOT NULL
+        CONSTRAINT DF_Orders_OriginalAmount DEFAULT (0);
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'DiscountAmount') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DiscountAmount DECIMAL(18, 2) NOT NULL
+        CONSTRAINT DF_Orders_DiscountAmount DEFAULT (0);
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'DiscountPercent') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DiscountPercent DECIMAL(5, 2) NOT NULL
+        CONSTRAINT DF_Orders_DiscountPercent DEFAULT (0);
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'PromotionName') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD PromotionName NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_PromotionName DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+UPDATE dbo.Orders
+SET OriginalAmount = CASE WHEN OriginalAmount = 0 THEN TotalAmount ELSE OriginalAmount END,
+    DiscountAmount = ISNULL(DiscountAmount, 0),
+    DiscountPercent = ISNULL(DiscountPercent, 0),
+    PromotionName = ISNULL(PromotionName, N'');");
 
     db.Database.ExecuteSqlRaw(@"
 IF COL_LENGTH(N'dbo.Orders', N'PaymentNote') IS NULL
@@ -305,11 +356,23 @@ BEGIN
 END;");
 
     db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'TransportUnit') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Orders ALTER COLUMN TransportUnit NVARCHAR(100) NOT NULL;
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
 IF COL_LENGTH(N'dbo.Orders', N'DeliveryStatus') IS NULL
 BEGIN
     ALTER TABLE dbo.Orders
     ADD DeliveryStatus NVARCHAR(100) NOT NULL
         CONSTRAINT DF_Orders_DeliveryStatus DEFAULT (N'Chờ lấy hàng');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'DeliveryStatus') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Orders ALTER COLUMN DeliveryStatus NVARCHAR(100) NOT NULL;
 END;");
 
     db.Database.ExecuteSqlRaw(@"
@@ -325,6 +388,12 @@ BEGIN
     ALTER TABLE dbo.Orders
     ADD TransportTrackingCode NVARCHAR(100) NOT NULL
         CONSTRAINT DF_Orders_TransportTrackingCode DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'TransportTrackingCode') IS NOT NULL
+BEGIN
+    ALTER TABLE dbo.Orders ALTER COLUMN TransportTrackingCode NVARCHAR(100) NOT NULL;
 END;");
 
     db.Database.ExecuteSqlRaw(@"

@@ -17,7 +17,13 @@ const Orders = () => {
     // New states for delivery management
     const [showAssignModal, setShowAssignModal] = useState(false);
     const [showDeliveryModal, setShowDeliveryModal] = useState(false);
-    const [assignData, setAssignData] = useState({ transportUnit: '', trackingCode: '' });
+    const [assignData, setAssignData] = useState({ transportUnit: 'GHN', trackingCode: '' });
+    const hasTransport = (order) =>
+        Boolean(order?.transportUnit && order?.transportTrackingCode);
+    const needsTransport = (order) => {
+        const deliveryStatus = String(order?.deliveryStatus || '');
+        return deliveryStatus && !deliveryStatus.startsWith('Ch') && !hasTransport(order);
+    };
     const [deliveryData, setDeliveryData] = useState({ deliveryStatus: 'Chờ lấy hàng', deliveryDate: '' });
 
     // Load orders
@@ -86,15 +92,21 @@ const Orders = () => {
 
     // Assign transport
     const assignTransport = async (orderId) => {
-        if (!assignData.transportUnit || !assignData.trackingCode) {
+        if (!assignData.transportUnit || !assignData.trackingCode.trim()) {
             setError('Vui lòng nhập đầy đủ thông tin vận chuyển');
             return;
         }
         try {
-            await orderApi.assignTransport(orderId, assignData);
+            const response = await orderApi.assignTransport(orderId, {
+                transportUnit: assignData.transportUnit,
+                trackingCode: assignData.trackingCode.trim()
+            });
             await loadOrders();
+            if (response.data?.order) {
+                setSelectedOrder(response.data.order);
+            }
             setShowAssignModal(false);
-            setAssignData({ transportUnit: '', trackingCode: '' });
+            setAssignData({ transportUnit: 'GHN', trackingCode: '' });
         } catch (err) {
             setError(err.response?.data?.message || 'Failed to assign transport');
         }
@@ -345,7 +357,11 @@ const Orders = () => {
                                                         <td>{formatCurrency(order.totalAmount)}</td>
                                                         <td>{getStatusBadge(order.status)}</td>
                                                         <td>{getPaymentBadge(order.paymentStatus)}</td>
-                                                        <td>{order.transportUnit || '-'}</td>
+                                                        <td>
+                                                            {order.transportUnit || (needsTransport(order) ? (
+                                                                <span className="badge badge-danger">Chưa bàn giao</span>
+                                                            ) : '-')}
+                                                        </td>
                                                         <td>{getDeliveryBadge(order.deliveryStatus)}</td>
                                                         <td>
                                                             <div className="btn-group">
@@ -365,7 +381,6 @@ const Orders = () => {
                                                                         >
                                                                             <option value="Pending">Chờ xử lý</option>
                                                                             <option value="Processing">Đang xử lý</option>
-                                                                            <option value="Completed">Hoàn thành</option>
                                                                         </select>
                                                                         <button
                                                                             className="btn btn-sm btn-success ml-1"
@@ -380,6 +395,10 @@ const Orders = () => {
                                                                         <button
                                                                             className="btn btn-sm btn-primary ml-1"
                                                                             onClick={() => {
+                                                                                if (!hasTransport(order)) {
+                                                                                    setError('Vui lòng giao đơn cho đơn vị vận chuyển trước khi cập nhật trạng thái giao hàng');
+                                                                                    return;
+                                                                                }
                                                                                 setSelectedOrder(order);
                                                                                 setShowDeliveryModal(true);
                                                                             }}
@@ -438,7 +457,14 @@ const Orders = () => {
                                         <h5>Thông tin đơn hàng</h5>
                                         <table className="table table-sm">
                                             <tr><td><strong>Ngày đặt:</strong></td><td>{formatDate(selectedOrder.orderDate)}</td></tr>
-                                            <tr><td><strong>Tổng tiền:</strong></td><td>{formatCurrency(selectedOrder.totalAmount)}</td></tr>
+                                            <tr><td><strong>Tạm tính:</strong></td><td>{formatCurrency(selectedOrder.originalAmount || selectedOrder.totalAmount)}</td></tr>
+                                            {(selectedOrder.discountAmount || 0) > 0 && (
+                                                <>
+                                                    <tr><td><strong>Ưu đãi:</strong></td><td>{selectedOrder.promotionName || `${selectedOrder.discountPercent}% discount`}</td></tr>
+                                                    <tr><td><strong>Giảm giá:</strong></td><td>-{formatCurrency(selectedOrder.discountAmount)}</td></tr>
+                                                </>
+                                            )}
+                                            <tr><td><strong>Tổng thanh toán:</strong></td><td>{formatCurrency(selectedOrder.totalAmount)}</td></tr>
                                             <tr><td><strong>Trạng thái:</strong></td><td>{getStatusBadge(selectedOrder.status)}</td></tr>
                                             <tr><td><strong>Phương thức:</strong></td><td>{selectedOrder.paymentMethodLabel || selectedOrder.paymentMethod}</td></tr>
                                             <tr><td><strong>Thanh toán:</strong></td><td>{getPaymentBadge(selectedOrder.paymentStatus)}</td></tr>
@@ -514,7 +540,6 @@ const Orders = () => {
                                             >
                                                 <option value="Pending">Chờ xử lý</option>
                                                 <option value="Processing">Đang xử lý</option>
-                                                <option value="Completed">Hoàn thành</option>
                                             </select>
                                         </div>
                                         <div className="col-md-3">
@@ -523,7 +548,7 @@ const Orders = () => {
                                             </button>
                                         </div>
                                         <div className="col-md-3">
-                                            <button className="btn btn-primary mt-4" onClick={() => setShowDeliveryModal(true)}>
+                                            <button className="btn btn-primary mt-4" disabled={!hasTransport(selectedOrder)} onClick={() => setShowDeliveryModal(true)}>
                                                 Cập nhật giao hàng
                                             </button>
                                         </div>
@@ -588,6 +613,11 @@ const Orders = () => {
                                 <button className="close" onClick={() => setShowDeliveryModal(false)}>&times;</button>
                             </div>
                             <div className="modal-body">
+                                {!hasTransport(selectedOrder) && (
+                                    <div className="alert alert-warning">
+                                        Vui lòng giao đơn cho đơn vị vận chuyển và nhập mã vận đơn trước khi cập nhật trạng thái giao hàng.
+                                    </div>
+                                )}
                                 <div className="form-group">
                                     <label>Trạng thái giao hàng</label>
                                     <select className="form-control" value={deliveryData.deliveryStatus} onChange={(e) => setDeliveryData({...deliveryData, deliveryStatus: e.target.value})}>
@@ -601,7 +631,7 @@ const Orders = () => {
                             </div>
                             <div className="modal-footer">
                                 <button className="btn btn-secondary" onClick={() => setShowDeliveryModal(false)}>Hủy</button>
-                                <button className="btn btn-primary" onClick={() => updateDeliveryStatus(selectedOrder.id)}>Cập nhật</button>
+                                <button className="btn btn-primary" disabled={!hasTransport(selectedOrder)} onClick={() => updateDeliveryStatus(selectedOrder.id)}>Cập nhật</button>
                             </div>
                         </div>
                     </div>

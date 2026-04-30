@@ -12,6 +12,10 @@ namespace BaseCore.Entities
         public DateTime OrderDate { get; set; } = DateTime.UtcNow;
 
         public decimal TotalAmount { get; set; }
+        public decimal OriginalAmount { get; set; }
+        public decimal DiscountAmount { get; set; }
+        public decimal DiscountPercent { get; set; }
+        public string PromotionName { get; set; } = "";
 
         public string Status { get; set; } = ""; // Pending, Completed, Cancelled
 

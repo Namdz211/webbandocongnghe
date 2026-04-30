@@ -281,9 +281,14 @@
   color: #1f2933;
 }
 
+.admin-stat.danger {
+  background: #dc3545;
+}
+
 .admin-stat h3 {
-  font-size: 38px;
+  font-size: clamp(24px, 3vw, 38px);
   margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .admin-stat p {
@@ -324,6 +329,17 @@
 .admin-row-actions {
   display: flex;
   gap: 6px;
+}
+
+.admin-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.admin-stack span {
+  color: #6c757d;
+  font-size: 12px;
 }
 
 .admin-badge {
@@ -465,6 +481,10 @@
   transform: translateX(-50%);
   width: min(540px, calc(100vw - 30px));
   z-index: 101;
+}
+
+.admin-modal.wide {
+  width: min(1120px, calc(100vw - 30px));
 }
 
 .admin-modal-header {

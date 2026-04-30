@@ -67,11 +67,18 @@ namespace BaseCore.Repository
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.UserId).HasMaxLength(50).IsRequired();
                 entity.Property(e => e.TotalAmount).HasPrecision(18, 2);
+                entity.Property(e => e.OriginalAmount).HasPrecision(18, 2);
+                entity.Property(e => e.DiscountAmount).HasPrecision(18, 2);
+                entity.Property(e => e.DiscountPercent).HasPrecision(5, 2);
+                entity.Property(e => e.PromotionName).HasMaxLength(100).HasDefaultValue("");
                 entity.Property(e => e.ShippingAddress).HasMaxLength(500);
                 entity.Property(e => e.PaymentMethod).HasMaxLength(50).HasDefaultValue("");
                 entity.Property(e => e.PaymentStatus).HasMaxLength(50).HasDefaultValue("");
                 entity.Property(e => e.PaymentCode).HasMaxLength(50).HasDefaultValue("");
                 entity.Property(e => e.PaymentNote).HasMaxLength(500).HasDefaultValue("");
+                entity.Property(e => e.TransportUnit).HasMaxLength(100).HasDefaultValue("");
+                entity.Property(e => e.DeliveryStatus).HasMaxLength(100).HasDefaultValue("Chờ lấy hàng");
+                entity.Property(e => e.TransportTrackingCode).HasMaxLength(100).HasDefaultValue("");
 
                 entity.HasOne(e => e.User)
                       .WithMany()

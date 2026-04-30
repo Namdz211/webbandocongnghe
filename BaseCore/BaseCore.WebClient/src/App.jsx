@@ -9,6 +9,7 @@ import Products from './pages/Products';
 import Users from './pages/Users';
 import Categories from './pages/Categories';
 import Orders from './pages/Orders';
+import Customers from './pages/Customers';
 
 // Wrapper to redirect authenticated users away from login
 const PublicRoute = ({ children }) => {
@@ -88,6 +89,16 @@ function AppRoutes() {
                     <ProtectedRoute adminOnly={true}>
                         <MainLayout>
                             <Orders />
+                        </MainLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/customers"
+                element={
+                    <ProtectedRoute adminOnly={true}>
+                        <MainLayout>
+                            <Customers />
                         </MainLayout>
                     </ProtectedRoute>
                 }
