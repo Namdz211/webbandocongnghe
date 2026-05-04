@@ -18,6 +18,16 @@ const FALLBACK_IMAGES = [
   '/electro/img/macbookneo.png',
 ]
 
+const CATEGORY_FALLBACK_IMAGES = [
+  { keywords: ['dien thoai', 'phone'], image: '/electro/img/product02.png' },
+  { keywords: ['laptop'], image: '/electro/img/product01.png' },
+  { keywords: ['smartwatch', 'watch'], image: '/electro/img/product09.png' },
+  { keywords: ['tablet'], image: '/electro/img/product04.png' },
+]
+
+const REAL_PRODUCT_IMAGE_BASE_URL = 'https://tse.mm.bing.net/th'
+const REAL_PRODUCT_IMAGE_PARAMS = 'w=360&h=360&c=7&rs=1&p=0&dpr=1&pid=1.7&mkt=vi-VN'
+
 const SHOP_IMAGES = [
   '/electro/img/shop01.png',
   '/electro/img/shop02.png',
@@ -220,6 +230,47 @@ function normalizeProductImageUrl(rawImageUrl) {
   return fileName ? `/electro/img/${fileName}` : ''
 }
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function getProductCategoryName(product) {
+  return (
+    product?.category?.name ||
+    product?.categoryName ||
+    (typeof product?.category === 'string' ? product.category : '') ||
+    ''
+  )
+}
+
+function getLocalProductFallback(product) {
+  const categoryName = normalizeSearchText(getProductCategoryName(product))
+  const categoryFallback = CATEGORY_FALLBACK_IMAGES.find((item) =>
+    item.keywords.some((keyword) => categoryName.includes(keyword)),
+  )
+
+  if (categoryFallback) {
+    return categoryFallback.image
+  }
+
+  const fallbackIndex = Number(product?.id || 0) % FALLBACK_IMAGES.length
+  return FALLBACK_IMAGES[fallbackIndex]
+}
+
+function getRealProductImage(product) {
+  const productName = product?.name?.trim()
+
+  if (!productName) {
+    return ''
+  }
+
+  const query = encodeURIComponent(`${productName} official product photo`)
+  return `${REAL_PRODUCT_IMAGE_BASE_URL}?${REAL_PRODUCT_IMAGE_PARAMS}&q=${query}`
+}
+
 function getProductImage(product) {
   const imageUrl = normalizeProductImageUrl(product?.imageUrl)
 
@@ -227,8 +278,18 @@ function getProductImage(product) {
     return imageUrl
   }
 
-  const fallbackIndex = Number(product?.id || 0) % FALLBACK_IMAGES.length
-  return FALLBACK_IMAGES[fallbackIndex]
+  return getRealProductImage(product) || getLocalProductFallback(product)
+}
+
+function handleProductImageError(event, product) {
+  const imageElement = event.currentTarget
+
+  if (imageElement.dataset.fallbackApplied === 'true') {
+    return
+  }
+
+  imageElement.dataset.fallbackApplied = 'true'
+  imageElement.src = getLocalProductFallback(product)
 }
 
 function toOrderStatusLabel(status) {
@@ -771,7 +832,11 @@ function Header({
                           cart.map((item) => (
                             <div className="product-widget" key={item.id}>
                               <div className="product-img">
-                                <img src={getProductImage(item)} alt={item.name} />
+                                <img
+                                  src={getProductImage(item)}
+                                  alt={item.name}
+                                  onError={(event) => handleProductImageError(event, item)}
+                                />
                               </div>
                               <div className="product-body">
                                 <h3 className="product-name">
@@ -969,7 +1034,11 @@ function ProductCard({ product, onNavigate, onAddToCart, onBuyNow }) {
     <div className="col-md-4 col-xs-6" key={product.id}>
       <div className="product">
         <div className="product-img">
-          <img src={getProductImage(product)} alt={product.name} />
+          <img
+            src={getProductImage(product)}
+            alt={product.name}
+            onError={(event) => handleProductImageError(event, product)}
+          />
           <div className="product-label">
             {product.stock < 5 && <span className="sale">Sắp hết</span>}
             <span className="new">Mới</span>
@@ -1161,7 +1230,11 @@ function HomePage({
               <div className="col-md-3 col-sm-6 col-xs-6" key={product.id}>
                 <div className="product-widget">
                   <div className="product-img">
-                    <img src={getProductImage(product)} alt={product.name} />
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
                   </div>
                   <div className="product-body">
                     <p className="product-category">{product.category?.name || 'Sản phẩm'}</p>
@@ -1492,13 +1565,21 @@ function ProductPage({ productId, onNavigate, onAddToCart, onBuyNow }) {
               <div className="row">
                 <div className="col-md-5 col-md-push-2">
                   <div id="product-main-img" className="product-preview">
-                    <img src={getProductImage(product)} alt={product.name} />
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
                   </div>
                 </div>
 
                 <div className="col-md-2 col-md-pull-5">
                   <div id="product-imgs" className="product-preview-nav">
-                    <img src={getProductImage(product)} alt={product.name} />
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
                     <img
                       src={FALLBACK_IMAGES[(Number(product.id) + 1) % FALLBACK_IMAGES.length]}
                       alt={`${product.name} gallery`}
@@ -2412,7 +2493,11 @@ function ProductAdminPage({
                           <tr key={product.id}>
                             <td>
                               <div className="admin-product-cell">
-                                <img src={getProductImage(product)} alt={product.name} />
+                                <img
+                                  src={getProductImage(product)}
+                                  alt={product.name}
+                                  onError={(event) => handleProductImageError(event, product)}
+                                />
                                 <div>
                                   <strong>{product.name}</strong>
                                   <span>{product.description || 'Chưa có mô tả'}</span>

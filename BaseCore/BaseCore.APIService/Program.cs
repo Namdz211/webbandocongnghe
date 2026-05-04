@@ -184,22 +184,22 @@ static void SeedProductCatalog(MySqlDbContext db)
 
     var productSeeds = new[]
     {
-        new Product { Name = "iPhone 15 Pro", Price = 28000000, Stock = 15, Description = "Điện thoại cao cấp với chip A17 Pro, camera tốt và hiệu năng mạnh.", ImageUrl = "/electro/img/product02.png", Category = new Category { Name = "Điện thoại" } },
-        new Product { Name = "Samsung Galaxy S24 Ultra", Price = 26500000, Stock = 12, Description = "Flagship Android với bút S Pen, màn hình lớn và camera zoom sắc nét.", ImageUrl = "/electro/img/product03.png", Category = new Category { Name = "Điện thoại" } },
-        new Product { Name = "Xiaomi 14", Price = 18990000, Stock = 18, Description = "Điện thoại nhỏ gọn, hiệu năng cao, sạc nhanh và camera Leica.", ImageUrl = "/electro/img/product04.png", Category = new Category { Name = "Điện thoại" } },
-        new Product { Name = "OPPO Reno 11 5G", Price = 10990000, Stock = 24, Description = "Mẫu điện thoại tầm trung nổi bật với thiết kế mỏng và chụp chân dung đẹp.", ImageUrl = "/electro/img/product05.png", Category = new Category { Name = "Điện thoại" } },
-        new Product { Name = "Laptop Dell XPS 15", Price = 35000000, Stock = 10, Description = "Laptop màn hình 15 inch, phù hợp cho học tập và công việc nặng.", ImageUrl = "/electro/img/product01.png", Category = new Category { Name = "Laptop" } },
-        new Product { Name = "MacBook Air M3", Price = 31990000, Stock = 14, Description = "Laptop mỏng nhẹ, pin lâu, phù hợp học tập, văn phòng và sáng tạo nội dung.", ImageUrl = "/electro/img/product06.png", Category = new Category { Name = "Laptop" } },
-        new Product { Name = "ASUS ROG Zephyrus G14", Price = 39990000, Stock = 8, Description = "Laptop gaming nhỏ gọn với hiệu năng mạnh cho game và đồ họa.", ImageUrl = "/electro/img/product07.png", Category = new Category { Name = "Laptop" } },
-        new Product { Name = "Lenovo ThinkPad X1 Carbon", Price = 42990000, Stock = 9, Description = "Laptop doanh nhân bền nhẹ, bàn phím tốt và bảo mật cao.", ImageUrl = "/electro/img/product08.png", Category = new Category { Name = "Laptop" } },
-        new Product { Name = "Apple Watch Series 9", Price = 10990000, Stock = 18, Description = "Đồng hồ thông minh theo dõi sức khỏe và thông báo hằng ngày.", ImageUrl = "/electro/img/product06.png", Category = new Category { Name = "Smartwatch" } },
-        new Product { Name = "Samsung Galaxy Watch 6", Price = 7490000, Stock = 20, Description = "Đồng hồ Android theo dõi luyện tập, giấc ngủ và sức khỏe tổng quát.", ImageUrl = "/electro/img/product09.png", Category = new Category { Name = "Smartwatch" } },
-        new Product { Name = "Garmin Venu 3", Price = 10990000, Stock = 11, Description = "Smartwatch thể thao với GPS chính xác và pin dùng nhiều ngày.", ImageUrl = "/electro/img/product01.png", Category = new Category { Name = "Smartwatch" } },
-        new Product { Name = "Xiaomi Watch 2 Pro", Price = 6490000, Stock = 16, Description = "Đồng hồ thông minh Wear OS, hỗ trợ nhiều chế độ luyện tập.", ImageUrl = "/electro/img/product02.png", Category = new Category { Name = "Smartwatch" } },
-        new Product { Name = "iPad Air M2", Price = 18900000, Stock = 14, Description = "Máy tính bảng gọn nhẹ cho học tập, giải trí và ghi chú.", ImageUrl = "/electro/img/product04.png", Category = new Category { Name = "Tablet" } },
-        new Product { Name = "Samsung Galaxy Tab S9", Price = 19990000, Stock = 13, Description = "Tablet Android cao cấp với màn hình AMOLED và bút S Pen.", ImageUrl = "/electro/img/product03.png", Category = new Category { Name = "Tablet" } },
-        new Product { Name = "Xiaomi Pad 6", Price = 8990000, Stock = 22, Description = "Tablet giá tốt với màn hình tần số quét cao và hiệu năng ổn định.", ImageUrl = "/electro/img/product05.png", Category = new Category { Name = "Tablet" } },
-        new Product { Name = "Lenovo Tab P12", Price = 11990000, Stock = 17, Description = "Tablet màn hình lớn phục vụ học online, xem phim và làm việc nhẹ.", ImageUrl = "/electro/img/product07.png", Category = new Category { Name = "Tablet" } },
+        new Product { Name = "iPhone 15 Pro", Price = 28000000, Stock = 15, Description = "Điện thoại cao cấp với chip A17 Pro, camera tốt và hiệu năng mạnh.", ImageUrl = "", Category = new Category { Name = "Điện thoại" } },
+        new Product { Name = "Samsung Galaxy S24 Ultra", Price = 26500000, Stock = 12, Description = "Flagship Android với bút S Pen, màn hình lớn và camera zoom sắc nét.", ImageUrl = "", Category = new Category { Name = "Điện thoại" } },
+        new Product { Name = "Xiaomi 14", Price = 18990000, Stock = 18, Description = "Điện thoại nhỏ gọn, hiệu năng cao, sạc nhanh và camera Leica.", ImageUrl = "", Category = new Category { Name = "Điện thoại" } },
+        new Product { Name = "OPPO Reno 11 5G", Price = 10990000, Stock = 24, Description = "Mẫu điện thoại tầm trung nổi bật với thiết kế mỏng và chụp chân dung đẹp.", ImageUrl = "", Category = new Category { Name = "Điện thoại" } },
+        new Product { Name = "Laptop Dell XPS 15", Price = 35000000, Stock = 10, Description = "Laptop màn hình 15 inch, phù hợp cho học tập và công việc nặng.", ImageUrl = "", Category = new Category { Name = "Laptop" } },
+        new Product { Name = "MacBook Air M3", Price = 31990000, Stock = 14, Description = "Laptop mỏng nhẹ, pin lâu, phù hợp học tập, văn phòng và sáng tạo nội dung.", ImageUrl = "", Category = new Category { Name = "Laptop" } },
+        new Product { Name = "ASUS ROG Zephyrus G14", Price = 39990000, Stock = 8, Description = "Laptop gaming nhỏ gọn với hiệu năng mạnh cho game và đồ họa.", ImageUrl = "", Category = new Category { Name = "Laptop" } },
+        new Product { Name = "Lenovo ThinkPad X1 Carbon", Price = 42990000, Stock = 9, Description = "Laptop doanh nhân bền nhẹ, bàn phím tốt và bảo mật cao.", ImageUrl = "", Category = new Category { Name = "Laptop" } },
+        new Product { Name = "Apple Watch Series 9", Price = 10990000, Stock = 18, Description = "Đồng hồ thông minh theo dõi sức khỏe và thông báo hằng ngày.", ImageUrl = "", Category = new Category { Name = "Smartwatch" } },
+        new Product { Name = "Samsung Galaxy Watch 6", Price = 7490000, Stock = 20, Description = "Đồng hồ Android theo dõi luyện tập, giấc ngủ và sức khỏe tổng quát.", ImageUrl = "", Category = new Category { Name = "Smartwatch" } },
+        new Product { Name = "Garmin Venu 3", Price = 10990000, Stock = 11, Description = "Smartwatch thể thao với GPS chính xác và pin dùng nhiều ngày.", ImageUrl = "", Category = new Category { Name = "Smartwatch" } },
+        new Product { Name = "Xiaomi Watch 2 Pro", Price = 6490000, Stock = 16, Description = "Đồng hồ thông minh Wear OS, hỗ trợ nhiều chế độ luyện tập.", ImageUrl = "", Category = new Category { Name = "Smartwatch" } },
+        new Product { Name = "iPad Air M2", Price = 18900000, Stock = 14, Description = "Máy tính bảng gọn nhẹ cho học tập, giải trí và ghi chú.", ImageUrl = "", Category = new Category { Name = "Tablet" } },
+        new Product { Name = "Samsung Galaxy Tab S9", Price = 19990000, Stock = 13, Description = "Tablet Android cao cấp với màn hình AMOLED và bút S Pen.", ImageUrl = "", Category = new Category { Name = "Tablet" } },
+        new Product { Name = "Xiaomi Pad 6", Price = 8990000, Stock = 22, Description = "Tablet giá tốt với màn hình tần số quét cao và hiệu năng ổn định.", ImageUrl = "", Category = new Category { Name = "Tablet" } },
+        new Product { Name = "Lenovo Tab P12", Price = 11990000, Stock = 17, Description = "Tablet màn hình lớn phục vụ học online, xem phim và làm việc nhẹ.", ImageUrl = "", Category = new Category { Name = "Tablet" } },
     };
 
     var obsoleteProductNames = new HashSet<string>
@@ -248,7 +248,9 @@ static void SeedProductCatalog(MySqlDbContext db)
         product.Stock = seed.Stock;
         product.CategoryId = category.Id;
         product.Description = seed.Description;
-        product.ImageUrl = seed.ImageUrl;
+        product.ImageUrl = string.IsNullOrWhiteSpace(seed.ImageUrl)
+            ? GetProductImageUrl(seed.Name)
+            : seed.ImageUrl.Trim();
     }
 
     db.SaveChanges();
@@ -271,6 +273,15 @@ static void SeedProductCatalog(MySqlDbContext db)
 
     db.Categories.RemoveRange(obsoleteCategories);
     db.SaveChanges();
+}
+
+static string GetProductImageUrl(string productName)
+{
+    const string imageBaseUrl = "https://tse.mm.bing.net/th";
+    const string imageParams = "w=360&h=360&c=7&rs=1&p=0&dpr=1&pid=1.7&mkt=vi-VN";
+    var query = Uri.EscapeDataString($"{productName} official product photo");
+
+    return $"{imageBaseUrl}?{imageParams}&q={query}";
 }
 
 static void EnsureOrderPaymentColumns(MySqlDbContext db)
