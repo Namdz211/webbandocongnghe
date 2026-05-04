@@ -108,6 +108,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<MySqlDbContext>();
     db.Database.EnsureCreated();
     EnsureOrderPaymentColumns(db);
+    EnsureOrderWorkflowColumns(db);
     SeedProductCatalog(db);
 }
 
@@ -286,6 +287,33 @@ END;");
 UPDATE dbo.Orders
 SET PaymentCode = CONCAT(N'LEGACY-', Id)
 WHERE ISNULL(PaymentCode, N'') = N'';");
+}
+
+static void EnsureOrderWorkflowColumns(MySqlDbContext db)
+{
+    db.Database.ExecuteSqlRaw(@"
+IF EXISTS (
+    SELECT 1
+    FROM sys.check_constraints
+    WHERE name = N'CK_Orders_Status'
+        AND parent_object_id = OBJECT_ID(N'dbo.Orders')
+)
+BEGIN
+    ALTER TABLE dbo.Orders DROP CONSTRAINT CK_Orders_Status;
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (
+    SELECT 1
+    FROM sys.check_constraints
+    WHERE name = N'CK_Orders_Status'
+        AND parent_object_id = OBJECT_ID(N'dbo.Orders')
+)
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD CONSTRAINT CK_Orders_Status
+    CHECK (Status IN (N'Pending', N'Confirmed', N'Shipping', N'Completed', N'Cancelled'));
+END;");
 }
 
 

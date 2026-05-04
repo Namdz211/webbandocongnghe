@@ -428,7 +428,7 @@ BEGIN
         PaymentCode NVARCHAR(50) NOT NULL CONSTRAINT DF_Orders_PaymentCode DEFAULT (N''),
         PaymentNote NVARCHAR(500) NOT NULL CONSTRAINT DF_Orders_PaymentNote DEFAULT (N'Thanh toán trực tiếp tại quầy hoặc văn phòng khi đến nhận/xác nhận đơn.'),
         CONSTRAINT FK_Orders_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id),
-        CONSTRAINT CK_Orders_Status CHECK (Status IN (N'Pending', N'Completed', N'Cancelled'))
+        CONSTRAINT CK_Orders_Status CHECK (Status IN (N'Pending', N'Confirmed', N'Shipping', N'Completed', N'Cancelled'))
     );
 
     CREATE INDEX IX_Orders_UserId ON dbo.Orders(UserId);
