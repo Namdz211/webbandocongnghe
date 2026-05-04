@@ -10,6 +10,8 @@ namespace BaseCore.Entities
 
         public string Name { get; set; }
 
+        public string Manufacturer { get; set; } = "";
+
         public decimal Price { get; set; }
 
         public int Stock { get; set; }

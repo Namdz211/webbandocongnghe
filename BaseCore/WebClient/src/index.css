@@ -352,6 +352,43 @@ textarea {
   line-height: 1.8;
 }
 
+.manufacturer-filter-list {
+  max-height: 220px;
+  overflow: auto;
+}
+
+.price-filter-form {
+  display: grid;
+  gap: 10px;
+}
+
+.price-filter-form .input {
+  height: 40px;
+}
+
+.filter-apply-btn {
+  width: 100%;
+}
+
+.filter-clear-link {
+  display: inline-flex;
+  margin-top: 8px;
+  color: #d10024;
+  font-weight: 700;
+}
+
+.product-manufacturer {
+  color: #8d99ae;
+  font-size: 12px;
+  font-weight: 700;
+  margin: -6px 0 8px;
+  text-transform: uppercase;
+}
+
+.detail-manufacturer {
+  margin: 0 0 10px;
+}
+
 .inline-note {
   display: inline-flex;
   align-items: center;
@@ -1331,7 +1368,8 @@ textarea {
   }
 
   .shopee-order-actions .primary-btn,
-  .shopee-order-actions .secondary-btn {
+  .shopee-order-actions .secondary-btn,
+  .shopee-order-actions .danger-btn {
     flex: 1;
   }
 }

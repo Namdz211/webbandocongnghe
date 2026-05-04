@@ -36,10 +36,29 @@ namespace BaseCore.APIService.Controllers
         public async Task<IActionResult> GetAll(
             [FromQuery] string? keyword,
             [FromQuery] int? categoryId,
+            [FromQuery] string? manufacturer,
+            [FromQuery] decimal? minPrice,
+            [FromQuery] decimal? maxPrice,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            var (products, totalCount) = await _productRepository.SearchAsync(keyword, categoryId, page, pageSize);
+            if (minPrice.HasValue && minPrice.Value < 0)
+                return BadRequest(new { message = "Giá tối thiểu không được âm" });
+
+            if (maxPrice.HasValue && maxPrice.Value < 0)
+                return BadRequest(new { message = "Giá tối đa không được âm" });
+
+            if (minPrice.HasValue && maxPrice.HasValue && minPrice.Value > maxPrice.Value)
+                return BadRequest(new { message = "Giá tối thiểu không được lớn hơn giá tối đa" });
+
+            var (products, totalCount) = await _productRepository.SearchAsync(
+                keyword,
+                categoryId,
+                manufacturer,
+                minPrice,
+                maxPrice,
+                page,
+                pageSize);
 
             return Ok(new
             {
@@ -49,6 +68,16 @@ namespace BaseCore.APIService.Controllers
                 pageSize,
                 totalPages = (int)Math.Ceiling((double)totalCount / pageSize)
             });
+        }
+
+        /// <summary>
+        /// Get distinct product manufacturers
+        /// </summary>
+        [HttpGet("manufacturers")]
+        public async Task<IActionResult> GetManufacturers()
+        {
+            var manufacturers = await _productRepository.GetManufacturersAsync();
+            return Ok(manufacturers);
         }
 
         /// <summary>
@@ -83,6 +112,7 @@ namespace BaseCore.APIService.Controllers
             var product = new Product
             {
                 Name = dto.Name.Trim(),
+                Manufacturer = dto.Manufacturer?.Trim() ?? "",
                 Price = dto.Price,
                 Stock = dto.Stock,
                 CategoryId = dto.CategoryId,
@@ -117,6 +147,7 @@ namespace BaseCore.APIService.Controllers
             }
 
             product.Name = dto.Name?.Trim() ?? product.Name;
+            product.Manufacturer = dto.Manufacturer?.Trim() ?? product.Manufacturer;
             product.Price = dto.Price ?? product.Price;
             product.Stock = dto.Stock ?? product.Stock;
             product.CategoryId = dto.CategoryId ?? product.CategoryId;
@@ -175,6 +206,9 @@ namespace BaseCore.APIService.Controllers
             if (dto.Price < 0)
                 return "Giá sản phẩm không được âm";
 
+            if (dto.Manufacturer?.Length > 100)
+                return "Hang san xuat khong duoc vuot qua 100 ky tu";
+
             if (dto.Stock < 0)
                 return "Tồn kho không được âm";
 
@@ -195,6 +229,9 @@ namespace BaseCore.APIService.Controllers
             if (dto.Price.HasValue && dto.Price.Value < 0)
                 return "Giá sản phẩm không được âm";
 
+            if (dto.Manufacturer?.Length > 100)
+                return "Hang san xuat khong duoc vuot qua 100 ky tu";
+
             if (dto.Stock.HasValue && dto.Stock.Value < 0)
                 return "Tồn kho không được âm";
 
@@ -209,6 +246,7 @@ namespace BaseCore.APIService.Controllers
     public class ProductCreateDto
     {
         public string Name { get; set; } = "";
+        public string? Manufacturer { get; set; }
         public decimal Price { get; set; }
         public int Stock { get; set; }
         public int CategoryId { get; set; }
@@ -219,6 +257,7 @@ namespace BaseCore.APIService.Controllers
     public class ProductUpdateDto
     {
         public string? Name { get; set; }
+        public string? Manufacturer { get; set; }
         public decimal? Price { get; set; }
         public int? Stock { get; set; }
         public int? CategoryId { get; set; }

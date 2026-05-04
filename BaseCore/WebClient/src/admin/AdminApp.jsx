@@ -656,6 +656,7 @@ function Products({ auth, onDataChanged }) {
   const [error, setError] = useState('')
   const [formData, setFormData] = useState({
     name: '',
+    manufacturer: '',
     price: 0,
     stock: 0,
     description: '',
@@ -690,6 +691,7 @@ function Products({ auth, onDataChanged }) {
       product
         ? {
             name: product.name || '',
+            manufacturer: product.manufacturer || '',
             price: product.price || 0,
             stock: product.stock || 0,
             description: product.description || '',
@@ -698,6 +700,7 @@ function Products({ auth, onDataChanged }) {
           }
         : {
             name: '',
+            manufacturer: '',
             price: 0,
             stock: 0,
             description: '',
@@ -782,10 +785,11 @@ function Products({ auth, onDataChanged }) {
         ) : (
           <DataTable
             emptyText="No products found"
-            headers={['ID', 'Name', 'Category', 'Price', 'Stock', 'Actions']}
+            headers={['ID', 'Name', 'Manufacturer', 'Category', 'Price', 'Stock', 'Actions']}
             rows={products.map((product) => [
               product.id,
               product.name,
+              product.manufacturer || 'N/A',
               product.category?.name || categories.find((category) => category.id === product.categoryId)?.name || '',
               formatCurrency(product.price),
               product.stock,
@@ -815,6 +819,7 @@ function ProductForm({ categories, error, formData, setFormData, onSubmit, submi
     <form onSubmit={onSubmit}>
       {error && <div className="admin-alert danger">{error}</div>}
       <FormInput label="Name" value={formData.name} onChange={(value) => setFormData({ ...formData, name: value })} required />
+      <FormInput label="Manufacturer" value={formData.manufacturer} onChange={(value) => setFormData({ ...formData, manufacturer: value })} />
       <label className="admin-label">Category</label>
       <select className="admin-control" value={formData.categoryId} onChange={(event) => setFormData({ ...formData, categoryId: event.target.value })} required>
         <option value="">Select Category</option>

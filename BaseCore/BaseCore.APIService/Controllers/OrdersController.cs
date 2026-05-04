@@ -307,25 +307,46 @@ namespace BaseCore.APIService.Controllers
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
             if (!CanAccessOrder(order)) return Forbid();
 
-            if (string.Equals(order.Status, CompletedStatus, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(order.Status, ShippingStatus, StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new { message = "Không thể hủy đơn hàng đã hoàn thành hoặc đang giao" });
+            if (!string.Equals(order.Status, PendingStatus, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Chỉ có thể hủy đơn hàng đang chờ admin xác nhận" });
 
-            var details = await _orderDetailRepository.GetByOrderAsync(id);
-            foreach (var detail in details)
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
             {
-                var product = await _productRepository.GetByIdAsync(detail.ProductId);
-                if (product != null)
+                var updatedRows = await _dbContext.Orders
+                    .Where(currentOrder => currentOrder.Id == id && currentOrder.Status == PendingStatus)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(
+                        currentOrder => currentOrder.Status,
+                        CancelledStatus));
+
+                if (updatedRows == 0)
                 {
-                    product.Stock += detail.Quantity;
-                    await _productRepository.UpdateAsync(product);
+                    await transaction.RollbackAsync();
+                    return BadRequest(new { message = "Chỉ có thể hủy đơn hàng đang chờ admin xác nhận" });
                 }
+
+                var details = await _orderDetailRepository.GetByOrderAsync(id);
+                foreach (var detail in details)
+                {
+                    var product = await _productRepository.GetByIdAsync(detail.ProductId);
+                    if (product != null)
+                    {
+                        product.Stock += detail.Quantity;
+                        await _productRepository.UpdateAsync(product);
+                    }
+                }
+
+                await transaction.CommitAsync();
+
+                order.Status = CancelledStatus;
+                return Ok(new { message = "Đã hủy đơn hàng", order = ToOrderResponse(order) });
             }
-
-            order.Status = CancelledStatus;
-            await _orderRepository.UpdateAsync(order);
-
-            return Ok(new { message = "Đã hủy đơn hàng", order = ToOrderResponse(order) });
+            catch (DbUpdateException)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(new { message = "Không hủy được đơn hàng. Vui lòng thử lại." });
+            }
         }
 
         private static object ToOrderResponse(Order order)
@@ -346,7 +367,8 @@ namespace BaseCore.APIService.Controllers
                 order.PaymentCode,
                 order.PaymentNote,
                 DeliveryMessage = IsShippingStatus(order.Status) ? DeliveryMessage : null,
-                CanCustomerConfirmReceived = IsShippingStatus(order.Status)
+                CanCustomerConfirmReceived = IsShippingStatus(order.Status),
+                CanCustomerCancel = IsPendingStatus(order.Status)
             };
         }
 
@@ -358,6 +380,11 @@ namespace BaseCore.APIService.Controllers
         private static bool IsShippingStatus(string status)
         {
             return string.Equals(status, ShippingStatus, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsPendingStatus(string status)
+        {
+            return string.Equals(status, PendingStatus, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string GetPaymentMethodLabel(string paymentMethod)
@@ -421,6 +448,7 @@ namespace BaseCore.APIService.Controllers
                     {
                         detail.Product.Id,
                         detail.Product.Name,
+                        detail.Product.Manufacturer,
                         detail.Product.Price,
                         detail.Product.ImageUrl,
                         detail.Product.Description,

@@ -41,9 +41,16 @@ namespace BaseCore.Services
             }
         }
 
-        public async Task<(List<Product> Products, int TotalCount)> SearchAsync(string keyword, int? categoryId, int page, int pageSize)
+        public async Task<(List<Product> Products, int TotalCount)> SearchAsync(
+            string keyword,
+            int? categoryId,
+            string manufacturer,
+            decimal? minPrice,
+            decimal? maxPrice,
+            int page,
+            int pageSize)
         {
-            return await _productRepository.SearchAsync(keyword, categoryId, page, pageSize);
+            return await _productRepository.SearchAsync(keyword, categoryId, manufacturer, minPrice, maxPrice, page, pageSize);
         }
     }
 }

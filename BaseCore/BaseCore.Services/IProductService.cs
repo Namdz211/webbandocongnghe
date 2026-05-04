@@ -11,6 +11,13 @@ namespace BaseCore.Services
         Task<Product> CreateProductAsync(Product product);
         Task UpdateProductAsync(Product product);
         Task DeleteProductAsync(int id);
-        Task<(List<Product> Products, int TotalCount)> SearchAsync(string keyword, int? categoryId, int page, int pageSize);
+        Task<(List<Product> Products, int TotalCount)> SearchAsync(
+            string keyword,
+            int? categoryId,
+            string manufacturer,
+            decimal? minPrice,
+            decimal? maxPrice,
+            int page,
+            int pageSize);
     }
 }

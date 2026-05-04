@@ -400,6 +400,7 @@ BEGIN
     (
         Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Products PRIMARY KEY,
         Name NVARCHAR(200) NOT NULL,
+        Manufacturer NVARCHAR(100) NOT NULL CONSTRAINT DF_Products_Manufacturer DEFAULT (N''),
         Price DECIMAL(18,2) NOT NULL,
         Stock INT NOT NULL CONSTRAINT DF_Products_Stock DEFAULT ((0)),
         ImageUrl NVARCHAR(500) NOT NULL CONSTRAINT DF_Products_ImageUrl DEFAULT (N''),
@@ -410,6 +411,17 @@ BEGIN
 
     CREATE INDEX IX_Products_CategoryId ON dbo.Products(CategoryId);
     CREATE INDEX IX_Products_Name ON dbo.Products(Name);
+    CREATE INDEX IX_Products_Manufacturer ON dbo.Products(Manufacturer);
+END
+GO
+
+IF COL_LENGTH(N'dbo.Products', N'Manufacturer') IS NULL
+BEGIN
+    ALTER TABLE dbo.Products
+    ADD Manufacturer NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Products_Manufacturer DEFAULT (N'');
+
+    CREATE INDEX IX_Products_Manufacturer ON dbo.Products(Manufacturer);
 END
 GO
 
@@ -830,6 +842,7 @@ GO
 DECLARE @ProductSeeds TABLE
 (
     Name NVARCHAR(200) NOT NULL,
+    Manufacturer NVARCHAR(100) NOT NULL,
     Price DECIMAL(18, 2) NOT NULL,
     Stock INT NOT NULL,
     CategoryName NVARCHAR(100) NOT NULL,
@@ -837,24 +850,24 @@ DECLARE @ProductSeeds TABLE
     ImageUrl NVARCHAR(500) NOT NULL
 );
 
-INSERT INTO @ProductSeeds (Name, Price, Stock, CategoryName, Description, ImageUrl)
+INSERT INTO @ProductSeeds (Name, Manufacturer, Price, Stock, CategoryName, Description, ImageUrl)
 VALUES
-    (N'iPhone 15 Pro', 28000000, 15, N'Điện thoại', N'Điện thoại cao cấp với chip A17 Pro, camera tốt và hiệu năng mạnh.', N''),
-    (N'Samsung Galaxy S24 Ultra', 26500000, 12, N'Điện thoại', N'Flagship Android với bút S Pen, màn hình lớn và camera zoom sắc nét.', N''),
-    (N'Xiaomi 14', 18990000, 18, N'Điện thoại', N'Điện thoại nhỏ gọn, hiệu năng cao, sạc nhanh và camera Leica.', N''),
-    (N'OPPO Reno 11 5G', 10990000, 24, N'Điện thoại', N'Mẫu điện thoại tầm trung nổi bật với thiết kế mỏng và chụp chân dung đẹp.', N''),
-    (N'Laptop Dell XPS 15', 35000000, 10, N'Laptop', N'Laptop màn hình 15 inch, phù hợp cho học tập và công việc nặng.', N''),
-    (N'MacBook Air M3', 31990000, 14, N'Laptop', N'Laptop mỏng nhẹ, pin lâu, phù hợp học tập, văn phòng và sáng tạo nội dung.', N''),
-    (N'ASUS ROG Zephyrus G14', 39990000, 8, N'Laptop', N'Laptop gaming nhỏ gọn với hiệu năng mạnh cho game và đồ họa.', N''),
-    (N'Lenovo ThinkPad X1 Carbon', 42990000, 9, N'Laptop', N'Laptop doanh nhân bền nhẹ, bàn phím tốt và bảo mật cao.', N''),
-    (N'Apple Watch Series 9', 10990000, 18, N'Smartwatch', N'Đồng hồ thông minh theo dõi sức khỏe và thông báo hằng ngày.', N''),
-    (N'Samsung Galaxy Watch 6', 7490000, 20, N'Smartwatch', N'Đồng hồ Android theo dõi luyện tập, giấc ngủ và sức khỏe tổng quát.', N''),
-    (N'Garmin Venu 3', 10990000, 11, N'Smartwatch', N'Smartwatch thể thao với GPS chính xác và pin dùng nhiều ngày.', N''),
-    (N'Xiaomi Watch 2 Pro', 6490000, 16, N'Smartwatch', N'Đồng hồ thông minh Wear OS, hỗ trợ nhiều chế độ luyện tập.', N''),
-    (N'iPad Air M2', 18900000, 14, N'Tablet', N'Máy tính bảng gọn nhẹ cho học tập, giải trí và ghi chú.', N''),
-    (N'Samsung Galaxy Tab S9', 19990000, 13, N'Tablet', N'Tablet Android cao cấp với màn hình AMOLED và bút S Pen.', N''),
-    (N'Xiaomi Pad 6', 8990000, 22, N'Tablet', N'Tablet giá tốt với màn hình tần số quét cao và hiệu năng ổn định.', N''),
-    (N'Lenovo Tab P12', 11990000, 17, N'Tablet', N'Tablet màn hình lớn phục vụ học online, xem phim và làm việc nhẹ.', N'');
+    (N'iPhone 15 Pro', N'Apple', 28000000, 15, N'Điện thoại', N'Điện thoại cao cấp với chip A17 Pro, camera tốt và hiệu năng mạnh.', N''),
+    (N'Samsung Galaxy S24 Ultra', N'Samsung', 26500000, 12, N'Điện thoại', N'Flagship Android với bút S Pen, màn hình lớn và camera zoom sắc nét.', N''),
+    (N'Xiaomi 14', N'Xiaomi', 18990000, 18, N'Điện thoại', N'Điện thoại nhỏ gọn, hiệu năng cao, sạc nhanh và camera Leica.', N''),
+    (N'OPPO Reno 11 5G', N'OPPO', 10990000, 24, N'Điện thoại', N'Mẫu điện thoại tầm trung nổi bật với thiết kế mỏng và chụp chân dung đẹp.', N''),
+    (N'Laptop Dell XPS 15', N'Dell', 35000000, 10, N'Laptop', N'Laptop màn hình 15 inch, phù hợp cho học tập và công việc nặng.', N''),
+    (N'MacBook Air M3', N'Apple', 31990000, 14, N'Laptop', N'Laptop mỏng nhẹ, pin lâu, phù hợp học tập, văn phòng và sáng tạo nội dung.', N''),
+    (N'ASUS ROG Zephyrus G14', N'ASUS', 39990000, 8, N'Laptop', N'Laptop gaming nhỏ gọn với hiệu năng mạnh cho game và đồ họa.', N''),
+    (N'Lenovo ThinkPad X1 Carbon', N'Lenovo', 42990000, 9, N'Laptop', N'Laptop doanh nhân bền nhẹ, bàn phím tốt và bảo mật cao.', N''),
+    (N'Apple Watch Series 9', N'Apple', 10990000, 18, N'Smartwatch', N'Đồng hồ thông minh theo dõi sức khỏe và thông báo hằng ngày.', N''),
+    (N'Samsung Galaxy Watch 6', N'Samsung', 7490000, 20, N'Smartwatch', N'Đồng hồ Android theo dõi luyện tập, giấc ngủ và sức khỏe tổng quát.', N''),
+    (N'Garmin Venu 3', N'Garmin', 10990000, 11, N'Smartwatch', N'Smartwatch thể thao với GPS chính xác và pin dùng nhiều ngày.', N''),
+    (N'Xiaomi Watch 2 Pro', N'Xiaomi', 6490000, 16, N'Smartwatch', N'Đồng hồ thông minh Wear OS, hỗ trợ nhiều chế độ luyện tập.', N''),
+    (N'iPad Air M2', N'Apple', 18900000, 14, N'Tablet', N'Máy tính bảng gọn nhẹ cho học tập, giải trí và ghi chú.', N''),
+    (N'Samsung Galaxy Tab S9', N'Samsung', 19990000, 13, N'Tablet', N'Tablet Android cao cấp với màn hình AMOLED và bút S Pen.', N''),
+    (N'Xiaomi Pad 6', N'Xiaomi', 8990000, 22, N'Tablet', N'Tablet giá tốt với màn hình tần số quét cao và hiệu năng ổn định.', N''),
+    (N'Lenovo Tab P12', N'Lenovo', 11990000, 17, N'Tablet', N'Tablet màn hình lớn phục vụ học online, xem phim và làm việc nhẹ.', N'');
 
 UPDATE @ProductSeeds
 SET ImageUrl = CONCAT(
@@ -901,6 +914,7 @@ WHERE NOT EXISTS
 UPDATE p
 SET
     p.Price = ps.Price,
+    p.Manufacturer = ps.Manufacturer,
     p.Stock = ps.Stock,
     p.CategoryId = c.Id,
     p.Description = ps.Description,
@@ -911,9 +925,10 @@ INNER JOIN @ProductSeeds ps
 INNER JOIN dbo.Categories c
     ON c.Name = ps.CategoryName;
 
-INSERT INTO dbo.Products (Name, Price, Stock, CategoryId, Description, ImageUrl)
+INSERT INTO dbo.Products (Name, Manufacturer, Price, Stock, CategoryId, Description, ImageUrl)
 SELECT
     ps.Name,
+    ps.Manufacturer,
     ps.Price,
     ps.Stock,
     c.Id,

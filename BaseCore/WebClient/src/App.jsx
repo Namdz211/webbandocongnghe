@@ -316,6 +316,9 @@ function isAdmin(auth) {
 function buildStorePath({
   keyword = '',
   categoryId = '',
+  manufacturer = '',
+  minPrice = '',
+  maxPrice = '',
   page = 1,
 } = {}) {
   const params = new URLSearchParams()
@@ -327,6 +330,18 @@ function buildStorePath({
 
   if (categoryId) {
     params.set('categoryId', String(categoryId))
+  }
+
+  if (manufacturer) {
+    params.set('manufacturer', String(manufacturer))
+  }
+
+  if (minPrice) {
+    params.set('minPrice', String(minPrice))
+  }
+
+  if (maxPrice) {
+    params.set('maxPrice', String(maxPrice))
   }
 
   if (page > 1) {
@@ -454,6 +469,7 @@ function toQueryString(params = {}) {
 
 const api = {
   getCategories: () => request('/categories'),
+  getManufacturers: () => request('/products/manufacturers'),
   getProducts: (params = {}) =>
     request(`/products?${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),
@@ -506,6 +522,11 @@ const api = {
     }),
   confirmOrderReceived: (id, token) =>
     request(`/orders/${id}/received`, {
+      method: 'PUT',
+      token,
+    }),
+  cancelOrder: (id, token) =>
+    request(`/orders/${id}/cancel`, {
       method: 'PUT',
       token,
     }),
@@ -1046,6 +1067,9 @@ function ProductCard({ product, onNavigate, onAddToCart, onBuyNow }) {
         </div>
         <div className="product-body">
           <p className="product-category">{product.category?.name || 'Sản phẩm'}</p>
+          {product.manufacturer && (
+            <p className="product-manufacturer">{product.manufacturer}</p>
+          )}
           <h3 className="product-name">
             <LinkButton to={`/product/${product.id}`} onNavigate={onNavigate}>
               {product.name}
@@ -1259,12 +1283,44 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [products, setProducts] = useState([])
+  const [manufacturers, setManufacturers] = useState([])
+  const [priceFilter, setPriceFilter] = useState({ minPrice: '', maxPrice: '' })
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
 
   const currentPage = Math.max(1, Number(route.query.page || 1))
   const keyword = route.query.keyword || ''
   const categoryId = route.query.categoryId || ''
+  const manufacturer = route.query.manufacturer || ''
+  const minPrice = route.query.minPrice || ''
+  const maxPrice = route.query.maxPrice || ''
+
+  useEffect(() => {
+    setPriceFilter({ minPrice, maxPrice })
+  }, [minPrice, maxPrice])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadManufacturers() {
+      try {
+        const response = await api.getManufacturers()
+        if (!cancelled) {
+          setManufacturers(Array.isArray(response) ? response : [])
+        }
+      } catch {
+        if (!cancelled) {
+          setManufacturers([])
+        }
+      }
+    }
+
+    loadManufacturers()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -1277,6 +1333,9 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
         const response = await api.getProducts({
           keyword,
           categoryId,
+          manufacturer,
+          minPrice,
+          maxPrice,
           page: currentPage,
           pageSize: 9,
         })
@@ -1304,7 +1363,20 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
     return () => {
       cancelled = true
     }
-  }, [categoryId, currentPage, keyword])
+  }, [categoryId, currentPage, keyword, manufacturer, minPrice, maxPrice])
+
+  function applyPriceFilter(event) {
+    event.preventDefault()
+
+    onNavigate(buildStorePath({
+      keyword,
+      categoryId,
+      manufacturer,
+      minPrice: priceFilter.minPrice,
+      maxPrice: priceFilter.maxPrice,
+      page: 1,
+    }))
+  }
 
   return (
     <>
@@ -1336,7 +1408,7 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
                   <div className="input-checkbox">
                     <label className={!categoryId ? 'is-selected' : ''}>
                       <LinkButton
-                        to={buildStorePath({ keyword })}
+                        to={buildStorePath({ keyword, manufacturer, minPrice, maxPrice })}
                         onNavigate={onNavigate}
                       >
                         Tất cả sản phẩm
@@ -1354,6 +1426,9 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
                           to={buildStorePath({
                             keyword,
                             categoryId: category.id,
+                            manufacturer,
+                            minPrice,
+                            maxPrice,
                           })}
                           onNavigate={onNavigate}
                         >
@@ -1366,14 +1441,96 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
               </div>
 
               <div className="aside">
+                <h3 className="aside-title">{'H\u00e3ng'}</h3>
+                <div className="checkbox-filter category-filter-list manufacturer-filter-list">
+                  <div className="input-checkbox">
+                    <label className={!manufacturer ? 'is-selected' : ''}>
+                      <LinkButton
+                        to={buildStorePath({ keyword, categoryId, minPrice, maxPrice })}
+                        onNavigate={onNavigate}
+                      >
+                        {'T\u1ea5t c\u1ea3 h\u00e3ng'}
+                      </LinkButton>
+                    </label>
+                  </div>
+                  {manufacturers.map((item) => (
+                    <div className="input-checkbox" key={item}>
+                      <label className={manufacturer === item ? 'is-selected' : ''}>
+                        <LinkButton
+                          to={buildStorePath({
+                            keyword,
+                            categoryId,
+                            manufacturer: item,
+                            minPrice,
+                            maxPrice,
+                          })}
+                          onNavigate={onNavigate}
+                        >
+                          {item}
+                        </LinkButton>
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="aside">
+                <h3 className="aside-title">{'Kho\u1ea3ng gi\u00e1'}</h3>
+                <form className="price-filter-form" onSubmit={applyPriceFilter}>
+                  <input
+                    className="input"
+                    min="0"
+                    placeholder={'Gi\u00e1 t\u1eeb'}
+                    type="number"
+                    value={priceFilter.minPrice}
+                    onChange={(event) =>
+                      setPriceFilter((current) => ({
+                        ...current,
+                        minPrice: event.target.value,
+                      }))
+                    }
+                  />
+                  <input
+                    className="input"
+                    min="0"
+                    placeholder={'Gi\u00e1 \u0111\u1ebfn'}
+                    type="number"
+                    value={priceFilter.maxPrice}
+                    onChange={(event) =>
+                      setPriceFilter((current) => ({
+                        ...current,
+                        maxPrice: event.target.value,
+                      }))
+                    }
+                  />
+                  <button className="primary-btn filter-apply-btn" type="submit">
+                    {'L\u1ecdc'}
+                  </button>
+                </form>
+              </div>
+
+              <div className="aside">
                 <h3 className="aside-title">Thông tin bộ lọc</h3>
                 <div className="category-filter-note">
                   <p>
                     Từ khóa: <strong>{keyword || 'Không có'}</strong>
                   </p>
                   <p>
+                    <span>{'H\u00e3ng'}: </span><strong>{manufacturer || 'T\u1ea5t c\u1ea3'}</strong>
+                  </p>
+                  <p>
+                    <span>{'Gi\u00e1'}: </span><strong>{minPrice || '0'} - {maxPrice || 'kh\u00f4ng gi\u1edbi h\u1ea1n'}</strong>
+                  </p>
+                  <p>
                     Tổng kết quả: <strong>{totalCount}</strong>
                   </p>
+                  <LinkButton
+                    className="filter-clear-link"
+                    to={buildStorePath({ keyword })}
+                    onNavigate={onNavigate}
+                  >
+                    {'X\u00f3a b\u1ed9 l\u1ecdc'}
+                  </LinkButton>
                 </div>
               </div>
             </div>
@@ -1423,6 +1580,9 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
                           buildStorePath({
                             keyword,
                             categoryId,
+                            manufacturer,
+                            minPrice,
+                            maxPrice,
                             page: currentPage - 1,
                           }),
                         )
@@ -1441,7 +1601,7 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
                           type="button"
                           onClick={() =>
                             onNavigate(
-                              buildStorePath({ keyword, categoryId, page }),
+                              buildStorePath({ keyword, categoryId, manufacturer, minPrice, maxPrice, page }),
                             )
                           }
                         >
@@ -1458,6 +1618,9 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
                           buildStorePath({
                             keyword,
                             categoryId,
+                            manufacturer,
+                            minPrice,
+                            maxPrice,
                             page: currentPage + 1,
                           }),
                         )
@@ -1594,6 +1757,11 @@ function ProductPage({ productId, onNavigate, onAddToCart, onBuyNow }) {
                 <div className="col-md-5">
                   <div className="product-details">
                     <h2 className="product-name">{product.name}</h2>
+                    {product.manufacturer && (
+                      <p className="product-manufacturer detail-manufacturer">
+                        <span>{'H\u00e3ng'}: </span>{product.manufacturer}
+                      </p>
+                    )}
                     <div>
                       <div className="product-rating">
                         <i className="fa fa-star" />
@@ -1981,6 +2149,36 @@ function OrdersPage({ auth, onNavigate, onNotify }) {
     }
   }
 
+  async function cancelOrder(orderId) {
+    if (!authToken) {
+      onNavigate('/login?redirect=/orders')
+      return
+    }
+
+    const confirmed = window.confirm(
+      'B\u1ea1n c\u00f3 ch\u1eafc mu\u1ed1n h\u1ee7y \u0111\u01a1n h\u00e0ng n\u00e0y kh\u00f4ng?',
+    )
+
+    if (!confirmed) {
+      return
+    }
+
+    setUpdatingOrderId(orderId)
+    setError('')
+
+    try {
+      const response = await api.cancelOrder(orderId, authToken)
+      const refreshedOrders = await fetchOrdersWithDetails()
+      setOrders(refreshedOrders)
+      onNotify?.('success', response?.message || '\u0110\u00e3 h\u1ee7y \u0111\u01a1n h\u00e0ng.')
+    } catch (requestError) {
+      setError(requestError.message)
+      onNotify?.('error', requestError.message)
+    } finally {
+      setUpdatingOrderId(null)
+    }
+  }
+
   const filteredOrders = selectedOrderStatus === 'all'
     ? orders
     : orders.filter((order) => (order.status || '').toLowerCase() === selectedOrderStatus)
@@ -2052,6 +2250,8 @@ function OrdersPage({ auth, onNavigate, onNotify }) {
                 <div className="order-list">
                   {filteredOrders.map((order) => {
                     const details = Array.isArray(order.details) ? order.details : []
+                    const orderStatus = (order.status || '').toLowerCase()
+                    const canCancelOrder = order.canCustomerCancel || orderStatus === 'pending'
 
                     return (
                       <article className="order-card shopee-order-card" key={order.id}>
@@ -2129,7 +2329,17 @@ function OrdersPage({ auth, onNavigate, onNotify }) {
                             <strong>{formatCurrency(order.totalAmount)}</strong>
                           </div>
                           <div className="shopee-order-actions">
-                            {(order.canCustomerConfirmReceived || (order.status || '').toLowerCase() === 'shipping') && (
+                            {canCancelOrder && (
+                              <button
+                                className="danger-btn"
+                                type="button"
+                                disabled={updatingOrderId === order.id}
+                                onClick={() => cancelOrder(order.id)}
+                              >
+                                {updatingOrderId === order.id ? '\u0110ang h\u1ee7y...' : 'H\u1ee7y \u0111\u01a1n'}
+                              </button>
+                            )}
+                            {(order.canCustomerConfirmReceived || orderStatus === 'shipping') && (
                               <button
                                 className="primary-btn"
                                 type="button"
@@ -2163,6 +2373,7 @@ function OrdersPage({ auth, onNavigate, onNotify }) {
 
 const EMPTY_PRODUCT_FORM = {
   name: '',
+  manufacturer: '',
   price: '',
   stock: '',
   categoryId: '',
@@ -2265,6 +2476,7 @@ function ProductAdminPage({
 
     const payload = {
       name: formData.name.trim(),
+      manufacturer: formData.manufacturer.trim(),
       price: Number(formData.price),
       stock: Number(formData.stock),
       categoryId: Number(formData.categoryId),
@@ -2303,6 +2515,7 @@ function ProductAdminPage({
     setEditingProductId(product.id)
     setFormData({
       name: product.name || '',
+      manufacturer: product.manufacturer || '',
       price: String(product.price ?? ''),
       stock: String(product.stock ?? ''),
       categoryId: String(product.categoryId || product.category?.id || ''),
@@ -2404,6 +2617,12 @@ function ProductAdminPage({
                   onChange={(event) => changeField('name', event.target.value)}
                   required
                 />
+                <input
+                  className="input"
+                  placeholder={'H\u00e3ng s\u1ea3n xu\u1ea5t'}
+                  value={formData.manufacturer}
+                  onChange={(event) => changeField('manufacturer', event.target.value)}
+                />
                 <div className="admin-form-grid">
                   <input
                     className="input"
@@ -2482,6 +2701,7 @@ function ProductAdminPage({
                       <thead>
                         <tr>
                           <th>Sản phẩm</th>
+                          <th>{'H\u00e3ng'}</th>
                           <th>Danh mục</th>
                           <th>Giá</th>
                           <th>Tồn kho</th>
@@ -2504,6 +2724,7 @@ function ProductAdminPage({
                                 </div>
                               </div>
                             </td>
+                            <td>{product.manufacturer || 'N/A'}</td>
                             <td>{getCategoryName(product)}</td>
                             <td>{formatCurrency(product.price)}</td>
                             <td>{product.stock}</td>
@@ -3099,6 +3320,7 @@ function App() {
         {
           id: product.id,
           name: product.name,
+          manufacturer: product.manufacturer || '',
           price: product.price,
           quantity: Math.min(safeQuantity, Math.max(1, product.stock || safeQuantity)),
           imageUrl: product.imageUrl,
@@ -3383,7 +3605,7 @@ function App() {
   return (
     <div className="app-shell">
       <Header
-        key={`${route.pathname}?keyword=${route.query.keyword || ''}&categoryId=${route.query.categoryId || ''}`}
+        key={`${route.pathname}?keyword=${route.query.keyword || ''}&categoryId=${route.query.categoryId || ''}&manufacturer=${route.query.manufacturer || ''}&minPrice=${route.query.minPrice || ''}&maxPrice=${route.query.maxPrice || ''}`}
         auth={auth}
         cart={cart}
         categories={categories}
