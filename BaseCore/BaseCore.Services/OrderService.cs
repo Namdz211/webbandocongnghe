@@ -72,7 +72,7 @@ namespace BaseCore.Services
             order.TransportUnit = normalizedTransportUnit;
             order.TransportTrackingCode = normalizedTrackingCode;
             order.DeliveryStatus = "Đã giao đơn vị vận chuyển";
-            order.Status = "Processing";
+            order.Status = "Shipping";
 
             await _orderRepository.UpdateAsync(order);
         }
@@ -99,7 +99,7 @@ namespace BaseCore.Services
             }
             else if (string.Equals(order.Status, "Completed", StringComparison.OrdinalIgnoreCase))
             {
-                order.Status = "Processing";
+                order.Status = "Shipping";
             }
 
             await _orderRepository.UpdateAsync(order);

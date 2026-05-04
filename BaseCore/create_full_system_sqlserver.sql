@@ -428,7 +428,7 @@ BEGIN
         PaymentCode NVARCHAR(50) NOT NULL CONSTRAINT DF_Orders_PaymentCode DEFAULT (N''),
         PaymentNote NVARCHAR(500) NOT NULL CONSTRAINT DF_Orders_PaymentNote DEFAULT (N'Thanh toán trực tiếp tại quầy hoặc văn phòng khi đến nhận/xác nhận đơn.'),
         CONSTRAINT FK_Orders_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id),
-        CONSTRAINT CK_Orders_Status CHECK (Status IN (N'Pending', N'Processing', N'Completed', N'Cancelled'))
+        CONSTRAINT CK_Orders_Status CHECK (Status IN (N'Pending', N'Confirmed', N'Shipping', N'Completed', N'Cancelled'))
     );
 
     CREATE INDEX IX_Orders_UserId ON dbo.Orders(UserId);
@@ -839,22 +839,30 @@ DECLARE @ProductSeeds TABLE
 
 INSERT INTO @ProductSeeds (Name, Price, Stock, CategoryName, Description, ImageUrl)
 VALUES
-    (N'iPhone 15 Pro', 28000000, 15, N'Điện thoại', N'Điện thoại cao cấp với chip A17 Pro, camera tốt và hiệu năng mạnh.', N'/electro/img/product02.png'),
-    (N'Samsung Galaxy S24 Ultra', 26500000, 12, N'Điện thoại', N'Flagship Android với bút S Pen, màn hình lớn và camera zoom sắc nét.', N'/electro/img/product03.png'),
-    (N'Xiaomi 14', 18990000, 18, N'Điện thoại', N'Điện thoại nhỏ gọn, hiệu năng cao, sạc nhanh và camera Leica.', N'/electro/img/product04.png'),
-    (N'OPPO Reno 11 5G', 10990000, 24, N'Điện thoại', N'Mẫu điện thoại tầm trung nổi bật với thiết kế mỏng và chụp chân dung đẹp.', N'/electro/img/product05.png'),
-    (N'Laptop Dell XPS 15', 35000000, 10, N'Laptop', N'Laptop màn hình 15 inch, phù hợp cho học tập và công việc nặng.', N'/electro/img/product01.png'),
-    (N'MacBook Air M3', 31990000, 14, N'Laptop', N'Laptop mỏng nhẹ, pin lâu, phù hợp học tập, văn phòng và sáng tạo nội dung.', N'/electro/img/product06.png'),
-    (N'ASUS ROG Zephyrus G14', 39990000, 8, N'Laptop', N'Laptop gaming nhỏ gọn với hiệu năng mạnh cho game và đồ họa.', N'/electro/img/product07.png'),
-    (N'Lenovo ThinkPad X1 Carbon', 42990000, 9, N'Laptop', N'Laptop doanh nhân bền nhẹ, bàn phím tốt và bảo mật cao.', N'/electro/img/product08.png'),
-    (N'Apple Watch Series 9', 10990000, 18, N'Smartwatch', N'Đồng hồ thông minh theo dõi sức khỏe và thông báo hằng ngày.', N'/electro/img/product06.png'),
-    (N'Samsung Galaxy Watch 6', 7490000, 20, N'Smartwatch', N'Đồng hồ Android theo dõi luyện tập, giấc ngủ và sức khỏe tổng quát.', N'/electro/img/product09.png'),
-    (N'Garmin Venu 3', 10990000, 11, N'Smartwatch', N'Smartwatch thể thao với GPS chính xác và pin dùng nhiều ngày.', N'/electro/img/product01.png'),
-    (N'Xiaomi Watch 2 Pro', 6490000, 16, N'Smartwatch', N'Đồng hồ thông minh Wear OS, hỗ trợ nhiều chế độ luyện tập.', N'/electro/img/product02.png'),
-    (N'iPad Air M2', 18900000, 14, N'Tablet', N'Máy tính bảng gọn nhẹ cho học tập, giải trí và ghi chú.', N'/electro/img/product04.png'),
-    (N'Samsung Galaxy Tab S9', 19990000, 13, N'Tablet', N'Tablet Android cao cấp với màn hình AMOLED và bút S Pen.', N'/electro/img/product03.png'),
-    (N'Xiaomi Pad 6', 8990000, 22, N'Tablet', N'Tablet giá tốt với màn hình tần số quét cao và hiệu năng ổn định.', N'/electro/img/product05.png'),
-    (N'Lenovo Tab P12', 11990000, 17, N'Tablet', N'Tablet màn hình lớn phục vụ học online, xem phim và làm việc nhẹ.', N'/electro/img/product07.png');
+    (N'iPhone 15 Pro', 28000000, 15, N'Điện thoại', N'Điện thoại cao cấp với chip A17 Pro, camera tốt và hiệu năng mạnh.', N''),
+    (N'Samsung Galaxy S24 Ultra', 26500000, 12, N'Điện thoại', N'Flagship Android với bút S Pen, màn hình lớn và camera zoom sắc nét.', N''),
+    (N'Xiaomi 14', 18990000, 18, N'Điện thoại', N'Điện thoại nhỏ gọn, hiệu năng cao, sạc nhanh và camera Leica.', N''),
+    (N'OPPO Reno 11 5G', 10990000, 24, N'Điện thoại', N'Mẫu điện thoại tầm trung nổi bật với thiết kế mỏng và chụp chân dung đẹp.', N''),
+    (N'Laptop Dell XPS 15', 35000000, 10, N'Laptop', N'Laptop màn hình 15 inch, phù hợp cho học tập và công việc nặng.', N''),
+    (N'MacBook Air M3', 31990000, 14, N'Laptop', N'Laptop mỏng nhẹ, pin lâu, phù hợp học tập, văn phòng và sáng tạo nội dung.', N''),
+    (N'ASUS ROG Zephyrus G14', 39990000, 8, N'Laptop', N'Laptop gaming nhỏ gọn với hiệu năng mạnh cho game và đồ họa.', N''),
+    (N'Lenovo ThinkPad X1 Carbon', 42990000, 9, N'Laptop', N'Laptop doanh nhân bền nhẹ, bàn phím tốt và bảo mật cao.', N''),
+    (N'Apple Watch Series 9', 10990000, 18, N'Smartwatch', N'Đồng hồ thông minh theo dõi sức khỏe và thông báo hằng ngày.', N''),
+    (N'Samsung Galaxy Watch 6', 7490000, 20, N'Smartwatch', N'Đồng hồ Android theo dõi luyện tập, giấc ngủ và sức khỏe tổng quát.', N''),
+    (N'Garmin Venu 3', 10990000, 11, N'Smartwatch', N'Smartwatch thể thao với GPS chính xác và pin dùng nhiều ngày.', N''),
+    (N'Xiaomi Watch 2 Pro', 6490000, 16, N'Smartwatch', N'Đồng hồ thông minh Wear OS, hỗ trợ nhiều chế độ luyện tập.', N''),
+    (N'iPad Air M2', 18900000, 14, N'Tablet', N'Máy tính bảng gọn nhẹ cho học tập, giải trí và ghi chú.', N''),
+    (N'Samsung Galaxy Tab S9', 19990000, 13, N'Tablet', N'Tablet Android cao cấp với màn hình AMOLED và bút S Pen.', N''),
+    (N'Xiaomi Pad 6', 8990000, 22, N'Tablet', N'Tablet giá tốt với màn hình tần số quét cao và hiệu năng ổn định.', N''),
+    (N'Lenovo Tab P12', 11990000, 17, N'Tablet', N'Tablet màn hình lớn phục vụ học online, xem phim và làm việc nhẹ.', N'');
+
+UPDATE @ProductSeeds
+SET ImageUrl = CONCAT(
+    N'https://tse.mm.bing.net/th?w=360&h=360&c=7&rs=1&p=0&dpr=1&pid=1.7&mkt=vi-VN&q=',
+    REPLACE(Name, N' ', N'%20'),
+    N'%20official%20product%20photo'
+)
+WHERE ImageUrl = N'';
 
 DECLARE @ObsoleteProductSeeds TABLE
 (

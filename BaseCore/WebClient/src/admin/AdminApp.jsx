@@ -1,8 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import './admin.css'
-import './admin-orders.css'
 
 const ADMIN_TOKEN_KEY = 'electro-store-auth'
+const ORDER_REFRESH_INTERVAL_MS = 5000
+
+const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+})
 
 function getToken(auth) {
   return auth?.token || auth?.Token || ''
@@ -134,6 +139,17 @@ const adminApi = {
       token,
     }),
   getUsers: (params = {}, token) => request(`/users?${toQuery(params)}`, { token }),
+  getOrders: (token) => request('/orders/all', { token }),
+  confirmOrder: (id, token) =>
+    request(`/orders/${id}/admin/confirm`, {
+      method: 'PUT',
+      token,
+    }),
+  shipOrder: (id, token) =>
+    request(`/orders/${id}/admin/ship`, {
+      method: 'PUT',
+      token,
+    }),
   createUser: (payload, token) =>
     request('/users', {
       method: 'POST',
@@ -151,33 +167,6 @@ const adminApi = {
       method: 'DELETE',
       token,
     }),
-  getOrders: (params = {}, token) => request(`/orders/all?${toQuery(params)}`, { token }),
-  getOrderById: (id, token) => request(`/orders/${id}`, { token }),
-  getCustomers: (params = {}, token) => request(`/customers?${toQuery(params)}`, { token }),
-  getCustomerById: (id, token) => request(`/customers/${id}`, { token }),
-  updateOrderStatus: (id, status, token) =>
-    request(`/orders/${id}/status`, {
-      method: 'PUT',
-      token,
-      body: JSON.stringify({ status }),
-    }),
-  cancelOrder: (id, token) =>
-    request(`/orders/${id}/cancel`, {
-      method: 'PUT',
-      token,
-    }),
-  assignTransport: (id, payload, token) =>
-    request(`/orders/${id}/assign-transport`, {
-      method: 'POST',
-      token,
-      body: JSON.stringify(payload),
-    }),
-  updateDelivery: (id, payload, token) =>
-    request(`/orders/${id}/update-delivery`, {
-      method: 'PUT',
-      token,
-      body: JSON.stringify(payload),
-    }),
 }
 
 function formatCurrency(value) {
@@ -188,75 +177,54 @@ function formatCurrency(value) {
   }).format(Number(value || 0))
 }
 
-function getStatusBadge(status) {
-  const colors = {
-    Pending: 'warning',
-    Processing: 'info',
-    Completed: 'success',
-    Cancelled: 'danger',
+function formatDate(value) {
+  if (!value) {
+    return 'N/A'
   }
 
-  return <span className={`admin-badge ${colors[status] || 'secondary'}`}>{status || 'N/A'}</span>
+  try {
+    return dateFormatter.format(new Date(value))
+  } catch {
+    return value
+  }
 }
 
-function getPaymentBadge(status) {
-  const colors = {
-    Paid: 'success',
-    Pending: 'warning',
-    PayAtCounter: 'info',
-  }
-  const labels = {
-    Paid: 'Đã thanh toán',
-    Pending: 'Chưa thanh toán',
-    PayAtCounter: 'Thanh toán tại quầy',
+function getOrderStatusLabel(order) {
+  if (order?.statusLabel) {
+    return order.statusLabel
   }
 
-  return <span className={`admin-badge ${colors[status] || 'secondary'}`}>{labels[status] || status || 'N/A'}</span>
+  switch ((order?.status || '').toLowerCase()) {
+    case 'pending':
+      return 'Chờ xác nhận'
+    case 'confirmed':
+      return 'Đã xác nhận'
+    case 'shipping':
+      return 'Đang giao'
+    case 'completed':
+      return 'Đã nhận'
+    case 'cancelled':
+      return 'Đã hủy'
+    default:
+      return 'Chưa xác định'
+  }
 }
 
-function getDeliveryBadge(status) {
-  const colors = {
-    'Chờ lấy hàng': 'secondary',
-    'Đã giao đơn vị vận chuyển': 'info',
-    'Đang giao': 'warning',
-    'Đã giao thành công': 'success',
-    'Giao thất bại': 'danger',
+function getOrderStatusBadge(status) {
+  switch ((status || '').toLowerCase()) {
+    case 'pending':
+      return 'warning'
+    case 'confirmed':
+      return 'info'
+    case 'shipping':
+      return 'primary'
+    case 'completed':
+      return 'success'
+    case 'cancelled':
+      return 'danger'
+    default:
+      return 'secondary'
   }
-
-  return <span className={`admin-badge ${colors[status] || 'secondary'}`}>{status || 'Chờ lấy hàng'}</span>
-}
-
-function getCustomerSegmentBadge(segment) {
-  const colors = {
-    VIP: 'danger',
-    Loyal: 'success',
-    Potential: 'info',
-    New: 'warning',
-    NoOrders: 'secondary',
-  }
-  const labels = {
-    VIP: 'VIP',
-    Loyal: 'Loyal',
-    Potential: 'Potential',
-    New: 'New',
-    NoOrders: 'No orders',
-  }
-
-  return <span className={`admin-badge ${colors[segment] || 'secondary'}`}>{labels[segment] || segment || 'N/A'}</span>
-}
-
-function formatDateTime(dateString) {
-  if (!dateString) {
-    return '-'
-  }
-
-  return new Date(dateString).toLocaleDateString('vi-VN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 function normalizeProductList(data) {
@@ -389,10 +357,9 @@ function RequireAdmin({ auth, route, onNavigate, onLogin, children }) {
 function AdminLayout({ auth, route, onNavigate, onLogout, children }) {
   const links = [
     { path: '/admin', label: 'Dashboard', icon: 'fa-dashboard' },
+    { path: '/admin/orders', label: 'Orders', icon: 'fa-shopping-cart' },
     { path: '/admin/products', label: 'Products', icon: 'fa-archive' },
     { path: '/admin/categories', label: 'Categories', icon: 'fa-tags' },
-    { path: '/admin/orders', label: 'Orders', icon: 'fa-shopping-cart' },
-    { path: '/admin/customers', label: 'Customers', icon: 'fa-address-book' },
     { path: '/admin/users', label: 'Users', icon: 'fa-users' },
   ]
 
@@ -455,7 +422,7 @@ function AdminLayout({ auth, route, onNavigate, onLogout, children }) {
 
 function Dashboard({ auth }) {
   const token = getToken(auth)
-  const [stats, setStats] = useState({ products: 0, categories: 0, customers: 0, users: 0 })
+  const [stats, setStats] = useState({ products: 0, categories: 0, users: 0, orders: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -477,20 +444,20 @@ function Dashboard({ auth }) {
           usersCount = 0
         }
 
-        let customersCount = 0
+        let ordersCount = 0
         try {
-          const customersData = await adminApi.getCustomers({}, token)
-          customersCount = Array.isArray(customersData) ? customersData.length : 0
+          const orderData = await adminApi.getOrders(token)
+          ordersCount = Array.isArray(orderData) ? orderData.length : 0
         } catch {
-          customersCount = 0
+          ordersCount = 0
         }
 
         if (!cancelled) {
           setStats({
             products: normalizeProductList(productData).totalCount,
             categories: Array.isArray(categoryData) ? categoryData.length : 0,
-            customers: customersCount,
             users: usersCount,
+            orders: ordersCount,
           })
         }
       } finally {
@@ -514,14 +481,14 @@ function Dashboard({ auth }) {
     <>
       <PageHeader title="Dashboard" />
       <div className="admin-stat-grid">
+        <StatBox color="primary" icon="fa-shopping-cart" label="Orders" value={stats.orders} />
         <StatBox color="info" icon="fa-archive" label="Products" value={stats.products} />
         <StatBox color="success" icon="fa-tags" label="Categories" value={stats.categories} />
-        <StatBox color="danger" icon="fa-address-book" label="Customers" value={stats.customers} />
         <StatBox color="warning" icon="fa-users" label="Users" value={stats.users} />
       </div>
       <section className="admin-card">
         <h3>Welcome to BaseCore Sales System</h3>
-        <p>Admin area for products, categories, and users connected to the FW backend.</p>
+        <p>Admin area for orders, products, categories, and users connected to the FW backend.</p>
       </section>
     </>
   )
@@ -543,6 +510,136 @@ function StatBox({ color, icon, label, value }) {
         <p>{label}</p>
       </div>
       <i className={`fa ${icon}`} />
+    </div>
+  )
+}
+
+function Orders({ auth }) {
+  const token = getToken(auth)
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [actionOrderId, setActionOrderId] = useState(null)
+
+  async function loadData({ showLoading = true } = {}) {
+    if (showLoading) {
+      setLoading(true)
+    }
+    setError('')
+
+    try {
+      const data = await adminApi.getOrders(token)
+      setOrders(Array.isArray(data) ? data : [])
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      if (showLoading) {
+        setLoading(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+    const refreshInterval = window.setInterval(
+      () => loadData({ showLoading: false }),
+      ORDER_REFRESH_INTERVAL_MS,
+    )
+
+    return () => window.clearInterval(refreshInterval)
+  }, [token])
+
+  async function runOrderAction(order, action) {
+    setActionOrderId(order.id)
+    setError('')
+
+    try {
+      let response
+      if (action === 'confirm') {
+        response = await adminApi.confirmOrder(order.id, token)
+      } else {
+        response = await adminApi.shipOrder(order.id, token)
+      }
+
+      if (response?.order) {
+        setOrders((current) =>
+          current.map((currentOrder) =>
+            currentOrder.id === order.id ? response.order : currentOrder,
+          ),
+        )
+      }
+
+      await loadData({ showLoading: false })
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setActionOrderId(null)
+    }
+  }
+
+  return (
+    <>
+      <PageHeader title="Orders Management" />
+      <section className="admin-card">
+        <div className="admin-card-toolbar">
+          <h3>All Orders</h3>
+          <button className="admin-btn primary" type="button" onClick={() => loadData()}>
+            <i className="fa fa-refresh" /> Refresh
+          </button>
+        </div>
+        {error && <div className="admin-alert danger">{error}</div>}
+        {loading ? (
+          <Spinner />
+        ) : (
+          <DataTable
+            emptyText="No orders found"
+            headers={['ID', 'Customer', 'Date', 'Total', 'Payment', 'Status', 'Address', 'Actions']}
+            rows={orders.map((order) => [
+              `#${order.id}`,
+              order.userId,
+              formatDate(order.orderDate),
+              formatCurrency(order.totalAmount),
+              `${order.paymentMethodLabel || 'N/A'} - ${order.paymentStatusLabel || 'N/A'}`,
+              <span key="status" className={`admin-badge ${getOrderStatusBadge(order.status)}`}>
+                {getOrderStatusLabel(order)}
+              </span>,
+              order.shippingAddress || 'N/A',
+              <OrderActions
+                key="actions"
+                order={order}
+                busy={actionOrderId === order.id}
+                onConfirm={() => runOrderAction(order, 'confirm')}
+                onShip={() => runOrderAction(order, 'ship')}
+              />,
+            ])}
+          />
+        )}
+      </section>
+    </>
+  )
+}
+
+function OrderActions({ order, busy, onConfirm, onShip }) {
+  const status = (order.status || '').toLowerCase()
+  const canConfirm = status === 'pending'
+  const canShip = status === 'confirmed'
+
+  if (!canConfirm && !canShip) {
+    return <span className="admin-muted">Không có thao tác</span>
+  }
+
+  return (
+    <div className="admin-row-actions">
+      {canConfirm && (
+        <button className="admin-btn small success" type="button" disabled={busy} onClick={onConfirm}>
+          <i className="fa fa-check" /> Xác nhận
+        </button>
+      )}
+      {canShip && (
+        <button className="admin-btn small info" type="button" disabled={busy} onClick={onShip}>
+          <i className="fa fa-truck" /> Bàn giao VC
+        </button>
+      )}
     </div>
   )
 }
@@ -1017,607 +1114,6 @@ function Users({ auth }) {
   )
 }
 
-function Customers({ auth }) {
-  const token = getToken(auth)
-  const [customers, setCustomers] = useState([])
-  const [keyword, setKeyword] = useState('')
-  const [segment, setSegment] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState(null)
-  const [customerOrders, setCustomerOrders] = useState([])
-  const [showModal, setShowModal] = useState(false)
-
-  async function loadData() {
-    setLoading(true)
-    setError('')
-
-    try {
-      const data = await adminApi.getCustomers({ keyword, segment }, token)
-      setCustomers(Array.isArray(data) ? data : [])
-    } catch (requestError) {
-      setError(requestError.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  async function viewCustomer(customer) {
-    setError('')
-
-    try {
-      const data = await adminApi.getCustomerById(customer.userId, token)
-      setSelectedCustomer(data.customer)
-      setCustomerOrders(data.orders || [])
-      setShowModal(true)
-    } catch (requestError) {
-      setError(requestError.message)
-    }
-  }
-
-  const totals = customers.reduce(
-    (result, customer) => ({
-      spent: result.spent + Number(customer.totalSpent || 0),
-      completed: result.completed + Number(customer.completedOrders || 0),
-      vip: result.vip + (customer.segment === 'VIP' ? 1 : 0),
-    }),
-    { spent: 0, completed: 0, vip: 0 },
-  )
-
-  return (
-    <>
-      <PageHeader title="Customers Management" />
-      <div className="admin-stat-grid">
-        <StatBox color="info" icon="fa-users" label="Customers" value={customers.length} />
-        <StatBox color="success" icon="fa-check" label="Completed Orders" value={totals.completed} />
-        <StatBox color="danger" icon="fa-star" label="VIP Customers" value={totals.vip} />
-        <StatBox color="warning" icon="fa-money" label="Customer Revenue" value={formatCurrency(totals.spent)} />
-      </div>
-      <section className="admin-card">
-        <div className="admin-card-toolbar">
-          <form
-            className="admin-search"
-            onSubmit={(event) => {
-              event.preventDefault()
-              loadData()
-            }}
-          >
-            <input className="admin-control" placeholder="Search by name, email, phone..." value={keyword} onChange={(event) => setKeyword(event.target.value)} />
-            <select className="admin-control" value={segment} onChange={(event) => setSegment(event.target.value)}>
-              <option value="">All Segments</option>
-              <option value="VIP">VIP</option>
-              <option value="Loyal">Loyal</option>
-              <option value="Potential">Potential</option>
-              <option value="New">New</option>
-              <option value="NoOrders">No orders</option>
-            </select>
-            <button className="admin-btn primary" type="submit">
-              <i className="fa fa-search" /> Search
-            </button>
-          </form>
-        </div>
-        {error && <div className="admin-alert danger">{error}</div>}
-        {loading ? (
-          <Spinner />
-        ) : (
-          <DataTable
-            emptyText="No customers found"
-            headers={['Customer', 'Contact', 'Orders', 'Completed', 'Total Spent', 'Last Order', 'Segment', 'Suggested Offer', 'Actions']}
-            rows={customers.map((customer) => [
-              <div key="customer" className="admin-stack">
-                <strong>{customer.name || customer.userName || 'Unknown'}</strong>
-                <span>{customer.userName}</span>
-              </div>,
-              <div key="contact" className="admin-stack">
-                <span>{customer.email || '-'}</span>
-                <span>{customer.phone || '-'}</span>
-              </div>,
-              customer.totalOrders,
-              customer.completedOrders,
-              formatCurrency(customer.totalSpent),
-              formatDateTime(customer.lastOrderDate),
-              getCustomerSegmentBadge(customer.segment),
-              customer.suggestedOffer,
-              <button key="actions" className="admin-btn small info" type="button" onClick={() => viewCustomer(customer)}>
-                <i className="fa fa-eye" />
-              </button>,
-            ])}
-          />
-        )}
-      </section>
-      {showModal && selectedCustomer && (
-        <AdminModal title={`Customer: ${selectedCustomer.name || selectedCustomer.userName}`} onClose={() => setShowModal(false)} wide>
-          <CustomerDetailsModal customer={selectedCustomer} orders={customerOrders} />
-        </AdminModal>
-      )}
-    </>
-  )
-}
-
-function CustomerDetailsModal({ customer, orders }) {
-  return (
-    <div className="customer-details">
-      <div className="order-info-section">
-        <h4>Customer Information</h4>
-        <div className="order-info-grid">
-          <div>
-            <strong>Name:</strong> {customer.name || 'N/A'}
-          </div>
-          <div>
-            <strong>Username:</strong> {customer.userName || 'N/A'}
-          </div>
-          <div>
-            <strong>Email:</strong> {customer.email || 'N/A'}
-          </div>
-          <div>
-            <strong>Phone:</strong> {customer.phone || 'N/A'}
-          </div>
-          <div>
-            <strong>Total Spent:</strong> {formatCurrency(customer.totalSpent)}
-          </div>
-          <div>
-            <strong>Segment:</strong> {getCustomerSegmentBadge(customer.segment)}
-          </div>
-        </div>
-        <div className="payment-note">
-          <strong>Suggested Offer:</strong> {customer.suggestedOffer}
-        </div>
-      </div>
-
-      <div className="order-items-section">
-        <h4>Purchase History</h4>
-        <DataTable
-          emptyText="This customer has no orders"
-          headers={['Order', 'Date', 'Total', 'Status', 'Payment', 'Delivery']}
-          rows={orders.map((order) => [
-            `#${order.id}`,
-            formatDateTime(order.orderDate),
-            formatCurrency(order.totalAmount),
-            getStatusBadge(order.status),
-            getPaymentBadge(order.paymentStatus),
-            getDeliveryBadge(order.deliveryStatus),
-          ])}
-        />
-      </div>
-    </div>
-  )
-}
-
-function Orders({ auth }) {
-  const token = getToken(auth)
-  const [orders, setOrders] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [selectedOrder, setSelectedOrder] = useState(null)
-  const [showModal, setShowModal] = useState(false)
-  const [error, setError] = useState('')
-  const [keyword, setKeyword] = useState('')
-  const [statusFilter, setStatusFilter] = useState('')
-  const [orderDetails, setOrderDetails] = useState([])
-  const [transportForm, setTransportForm] = useState({
-    transportUnit: 'GHN',
-    trackingCode: '',
-  })
-  const [deliveryForm, setDeliveryForm] = useState({
-    deliveryStatus: 'Đang giao',
-    deliveryDate: '',
-  })
-
-  async function loadData() {
-    setLoading(true)
-    try {
-      const params = {}
-      if (keyword) params.keyword = keyword
-      if (statusFilter) params.status = statusFilter
-      
-      const data = await adminApi.getOrders(params, token)
-      setOrders(Array.isArray(data) ? data : data?.data || [])
-    } catch (requestError) {
-      setError(requestError.message)
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  async function viewOrderDetails(orderId) {
-    try {
-      const data = await adminApi.getOrderById(orderId, token)
-      setSelectedOrder(data.order)
-      setOrderDetails(data.details || [])
-      setShowModal(true)
-    } catch (error) {
-      setError(error.message)
-    }
-  }
-
-  async function updateOrderStatus(orderId, newStatus) {
-    try {
-      await adminApi.updateOrderStatus(orderId, newStatus, token)
-      await loadData()
-      if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder({ ...selectedOrder, status: newStatus })
-      }
-    } catch (error) {
-      setError(error.message)
-    }
-  }
-
-  async function cancelOrder(orderId) {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này?')) {
-      return
-    }
-    try {
-      await adminApi.cancelOrder(orderId, token)
-      await loadData()
-      setShowModal(false)
-    } catch (error) {
-      setError(error.message)
-    }
-  }
-
-  async function assignTransport(orderId) {
-    setError('')
-    if (!transportForm.transportUnit || !transportForm.trackingCode.trim()) {
-      setError('Vui lòng chọn đơn vị vận chuyển và nhập mã vận đơn.')
-      return
-    }
-
-    try {
-      const data = await adminApi.assignTransport(
-        orderId,
-        {
-          transportUnit: transportForm.transportUnit,
-          trackingCode: transportForm.trackingCode.trim(),
-        },
-        token,
-      )
-
-      await loadData()
-      setSelectedOrder(data.order || null)
-      setTransportForm({ transportUnit: 'GHN', trackingCode: '' })
-    } catch (error) {
-      setError(error.message)
-    }
-  }
-
-  async function updateDelivery(orderId) {
-    setError('')
-    try {
-      const payload = {
-        deliveryStatus: deliveryForm.deliveryStatus,
-      }
-
-      if (deliveryForm.deliveryDate) {
-        payload.deliveryDate = deliveryForm.deliveryDate
-      }
-
-      const data = await adminApi.updateDelivery(orderId, payload, token)
-      await loadData()
-      setSelectedOrder(data.order || null)
-    } catch (error) {
-      setError(error.message)
-    }
-  }
-
-  function formatDate(dateString) {
-    return new Date(dateString).toLocaleDateString('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
-  function getStatusBadge(status) {
-    const colors = {
-      'Pending': 'warning',
-      'Processing': 'info',
-      'Completed': 'success',
-      'Cancelled': 'danger'
-    }
-    return <span className={`admin-badge ${colors[status] || 'secondary'}`}>{status}</span>
-  }
-
-  function getPaymentBadge(status) {
-    const colors = {
-      'Paid': 'success',
-      'Pending': 'warning',
-      'PayAtCounter': 'info'
-    }
-    const labels = {
-      'Paid': 'Đã thanh toán',
-      'Pending': 'Chưa thanh toán',
-      'PayAtCounter': 'Thanh toán tại quầy'
-    }
-    return <span className={`admin-badge ${colors[status] || 'secondary'}`}>{labels[status] || status}</span>
-  }
-
-  function getDeliveryBadge(status) {
-    const colors = {
-      'Chờ lấy hàng': 'secondary',
-      'Đã giao đơn vị vận chuyển': 'info',
-      'Đang giao': 'warning',
-      'Đã giao thành công': 'success',
-      'Giao thất bại': 'danger',
-    }
-    return <span className={`admin-badge ${colors[status] || 'secondary'}`}>{status || 'Chờ lấy hàng'}</span>
-  }
-
-  return (
-    <>
-      <PageHeader title="Orders Management" />
-      <section className="admin-card admin-orders-card">
-        <div className="admin-card-toolbar">
-          <form
-            className="admin-search"
-            onSubmit={(event) => {
-              event.preventDefault()
-              loadData()
-            }}
-          >
-            <input className="admin-control" placeholder="Search by ID, customer..." value={keyword} onChange={(event) => setKeyword(event.target.value)} />
-            <select className="admin-control" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="">All Status</option>
-              <option value="Pending">Pending</option>
-              <option value="Processing">Processing</option>
-              <option value="Completed">Completed</option>
-              <option value="Cancelled">Cancelled</option>
-            </select>
-            <button className="admin-btn primary" type="submit">
-              <i className="fa fa-search" /> Search
-            </button>
-          </form>
-        </div>
-        {error && <div className="admin-alert danger">{error}</div>}
-        {loading ? (
-          <Spinner />
-        ) : (
-          <DataTable
-            emptyText="No orders found"
-            headers={['ID', 'Customer', 'Date', 'Total', 'Status', 'Payment', 'Transport', 'Delivery', 'Actions']}
-            rows={orders.map((order) => [
-              order.id,
-              order.user?.name || 'Unknown',
-              formatDate(order.orderDate),
-              formatCurrency(order.totalAmount),
-              getStatusBadge(order.status),
-              getPaymentBadge(order.paymentStatus),
-              order.transportUnit || '-',
-              getDeliveryBadge(order.deliveryStatus),
-              <OrderActions key="actions" order={order} onView={viewOrderDetails} onUpdateStatus={updateOrderStatus} onCancel={cancelOrder} />,
-            ])}
-          />
-        )}
-      </section>
-      {showModal && selectedOrder && (
-        <AdminModal title={`Order #${selectedOrder.id}`} onClose={() => setShowModal(false)} wide>
-          <OrderDetailsModal
-            order={selectedOrder}
-            details={orderDetails}
-            transportForm={transportForm}
-            setTransportForm={setTransportForm}
-            deliveryForm={deliveryForm}
-            setDeliveryForm={setDeliveryForm}
-            onClose={() => setShowModal(false)}
-            onUpdateStatus={updateOrderStatus}
-            onAssignTransport={assignTransport}
-            onUpdateDelivery={updateDelivery}
-            onCancel={cancelOrder}
-          />
-        </AdminModal>
-      )}
-    </>
-  )
-}
-
-function OrderActions({ order, onView, onUpdateStatus, onCancel }) {
-  return (
-    <div className="admin-row-actions">
-      <button className="admin-btn small info" type="button" onClick={() => onView(order.id)}>
-        <i className="fa fa-eye" />
-      </button>
-      {order.status !== 'Completed' && order.status !== 'Cancelled' && (
-        <select 
-          className="admin-btn small warning" 
-          value={order.status} 
-          onChange={(e) => onUpdateStatus(order.id, e.target.value)}
-        >
-          <option value="Pending">Pending</option>
-          <option value="Processing">Processing</option>
-        </select>
-      )}
-      {order.status !== 'Completed' && order.status !== 'Cancelled' && (
-        <button className="admin-btn small danger" type="button" onClick={() => onCancel(order.id)}>
-          <i className="fa fa-times" />
-        </button>
-      )}
-    </div>
-  )
-}
-
-function OrderDetailsModal({
-  order,
-  details,
-  transportForm,
-  setTransportForm,
-  deliveryForm,
-  setDeliveryForm,
-  onClose,
-  onUpdateStatus,
-  onAssignTransport,
-  onUpdateDelivery,
-  onCancel,
-}) {
-  return (
-    <div className="order-details">
-      <div className="order-info-section">
-        <h4>Order Information</h4>
-        <div className="order-info-grid">
-          <div>
-            <strong>Order Date:</strong> {new Date(order.orderDate).toLocaleDateString('vi-VN')}
-          </div>
-          <div>
-            <strong>Original Amount:</strong> {formatCurrency(order.originalAmount || order.totalAmount)}
-          </div>
-          {(order.discountAmount || 0) > 0 && (
-            <div>
-              <strong>Discount:</strong> -{formatCurrency(order.discountAmount)} ({order.discountPercent}%)
-            </div>
-          )}
-          <div>
-            <strong>Total Payment:</strong> {formatCurrency(order.totalAmount)}
-          </div>
-          <div>
-            <strong>Status:</strong> {getStatusBadge(order.status)}
-          </div>
-          <div>
-            <strong>Payment Method:</strong> {order.paymentMethodLabel || order.paymentMethod}
-          </div>
-          <div>
-            <strong>Payment Status:</strong> {getPaymentBadge(order.paymentStatus)}
-          </div>
-          <div>
-            <strong>Payment Code:</strong> {order.paymentCode || 'N/A'}
-          </div>
-          <div>
-            <strong>Transport:</strong> {order.transportUnit || 'N/A'}
-          </div>
-          <div>
-            <strong>Tracking Code:</strong> {order.transportTrackingCode || 'N/A'}
-          </div>
-          <div>
-            <strong>Delivery Status:</strong> {order.deliveryStatus || 'Chờ lấy hàng'}
-          </div>
-        </div>
-        <div className="shipping-address">
-          <strong>Shipping Address:</strong> {order.shippingAddress || 'N/A'}
-        </div>
-        {order.paymentNote && (
-          <div className="payment-note">
-            <strong>Payment Note:</strong> {order.paymentNote}
-          </div>
-        )}
-      </div>
-
-      <div className="order-items-section">
-        <h4>Order Items</h4>
-        <div className="admin-table-wrap">
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Unit Price</th>
-                <th>Subtotal</th>
-              </tr>
-            </thead>
-            <tbody>
-              {details.map((detail) => (
-                <tr key={detail.id}>
-                  <td>
-                    <div className="product-info">
-                      <strong>{detail.product?.name || 'Unknown Product'}</strong>
-                      {detail.product?.description && (
-                        <small className="text-muted d-block">{detail.product.description}</small>
-                      )}
-                    </div>
-                  </td>
-                  <td>{detail.quantity}</td>
-                  <td>{formatCurrency(detail.unitPrice)}</td>
-                  <td>{formatCurrency(detail.quantity * detail.unitPrice)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      <div className="order-actions-section">
-        <h4>Order Actions</h4>
-        <div className="order-actions-buttons">
-          {order.status !== 'Completed' && order.status !== 'Cancelled' && (
-            <>
-              <div className="action-group">
-                <label>Update Status:</label>
-                <select 
-                  className="admin-control" 
-                  value={order.status} 
-                  onChange={(e) => onUpdateStatus(order.id, e.target.value)}
-                >
-                  <option value="Pending">Pending</option>
-                  <option value="Processing">Processing</option>
-                </select>
-              </div>
-              <div className="action-group">
-                <label>Transport:</label>
-                <select
-                  className="admin-control"
-                  value={transportForm.transportUnit}
-                  onChange={(event) => setTransportForm({ ...transportForm, transportUnit: event.target.value })}
-                >
-                  <option value="GHN">GHN</option>
-                  <option value="GHTK">GHTK</option>
-                  <option value="Viettel Post">Viettel Post</option>
-                  <option value="J&T">J&T</option>
-                </select>
-                <input
-                  className="admin-control"
-                  placeholder="Tracking code"
-                  value={transportForm.trackingCode}
-                  onChange={(event) => setTransportForm({ ...transportForm, trackingCode: event.target.value })}
-                />
-                <button className="admin-btn success" type="button" onClick={() => onAssignTransport(order.id)}>
-                  <i className="fa fa-truck" /> Assign
-                </button>
-              </div>
-              <div className="action-group">
-                <label>Delivery:</label>
-                <select
-                  className="admin-control"
-                  value={deliveryForm.deliveryStatus}
-                  onChange={(event) => setDeliveryForm({ ...deliveryForm, deliveryStatus: event.target.value })}
-                >
-                  <option value="Chờ lấy hàng">Chờ lấy hàng</option>
-                  <option value="Đã giao đơn vị vận chuyển">Đã giao đơn vị vận chuyển</option>
-                  <option value="Đang giao">Đang giao</option>
-                  <option value="Đã giao thành công">Đã giao thành công</option>
-                  <option value="Giao thất bại">Giao thất bại</option>
-                </select>
-                <input
-                  className="admin-control"
-                  type="date"
-                  value={deliveryForm.deliveryDate}
-                  onChange={(event) => setDeliveryForm({ ...deliveryForm, deliveryDate: event.target.value })}
-                />
-                <button className="admin-btn primary" type="button" onClick={() => onUpdateDelivery(order.id)}>
-                  <i className="fa fa-check" /> Update Delivery
-                </button>
-              </div>
-              <button 
-                className="admin-btn danger" 
-                onClick={() => onCancel(order.id)}
-              >
-                <i className="fa fa-times" /> Cancel Order
-              </button>
-            </>
-          )}
-          <button className="admin-btn secondary" onClick={onClose}>
-            <i className="fa fa-close" /> Close
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 function UserForm({ editing, error, formData, setFormData, onSubmit }) {
   return (
     <form onSubmit={onSubmit}>
@@ -1699,11 +1195,11 @@ function DataTable({ headers, rows, emptyText }) {
   )
 }
 
-function AdminModal({ title, onClose, children, wide = false }) {
+function AdminModal({ title, onClose, children }) {
   return (
     <>
       <div className="admin-modal-backdrop" onClick={onClose} />
-      <div className={`admin-modal ${wide ? 'wide' : ''}`}>
+      <div className="admin-modal">
         <div className="admin-modal-header">
           <h3>{title}</h3>
           <button type="button" onClick={onClose}>
@@ -1733,16 +1229,12 @@ export default function AdminApp({
       return 'products'
     }
 
-    if (route.pathname === '/admin/categories') {
-      return 'categories'
-    }
-
     if (route.pathname === '/admin/orders') {
       return 'orders'
     }
 
-    if (route.pathname === '/admin/customers') {
-      return 'customers'
+    if (route.pathname === '/admin/categories') {
+      return 'categories'
     }
 
     if (route.pathname === '/admin/users') {
@@ -1768,10 +1260,9 @@ export default function AdminApp({
         }}
       >
         {page === 'dashboard' && <Dashboard auth={auth} />}
+        {page === 'orders' && <Orders auth={auth} />}
         {page === 'products' && <Products auth={auth} onDataChanged={onDataChanged} />}
         {page === 'categories' && <Categories auth={auth} onDataChanged={onDataChanged} />}
-        {page === 'orders' && <Orders auth={auth} />}
-        {page === 'customers' && <Customers auth={auth} />}
         {page === 'users' && <Users auth={auth} />}
       </AdminLayout>
     </RequireAdmin>

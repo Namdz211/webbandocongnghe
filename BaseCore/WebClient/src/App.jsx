@@ -4,7 +4,7 @@ import {
   useRef,
   useState,
 } from 'react'
-import AdminApp from './admin/AdminApp'
+import AdminApp from './admin/AdminApp.jsx'
 
 const FALLBACK_IMAGES = [
   '/electro/img/product01.png',
@@ -17,6 +17,16 @@ const FALLBACK_IMAGES = [
   '/electro/img/product08.png',
   '/electro/img/macbookneo.png',
 ]
+
+const CATEGORY_FALLBACK_IMAGES = [
+  { keywords: ['dien thoai', 'phone'], image: '/electro/img/product02.png' },
+  { keywords: ['laptop'], image: '/electro/img/product01.png' },
+  { keywords: ['smartwatch', 'watch'], image: '/electro/img/product09.png' },
+  { keywords: ['tablet'], image: '/electro/img/product04.png' },
+]
+
+const REAL_PRODUCT_IMAGE_BASE_URL = 'https://tse.mm.bing.net/th'
+const REAL_PRODUCT_IMAGE_PARAMS = 'w=360&h=360&c=7&rs=1&p=0&dpr=1&pid=1.7&mkt=vi-VN'
 
 const SHOP_IMAGES = [
   '/electro/img/shop01.png',
@@ -40,18 +50,23 @@ const STORAGE_KEYS = {
   cart: 'electro-store-cart',
 }
 
+const ORDER_REFRESH_INTERVAL_MS = 5000
+
+const ORDER_STATUS_TABS = [
+  { id: 'all', label: 'Tất cả' },
+  { id: 'pending', label: 'Chờ xác nhận' },
+  { id: 'confirmed', label: 'Đã xác nhận' },
+  { id: 'shipping', label: 'Đang giao' },
+  { id: 'completed', label: 'Đã nhận' },
+  { id: 'cancelled', label: 'Đã hủy' },
+]
+
 const PAYMENT_METHODS = [
   {
-    id: 'momo',
-    name: 'V\u00ed MoMo',
-    description: 'Thanh to\u00e1n b\u1eb1ng v\u00ed MoMo \u0111\u1ec3 \u0111\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.',
-    icon: 'fa-mobile',
-  },
-  {
-    id: 'zalopay',
-    name: 'V\u00ed ZaloPay',
-    description: 'Thanh to\u00e1n b\u1eb1ng v\u00ed ZaloPay \u0111\u1ec3 \u0111\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.',
-    icon: 'fa-credit-card',
+    id: 'cod',
+    name: 'Thanh to\u00e1n khi nh\u1eadn h\u00e0ng (COD)',
+    description: 'Tr\u1ea3 ti\u1ec1n m\u1eb7t cho nh\u00e2n vi\u00ean giao h\u00e0ng sau khi nh\u1eadn s\u1ea3n ph\u1ea9m.',
+    icon: 'fa-truck',
   },
   {
     id: 'bank_transfer',
@@ -60,10 +75,10 @@ const PAYMENT_METHODS = [
     icon: 'fa-university',
   },
   {
-    id: 'counter',
-    name: 'Thanh to\u00e1n t\u1ea1i qu\u1ea7y/v\u0103n ph\u00f2ng',
-    description: 'Thanh to\u00e1n tr\u1ef1c ti\u1ebfp t\u1ea1i qu\u1ea7y ho\u1eb7c v\u0103n ph\u00f2ng khi nh\u1eadn/x\u00e1c nh\u1eadn \u0111\u01a1n.',
-    icon: 'fa-building-o',
+    id: 'e_wallet',
+    name: 'V\u00ed \u0111i\u1ec7n t\u1eed',
+    description: 'Thanh to\u00e1n qua v\u00ed \u0111i\u1ec7n t\u1eed v\u00e0 h\u1ec7 th\u1ed1ng ghi nh\u1eadn thanh to\u00e1n ngay.',
+    icon: 'fa-credit-card',
   },
 ]
 
@@ -215,6 +230,47 @@ function normalizeProductImageUrl(rawImageUrl) {
   return fileName ? `/electro/img/${fileName}` : ''
 }
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function getProductCategoryName(product) {
+  return (
+    product?.category?.name ||
+    product?.categoryName ||
+    (typeof product?.category === 'string' ? product.category : '') ||
+    ''
+  )
+}
+
+function getLocalProductFallback(product) {
+  const categoryName = normalizeSearchText(getProductCategoryName(product))
+  const categoryFallback = CATEGORY_FALLBACK_IMAGES.find((item) =>
+    item.keywords.some((keyword) => categoryName.includes(keyword)),
+  )
+
+  if (categoryFallback) {
+    return categoryFallback.image
+  }
+
+  const fallbackIndex = Number(product?.id || 0) % FALLBACK_IMAGES.length
+  return FALLBACK_IMAGES[fallbackIndex]
+}
+
+function getRealProductImage(product) {
+  const productName = product?.name?.trim()
+
+  if (!productName) {
+    return ''
+  }
+
+  const query = encodeURIComponent(`${productName} official product photo`)
+  return `${REAL_PRODUCT_IMAGE_BASE_URL}?${REAL_PRODUCT_IMAGE_PARAMS}&q=${query}`
+}
+
 function getProductImage(product) {
   const imageUrl = normalizeProductImageUrl(product?.imageUrl)
 
@@ -222,106 +278,35 @@ function getProductImage(product) {
     return imageUrl
   }
 
-  const fallbackIndex = Number(product?.id || 0) % FALLBACK_IMAGES.length
-  return FALLBACK_IMAGES[fallbackIndex]
+  return getRealProductImage(product) || getLocalProductFallback(product)
+}
+
+function handleProductImageError(event, product) {
+  const imageElement = event.currentTarget
+
+  if (imageElement.dataset.fallbackApplied === 'true') {
+    return
+  }
+
+  imageElement.dataset.fallbackApplied = 'true'
+  imageElement.src = getLocalProductFallback(product)
 }
 
 function toOrderStatusLabel(status) {
   switch ((status || '').toLowerCase()) {
-    case 'processing':
-      return '\u0110ang x\u1eed l\u00fd'
+    case 'pending':
+      return 'Ch\u1edd admin x\u00e1c nh\u1eadn'
+    case 'confirmed':
+      return 'Admin \u0111\u00e3 x\u00e1c nh\u1eadn'
+    case 'shipping':
+      return '\u0110ang giao h\u00e0ng'
     case 'completed':
-      return 'Ho\u00e0n t\u1ea5t'
+      return '\u0110\u00e3 nh\u1eadn h\u00e0ng'
     case 'cancelled':
       return '\u0110\u00e3 h\u1ee7y'
     default:
-      return 'Ch\u1edd x\u00e1c nh\u1eadn'
+      return '\u0110ang x\u1eed l\u00fd'
   }
-}
-
-const DELIVERY_STEPS = [
-  {
-    key: 'pending',
-    label: 'Ch\u1edd x\u00e1c nh\u1eadn',
-    icon: 'fa-clock-o',
-  },
-  {
-    key: 'packing',
-    label: '\u0110ang chu\u1ea9n b\u1ecb h\u00e0ng',
-    icon: 'fa-archive',
-  },
-  {
-    key: 'shipping',
-    label: '\u0110ang giao',
-    icon: 'fa-truck',
-  },
-  {
-    key: 'delivered',
-    label: '\u0110\u00e3 giao',
-    icon: 'fa-check',
-  },
-]
-
-function normalizeText(value) {
-  return String(value || '')
-    .trim()
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-}
-
-function getDeliveryStep(order) {
-  const orderStatus = normalizeText(order?.status)
-  const deliveryStatus = normalizeText(order?.deliveryStatus || order?.DeliveryStatus)
-
-  if (orderStatus === 'cancelled' || deliveryStatus.includes('that bai')) {
-    return 'cancelled'
-  }
-
-  if (orderStatus === 'completed' || deliveryStatus.includes('thanh cong')) {
-    return 'delivered'
-  }
-
-  if (deliveryStatus.includes('dang giao')) {
-    return 'shipping'
-  }
-
-  if (
-    orderStatus === 'processing' ||
-    deliveryStatus.includes('don vi van chuyen') ||
-    deliveryStatus.includes('cho lay hang')
-  ) {
-    return 'packing'
-  }
-
-  return 'pending'
-}
-
-function getDeliveryStatusLabel(order) {
-  const deliveryStatus = order?.deliveryStatus || order?.DeliveryStatus
-
-  if (deliveryStatus) {
-    return deliveryStatus
-  }
-
-  if ((order?.status || '').toLowerCase() === 'cancelled') {
-    return '\u0110\u00e3 h\u1ee7y'
-  }
-
-  return DELIVERY_STEPS.find((step) => step.key === getDeliveryStep(order))?.label || 'Ch\u1edd x\u00e1c nh\u1eadn'
-}
-
-function getDeliveryProgress(order) {
-  const activeStep = getDeliveryStep(order)
-
-  if (activeStep === 'cancelled') {
-    return -1
-  }
-
-  return Math.max(
-    0,
-    DELIVERY_STEPS.findIndex((step) => step.key === activeStep),
-  )
 }
 
 function isAdmin(auth) {
@@ -382,8 +367,24 @@ function parseRoute() {
     return { name: 'orders', pathname, query }
   }
 
-  if (pathname === '/admin' || pathname.startsWith('/admin/')) {
-    return { name: 'admin', pathname, query }
+  if (pathname === '/admin' || pathname === '/admin/login') {
+    return { name: pathname === '/admin/login' ? 'adminLogin' : 'adminDashboard', pathname, query }
+  }
+
+  if (pathname === '/admin/products') {
+    return { name: 'adminProducts', pathname, query }
+  }
+
+  if (pathname === '/admin/categories') {
+    return { name: 'adminCategories', pathname, query }
+  }
+
+  if (pathname === '/admin/users') {
+    return { name: 'adminUsers', pathname, query }
+  }
+
+  if (pathname === '/admin/orders') {
+    return { name: 'adminOrders', pathname, query }
   }
 
   if (pathname === '/account') {
@@ -493,11 +494,20 @@ const api = {
     request('/orders', {
       token,
     }),
+  getOrder: (id, token) =>
+    request(`/orders/${id}`, {
+      token,
+    }),
   createOrder: (payload, token) =>
     request('/orders', {
       method: 'POST',
       token,
       body: JSON.stringify(payload),
+    }),
+  confirmOrderReceived: (id, token) =>
+    request(`/orders/${id}/received`, {
+      method: 'PUT',
+      token,
     }),
 }
 
@@ -690,16 +700,6 @@ function Header({
                           type="button"
                           onClick={() => {
                             setIsAccountMenuOpen(false)
-                            onNavigate('/orders')
-                          }}
-                        >
-                          <i className="fa fa-truck" /> {'Theo d\u00f5i \u0111\u01a1n h\u00e0ng'}
-                        </button>
-                        <button
-                          className="account-menu-item"
-                          type="button"
-                          onClick={() => {
-                            setIsAccountMenuOpen(false)
                             onLogout()
                           }}
                         >
@@ -832,7 +832,11 @@ function Header({
                           cart.map((item) => (
                             <div className="product-widget" key={item.id}>
                               <div className="product-img">
-                                <img src={getProductImage(item)} alt={item.name} />
+                                <img
+                                  src={getProductImage(item)}
+                                  alt={item.name}
+                                  onError={(event) => handleProductImageError(event, item)}
+                                />
                               </div>
                               <div className="product-body">
                                 <h3 className="product-name">
@@ -922,9 +926,9 @@ function Header({
                 </LinkButton>
               </li>
               {isAdmin(auth) && (
-                <li className={route.name === 'adminProducts' ? 'active' : ''}>
-                  <LinkButton to="/admin/products" onNavigate={onNavigate}>
-                    Quản trị sản phẩm
+                <li className={route.name.startsWith('admin') ? 'active' : ''}>
+                  <LinkButton to="/admin" onNavigate={onNavigate}>
+                    Admin
                   </LinkButton>
                 </li>
               )}
@@ -938,73 +942,85 @@ function Header({
 
 function Footer() {
   return (
-    <footer id="footer" className="ecommerce-footer">
-      <div className="footer-main-section">
+    <footer id="footer">
+      <div className="section">
         <div className="container">
-          <div className="footer-grid">
-
-            <div className="footer-col">
-              <h3 className="footer-title">Liên hệ &amp; Hỗ trợ</h3>
-              <ul className="footer-contact">
-                <li><i className="fa fa-map-marker" /><a href="https://www.google.com/maps/place/H%E1%BB%8Dc+vi%E1%BB%87n+K%E1%BB%B9+thu%E1%BA%ADt+Qu%C3%A2n+s%E1%BB%B1/@21.0467556,105.7838428,17z" target="_blank" rel="noreferrer">236 Hoàng Quốc Việt, Hà Nội</a></li>
-                <li><i className="fa fa-phone" /><a href="tel:+84900000000">0900 000 000</a></li>
-                <li><i className="fa fa-clock-o" /><span>08h00 – 22h00 mỗi ngày</span></li>
-                <li><i className="fa fa-envelope-o" /><a href="mailto:support@basecore.vn">support@basecore.vn</a></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <h3 className="footer-title">Về chúng tôi</h3>
-              <ul className="footer-links">
-                <li><a href="/store"><i className="fa fa-angle-right" /> Cửa hàng</a></li>
-                <li><a href="/checkout"><i className="fa fa-angle-right" /> Thanh toán</a></li>
-                <li><a href="/orders"><i className="fa fa-angle-right" /> Theo dõi đơn hàng</a></li>
-                <li><a href="#"><i className="fa fa-angle-right" /> Chính sách đổi trả</a></li>
-                <li><a href="#"><i className="fa fa-angle-right" /> Bảo hành sản phẩm</a></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <h3 className="footer-title">Công nghệ</h3>
-              <ul className="footer-links">
-                <li><a href="#"><i className="fa fa-angle-right" /> React 19 + Vite</a></li>
-                <li><a href="#"><i className="fa fa-angle-right" /> Gateway Ocelot</a></li>
-                <li><a href="#"><i className="fa fa-angle-right" /> Auth JWT</a></li>
-                <li><a href="#"><i className="fa fa-angle-right" /> Product + Order API</a></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <h3 className="footer-title">Kết nối với chúng tôi</h3>
-              <div className="social-links" style={{marginBottom: "20px"}}>
-                <a href="#" className="social-link facebook" title="Facebook"><i className="fa fa-facebook" /></a>
-                <a href="#" className="social-link instagram" title="Instagram"><i className="fa fa-instagram" /></a>
-                <a href="#" className="social-link youtube" title="YouTube"><i className="fa fa-youtube" /></a>
-                <a href="#" className="social-link twitter" title="Twitter"><i className="fa fa-twitter" /></a>
-              </div>
-              <h4 style={{color:"#fff", fontSize:"14px", marginBottom:"10px", fontWeight:500}}>Phương thức thanh toán</h4>
-              <div style={{display:"flex", flexWrap:"wrap", gap:"8px"}}>
-                {["COD","VNPay","Momo","ZaloPay","Thẻ ATM"].map(pm => (
-                  <span key={pm} style={{padding:"4px 10px", background:"#2a2a2a", border:"1px solid #444", borderRadius:"4px", fontSize:"12px", color:"#ccc"}}>{pm}</span>
-                ))}
+          <div className="row">
+            <div className="col-md-4 col-xs-6">
+              <div className="footer">
+                <h3 className="footer-title">Tổng đài liên hệ(08h00 - 22h00)</h3>
+                {/* <p>
+                  Storefront này được kết nối trực tiếp vào microservice gateway
+                  của FW, sử dụng giao diện Electro cho phần mua hàng.
+                </p> */}
+                <ul className="footer-links">
+                  <li>
+                    <a href="https://www.google.com/maps/place/H%E1%BB%8Dc+vi%E1%BB%87n+K%E1%BB%B9+thu%E1%BA%ADt+Qu%C3%A2n+s%E1%BB%B1/@21.0467556,105.7838428,17z/data=!3m1!4b1!4m6!3m5!1s0x3135ab2d88bb4195:0x3006e474cce20274!8m2!3d21.0467556!4d105.7864177!16s%2Fm%2F03hl9kl?entry=ttu&g_ep=EgoyMDI2MDQyMC4wIKXMDSoASAFQAw%3D%3D" target="_blank" rel="noreferrer">
+                      <i className="fa fa-map-marker" /> Học viện Kỹ thuật Quân sự
+                    </a>
+                  </li>
+                  <li>
+                    <a href="tel:+84000000000">
+                      <i className="fa fa-phone" /> 0900 000 000
+                    </a>
+                  </li>
+                  {/* <li>
+                    <a href="mailto:support@basecore.vn">
+                      <i className="fa fa-envelope-o" /> support@basecore.vn
+                    </a>
+                  </li> */}
+                </ul>
               </div>
             </div>
 
-          </div>
-        </div>
-      </div>
+            <div className="col-md-2 col-xs-6">
+              <div className="footer">
+                <h3 className="footer-title">Về công ty</h3>
+                <ul className="footer-links">
+                  <li>
+                    <a href="/store">Địa điểm: 236 Hoàng Quốc Việt, Cổ Nhuế, Nghĩa Đô, Hà Nội, Việt Nam </a>
+                  </li>
+                  <li>
+                    <a href="/checkout">Thanh toán</a>
+                  </li>
+                  <li>
+                    <a href="/orders">Theo dõi đơn</a>
+                  </li>
+                </ul>
+              </div>
+            </div>
 
-      <div className="footer-bottom">
-        <div className="container">
-          <div className="footer-bottom-inner">
-            <ul className="legal-links">
-              <li><a href="#">Điều khoản sử dụng</a></li>
-              <li><a href="#">Chính sách bảo mật</a></li>
-              <li><a href="#">Cookie</a></li>
-            </ul>
-            <div className="footer-copyright">
-              <p>© {new Date().getFullYear()} BaseCore WebClient. All rights reserved.</p>
-              <p className="powered-by">Powered by React + Vite + Ocelot Gateway</p>
+            <div className="clearfix visible-xs" />
+
+            <div className="col-md-3 col-xs-6">
+              <div className="footer">
+                <h3 className="footer-title">Công nghệ</h3>
+                <ul className="footer-links">
+                  <li>
+                    <span>React 19 + Vite</span>
+                  </li>
+                  <li>
+                    <span>Gateway Ocelot</span>
+                  </li>
+                  <li>
+                    <span>Auth JWT</span>
+                  </li>
+                  <li>
+                    <span>Product + Order API</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="col-md-3 col-xs-6">
+              <div className="footer">
+                <h3 className="footer-title">Trạng thái</h3>
+                <p className="footer-note">
+                  Giao diện Electro đã được đưa vào `WebClient` để hoàn thiện
+                  phần mua hàng, trong khi `BaseCore.WebClient` có thể tiếp tục
+                  dùng cho admin.
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1018,7 +1034,11 @@ function ProductCard({ product, onNavigate, onAddToCart, onBuyNow }) {
     <div className="col-md-4 col-xs-6" key={product.id}>
       <div className="product">
         <div className="product-img">
-          <img src={getProductImage(product)} alt={product.name} />
+          <img
+            src={getProductImage(product)}
+            alt={product.name}
+            onError={(event) => handleProductImageError(event, product)}
+          />
           <div className="product-label">
             {product.stock < 5 && <span className="sale">Sắp hết</span>}
             <span className="new">Mới</span>
@@ -1210,7 +1230,11 @@ function HomePage({
               <div className="col-md-3 col-sm-6 col-xs-6" key={product.id}>
                 <div className="product-widget">
                   <div className="product-img">
-                    <img src={getProductImage(product)} alt={product.name} />
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
                   </div>
                   <div className="product-body">
                     <p className="product-category">{product.category?.name || 'Sản phẩm'}</p>
@@ -1376,7 +1400,7 @@ function StorePage({ categories, route, onNavigate, onAddToCart, onBuyNow }) {
                   Không tìm thấy sản phẩm phù hợp bộ lọc hiện tại.
                 </div>
               ) : (
-                <div className="products-grid">
+                <div className="row">
                   {products.map((product) => (
                     <ProductCard
                       key={product.id}
@@ -1541,13 +1565,21 @@ function ProductPage({ productId, onNavigate, onAddToCart, onBuyNow }) {
               <div className="row">
                 <div className="col-md-5 col-md-push-2">
                   <div id="product-main-img" className="product-preview">
-                    <img src={getProductImage(product)} alt={product.name} />
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
                   </div>
                 </div>
 
                 <div className="col-md-2 col-md-pull-5">
                   <div id="product-imgs" className="product-preview-nav">
-                    <img src={getProductImage(product)} alt={product.name} />
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
                     <img
                       src={FALLBACK_IMAGES[(Number(product.id) + 1) % FALLBACK_IMAGES.length]}
                       alt={`${product.name} gallery`}
@@ -1678,7 +1710,7 @@ function CheckoutPage({
   const [shippingAddress, setShippingAddress] = useState(
     '227 Nguy\u1ec5n V\u0103n C\u1eeb, Qu\u1eadn 5, Th\u00e0nh ph\u1ed1 H\u1ed3 Ch\u00ed Minh',
   )
-  const [paymentMethod, setPaymentMethod] = useState('counter')
+  const [paymentMethod, setPaymentMethod] = useState('cod')
 
   const totalAmount = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -1843,7 +1875,7 @@ function CheckoutPage({
                 disabled={!auth || submitting}
                 onClick={() => onPlaceOrder(shippingAddress, paymentMethod)}
               >
-                {submitting ? '\u0110ang g\u1eedi \u0111\u01a1n...' : 'Thanh to\u00e1n v\u00e0 \u0111\u1eb7t h\u00e0ng'}
+                {submitting ? '\u0110ang g\u1eedi \u0111\u01a1n...' : '\u0110\u1eb7t h\u00e0ng'}
               </button>
             </div>
           </div>
@@ -1853,11 +1885,35 @@ function CheckoutPage({
   )
 }
 
-function OrdersPage({ auth, onNavigate }) {
+function OrdersPage({ auth, onNavigate, onNotify }) {
   const [loading, setLoading] = useState(Boolean(auth))
   const [error, setError] = useState('')
   const [orders, setOrders] = useState([])
+  const [selectedOrderStatus, setSelectedOrderStatus] = useState('all')
+  const [updatingOrderId, setUpdatingOrderId] = useState(null)
   const authToken = getAuthToken(auth)
+
+  async function fetchOrdersWithDetails() {
+    const response = await api.getOrders(authToken)
+    const orderList = Array.isArray(response) ? response : []
+    const detailResults = await Promise.allSettled(
+      orderList.map((order) => api.getOrder(order.id, authToken)),
+    )
+
+    return orderList.map((order, index) => {
+      const result = detailResults[index]
+
+      if (result.status !== 'fulfilled') {
+        return { ...order, details: [] }
+      }
+
+      return {
+        ...order,
+        ...(result.value?.order || {}),
+        details: Array.isArray(result.value?.details) ? result.value.details : [],
+      }
+    })
+  }
 
   useEffect(() => {
     if (!authToken) {
@@ -1868,33 +1924,74 @@ function OrdersPage({ auth, onNavigate }) {
 
     let cancelled = false
 
-    async function loadOrders() {
-      setLoading(true)
+    async function loadOrders({ showLoading = true } = {}) {
+      if (showLoading) {
+        setLoading(true)
+      }
       setError('')
 
       try {
-        const response = await api.getOrders(authToken)
+        const response = await fetchOrdersWithDetails()
 
         if (!cancelled) {
-          setOrders(Array.isArray(response) ? response : [])
+          setOrders(response)
         }
       } catch (requestError) {
         if (!cancelled) {
           setError(requestError.message)
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && showLoading) {
           setLoading(false)
         }
       }
     }
 
     loadOrders()
+    const refreshInterval = window.setInterval(
+      () => loadOrders({ showLoading: false }),
+      ORDER_REFRESH_INTERVAL_MS,
+    )
 
     return () => {
       cancelled = true
+      window.clearInterval(refreshInterval)
     }
   }, [authToken])
+
+  async function confirmReceived(orderId) {
+    if (!authToken) {
+      onNavigate('/login?redirect=/orders')
+      return
+    }
+
+    setUpdatingOrderId(orderId)
+    setError('')
+
+    try {
+      const response = await api.confirmOrderReceived(orderId, authToken)
+      const refreshedOrders = await fetchOrdersWithDetails()
+      setOrders(refreshedOrders)
+      onNotify?.('success', response?.message || '\u0110\u00e3 x\u00e1c nh\u1eadn nh\u1eadn h\u00e0ng.')
+    } catch (requestError) {
+      setError(requestError.message)
+      onNotify?.('error', requestError.message)
+    } finally {
+      setUpdatingOrderId(null)
+    }
+  }
+
+  const filteredOrders = selectedOrderStatus === 'all'
+    ? orders
+    : orders.filter((order) => (order.status || '').toLowerCase() === selectedOrderStatus)
+
+  const countOrdersByStatus = (status) => {
+    if (status === 'all') {
+      return orders.length
+    }
+
+    return orders.filter((order) => (order.status || '').toLowerCase() === status).length
+  }
 
   return (
     <>
@@ -1934,97 +2031,129 @@ function OrdersPage({ auth, onNavigate }) {
           ) : orders.length === 0 ? (
             <div className="empty-state">{'T\u00e0i kho\u1ea3n n\u00e0y ch\u01b0a c\u00f3 \u0111\u01a1n h\u00e0ng n\u00e0o.'}</div>
           ) : (
-            <div className="orders-grid">
-              {orders.map((order) => {
-                const deliveryProgress = getDeliveryProgress(order)
-                const isCancelled = deliveryProgress < 0
-                const deliveryStatusLabel = getDeliveryStatusLabel(order)
-                const trackingCode = order.transportTrackingCode || order.TransportTrackingCode
-                const transportUnit = order.transportUnit || order.TransportUnit
-                const deliveryDate = order.deliveryDate || order.DeliveryDate
+            <>
+              <div className="order-tabs" role="tablist" aria-label="Lọc đơn hàng">
+                {ORDER_STATUS_TABS.map((tab) => (
+                  <button
+                    className={selectedOrderStatus === tab.id ? 'active' : ''}
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSelectedOrderStatus(tab.id)}
+                  >
+                    <span>{tab.label}</span>
+                    <small>{countOrdersByStatus(tab.id)}</small>
+                  </button>
+                ))}
+              </div>
 
-                return (
-                  <article className="order-card order-tracking-card" key={order.id}>
-                    <div className="order-card-header">
-                      <div>
-                        <h4>{'\u0110\u01a1n'} #{order.id}</h4>
-                        <span className="order-created-date">{formatDate(order.orderDate)}</span>
-                      </div>
-                      <span className={`order-status ${order.status?.toLowerCase() || 'pending'}`}>
-                        {toOrderStatusLabel(order.status)}
-                      </span>
-                    </div>
+              {filteredOrders.length === 0 ? (
+                <div className="empty-state compact">{'Kh\u00f4ng c\u00f3 \u0111\u01a1n h\u00e0ng trong tr\u1ea1ng th\u00e1i n\u00e0y.'}</div>
+              ) : (
+                <div className="order-list">
+                  {filteredOrders.map((order) => {
+                    const details = Array.isArray(order.details) ? order.details : []
 
-                    <div className={`tracking-timeline ${isCancelled ? 'cancelled' : ''}`}>
-                      {DELIVERY_STEPS.map((step, index) => (
-                        <div
-                          className={`tracking-step ${index <= deliveryProgress ? 'active' : ''}`}
-                          key={step.key}
-                        >
-                          <span className="tracking-step-icon">
-                            <i className={`fa ${step.icon}`} />
-                          </span>
-                          <span>{step.label}</span>
+                    return (
+                      <article className="order-card shopee-order-card" key={order.id}>
+                        <div className="shopee-order-header">
+                          <div className="shopee-order-shop">
+                            <strong>BaseCore Store</strong>
+                            <span>{'\u0110\u01a1n'} #{order.id}</span>
+                          </div>
+                          <div className="shopee-order-status-wrap">
+                            <span>{formatDate(order.orderDate)}</span>
+                            <span className={`order-status ${order.status?.toLowerCase() || 'pending'}`}>
+                              {toOrderStatusLabel(order.status)}
+                            </span>
+                          </div>
                         </div>
-                      ))}
-                    </div>
 
-                    <div className="tracking-current">
-                      <i className={`fa ${isCancelled ? 'fa-times-circle' : 'fa-map-marker'}`} />
-                      <div>
-                        <strong>{deliveryStatusLabel}</strong>
-                        <span>
-                          {isCancelled
-                            ? '\u0110\u01a1n h\u00e0ng \u0111\u00e3 d\u1eebng x\u1eed l\u00fd.'
-                            : order.deliveryMessage || '\u0110\u01a1n h\u00e0ng \u0111ang \u0111\u01b0\u1ee3c c\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i giao h\u00e0ng.'}
-                        </span>
-                      </div>
-                    </div>
+                        <div className="shopee-order-items">
+                          {details.length === 0 ? (
+                            <div className="shopee-order-item">
+                              <div className="shopee-order-thumb placeholder">
+                                <i className="fa fa-shopping-bag" />
+                              </div>
+                              <div className="shopee-order-product">
+                                <strong>{'Chi ti\u1ebft s\u1ea3n ph\u1ea9m \u0111ang \u0111\u01b0\u1ee3c \u0111\u1ed3ng b\u1ed9'}</strong>
+                                <span>{order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh thanh to\u00e1n'}</span>
+                              </div>
+                              <div className="shopee-order-line-total">{formatCurrency(order.totalAmount)}</div>
+                            </div>
+                          ) : (
+                            details.map((detail) => {
+                              const product = detail.product || { id: detail.productId }
 
-                    <div className="order-info-grid">
-                      <p>
-                        <strong>{'\u0110\u1ecba ch\u1ec9'}</strong>
-                        <span>{order.shippingAddress || 'Kh\u00f4ng c\u00f3'}</span>
-                      </p>
-                      <p>
-                        <strong>{'T\u1ed5ng thanh to\u00e1n'}</strong>
-                        <span>{formatCurrency(order.totalAmount)}</span>
-                      </p>
-                      <p>
-                        <strong>{'Thanh to\u00e1n'}</strong>
-                        <span>{order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}</span>
-                      </p>
-                      <p>
-                        <strong>{'Tr\u1ea1ng th\u00e1i thanh to\u00e1n'}</strong>
-                        <span>{order.paymentStatusLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}</span>
-                      </p>
-                      <p>
-                        <strong>{'\u0110\u01a1n v\u1ecb v\u1eadn chuy\u1ec3n'}</strong>
-                        <span>{transportUnit || 'Ch\u01b0a ph\u00e2n c\u00f4ng'}</span>
-                      </p>
-                      <p>
-                        <strong>{'M\u00e3 v\u1eadn \u0111\u01a1n'}</strong>
-                        <span>{trackingCode || 'Ch\u01b0a c\u00f3'}</span>
-                      </p>
-                      <p>
-                        <strong>{'Ng\u00e0y giao'}</strong>
-                        <span>{deliveryDate ? formatDate(deliveryDate) : 'Ch\u01b0a c\u1eadp nh\u1eadt'}</span>
-                      </p>
-                      <p>
-                        <strong>{'M\u00e3 thanh to\u00e1n'}</strong>
-                        <span>{order.paymentCode || `FW-${order.id}`}</span>
-                      </p>
-                    </div>
+                              return (
+                                <div className="shopee-order-item" key={detail.id || `${order.id}-${detail.productId}`}>
+                                  <img
+                                    className="shopee-order-thumb"
+                                    src={getProductImage(product)}
+                                    alt={product.name || `Product ${detail.productId}`}
+                                  />
+                                  <div className="shopee-order-product">
+                                    <strong>{product.name || `S\u1ea3n ph\u1ea9m #${detail.productId}`}</strong>
+                                    <span>{`M\u00e3 SP: ${detail.productId} | x${detail.quantity}`}</span>
+                                    <small>{formatCurrency(detail.unitPrice)}</small>
+                                  </div>
+                                  <div className="shopee-order-line-total">
+                                    {formatCurrency(detail.unitPrice * detail.quantity)}
+                                  </div>
+                                </div>
+                              )
+                            })
+                          )}
+                        </div>
 
-                    {(order.discountAmount || 0) > 0 && (
-                      <p className="order-discount-line">
-                        <strong>{'\u01afu \u0111\u00e3i:'}</strong> -{formatCurrency(order.discountAmount)} ({order.discountPercent}%)
-                      </p>
-                    )}
-                  </article>
-                )
-              })}
-            </div>
+                        <div className="shopee-order-info">
+                          <span>{order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh thanh to\u00e1n'}</span>
+                          <span>{order.paymentStatusLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh tr\u1ea1ng th\u00e1i thanh to\u00e1n'}</span>
+                          <span>{order.paymentCode || `FW-${order.id}`}</span>
+                        </div>
+
+                        {order.shippingAddress && (
+                          <div className="shopee-order-address">
+                            <i className="fa fa-map-marker" /> {order.shippingAddress}
+                          </div>
+                        )}
+                        {order.deliveryMessage && (
+                          <div className="order-delivery-note">{order.deliveryMessage}</div>
+                        )}
+                        {order.paymentNote && (
+                          <div className="order-payment-note">{order.paymentNote}</div>
+                        )}
+
+                        <div className="shopee-order-footer">
+                          <div className="shopee-order-total">
+                            <span>{'Th\u00e0nh ti\u1ec1n:'}</span>
+                            <strong>{formatCurrency(order.totalAmount)}</strong>
+                          </div>
+                          <div className="shopee-order-actions">
+                            {(order.canCustomerConfirmReceived || (order.status || '').toLowerCase() === 'shipping') && (
+                              <button
+                                className="primary-btn"
+                                type="button"
+                                disabled={updatingOrderId === order.id}
+                                onClick={() => confirmReceived(order.id)}
+                              >
+                                {updatingOrderId === order.id ? '\u0110ang x\u00e1c nh\u1eadn...' : '\u0110\u00e3 nh\u1eadn h\u00e0ng'}
+                              </button>
+                            )}
+                            <button
+                              className="secondary-btn"
+                              type="button"
+                              onClick={() => onNavigate('/store')}
+                            >
+                              {'Mua l\u1ea1i'}
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -2364,7 +2493,11 @@ function ProductAdminPage({
                           <tr key={product.id}>
                             <td>
                               <div className="admin-product-cell">
-                                <img src={getProductImage(product)} alt={product.name} />
+                                <img
+                                  src={getProductImage(product)}
+                                  alt={product.name}
+                                  onError={(event) => handleProductImageError(event, product)}
+                                />
                                 <div>
                                   <strong>{product.name}</strong>
                                   <span>{product.description || 'Chưa có mô tả'}</span>
@@ -2452,19 +2585,18 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, onUpdatePro
     setError('')
 
     try {
-      if (mode === 'register') {
-        await onRegister({
-          username: formData.username.trim(),
-          password: formData.password.trim(),
-          name: formData.name.trim(),
-          email: formData.email.trim(),
-          phone: formData.phone.trim(),
-        })
-      } else {
-        await onLogin(formData.username.trim(), formData.password.trim())
-      }
+      const loggedInAuth =
+        mode === 'register'
+          ? await onRegister({
+              username: formData.username.trim(),
+              password: formData.password.trim(),
+              name: formData.name.trim(),
+              email: formData.email.trim(),
+              phone: formData.phone.trim(),
+            })
+          : await onLogin(formData.username.trim(), formData.password.trim())
 
-      onNavigate(redirectPath)
+      onNavigate(isAdmin(loggedInAuth) ? '/admin' : redirectPath)
     } catch (requestError) {
       setError(requestError.message)
     } finally {
@@ -2837,7 +2969,7 @@ function NotFoundPage({ onNavigate }) {
 
 function App() {
   const [route, setRoute] = useState(parseRoute)
-  const [auth, setAuth] = useState(() => readStorage(STORAGE_KEYS.auth, null))
+  const [auth, setAuth] = useState(null)
   const [cart, setCart] = useState(() => readStorage(STORAGE_KEYS.cart, []))
   const [categories, setCategories] = useState([])
   const [highlightedProducts, setHighlightedProducts] = useState([])
@@ -2993,6 +3125,7 @@ function App() {
     const data = await api.login(username, password)
     setAuth(data)
     openNotice('success', 'Đăng nhập thành công.')
+    return data
   }
 
   async function register(payload) {
@@ -3005,8 +3138,9 @@ function App() {
     }
 
     await api.register(normalizedPayload)
-    await login(normalizedPayload.username, normalizedPayload.password)
+    const data = await login(normalizedPayload.username, normalizedPayload.password)
     openNotice('success', 'Tạo tài khoản thành công.')
+    return data
   }
 
   async function updateProfile(payload) {
@@ -3111,9 +3245,44 @@ function App() {
     total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
   }
 
-  let content = null
+  if (route.name.startsWith('admin')) {
+    return (
+      <AdminApp
+        auth={auth}
+        route={route}
+        onNavigate={navigate}
+        onLogin={(adminAuth) => {
+          setAuth(adminAuth)
+        }}
+        onLogout={logout}
+        onDataChanged={refreshShellData}
+      />
+    )
+  }
 
-  if (loadingHomeData && (route.name === 'home' || route.name === 'store')) {
+  let content = null
+  const needsAuthFirst = !auth && route.name !== 'login'
+
+  if (needsAuthFirst) {
+    content = (
+      <AuthPage
+        auth={auth}
+        onNavigate={navigate}
+        onLogin={login}
+        onRegister={register}
+        onLogout={logout}
+        onUpdateProfile={updateProfile}
+        route={{
+          ...route,
+          name: 'login',
+          pathname: '/login',
+          query: {
+            redirect: `${route.pathname}${window.location.search}`,
+          },
+        }}
+      />
+    )
+  } else if (loadingHomeData && (route.name === 'home' || route.name === 'store')) {
     content = (
       <div className="section">
         <div className="container">
@@ -3167,17 +3336,16 @@ function App() {
         )
         break
       case 'orders':
-        content = <OrdersPage auth={auth} onNavigate={navigate} />
+        content = <OrdersPage auth={auth} onNavigate={navigate} onNotify={openNotice} />
         break
-      case 'admin':
+      case 'adminProducts':
         content = (
-          <AdminApp
+          <ProductAdminPage
             auth={auth}
-            route={route}
+            categories={categories}
             onNavigate={navigate}
-            onLogin={setAuth}
-            onLogout={logout}
-            onDataChanged={refreshShellData}
+            onNotify={openNotice}
+            onAdminProductsChanged={refreshShellData}
           />
         )
         break
@@ -3249,3 +3417,5 @@ function App() {
 }
 
 export default App
+
+

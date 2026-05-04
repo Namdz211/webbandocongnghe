@@ -18,14 +18,30 @@ namespace BaseCore.APIService.Controllers
     [Authorize]
     public class OrdersController : ControllerBase
     {
-        private const string DeliveryMessage = "Đơn hàng sẽ được giao đến bạn trong vòng 7 ngày, vui lòng chú ý điện thoại.";
+        private const string PendingStatus = "Pending";
+        private const string ConfirmedStatus = "Confirmed";
+        private const string ShippingStatus = "Shipping";
+        private const string CompletedStatus = "Completed";
+        private const string CancelledStatus = "Cancelled";
+        private const string DeliveryMessage = "Đơn hàng đang trên đường giao đến bạn, vui lòng chú ý điện thoại.";
+
+        private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
+        {
+            PendingStatus,
+            ConfirmedStatus,
+            ShippingStatus,
+            CompletedStatus,
+            CancelledStatus
+        };
 
         private static readonly Dictionary<string, (string Label, string Status, string Note, string CodePrefix)> PaymentOptions = new()
         {
-            ["momo"] = ("Ví MoMo", "Paid", "Đã ghi nhận thanh toán qua ví MoMo.", "MOMO"),
-            ["zalopay"] = ("Ví ZaloPay", "Paid", "Đã ghi nhận thanh toán qua ví ZaloPay.", "ZALO"),
+            ["cod"] = ("Thanh toán khi nhận hàng (COD)", "Unpaid", "Thanh toán khi nhận hàng.", "COD"),
             ["bank_transfer"] = ("Chuyển khoản ngân hàng", "Paid", "Đã ghi nhận thanh toán chuyển khoản ngân hàng.", "BANK"),
-            ["counter"] = ("Thanh toán tại quầy/văn phòng", "PayAtCounter", "Thanh toán trực tiếp tại quầy hoặc văn phòng khi đến nhận/xác nhận đơn.", "COUNTER")
+            ["e_wallet"] = ("Ví điện tử", "Paid", "Đã ghi nhận thanh toán qua ví điện tử.", "EWALLET"),
+            ["momo"] = ("Ví điện tử", "Paid", "Đã ghi nhận thanh toán qua ví điện tử.", "EWALLET"),
+            ["zalopay"] = ("Ví điện tử", "Paid", "Đã ghi nhận thanh toán qua ví điện tử.", "EWALLET"),
+            ["counter"] = ("Thanh toán khi nhận hàng (COD)", "Unpaid", "Thanh toán khi nhận hàng.", "COD")
         };
 
         private readonly IOrderRepositoryEF _orderRepository;
@@ -94,6 +110,7 @@ namespace BaseCore.APIService.Controllers
         {
             var order = await _orderRepository.GetByIdAsync(id);
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
+            if (!CanAccessOrder(order)) return Forbid();
 
             // Sử dụng DbContext để Include(Product) đảm bảo có dữ liệu sản phẩm
             var details = await _dbContext.OrderDetails
@@ -129,7 +146,7 @@ namespace BaseCore.APIService.Controllers
                 return BadRequest(new { message = "Dữ liệu sản phẩm trong đơn hàng không hợp lệ" });
 
             var paymentMethod = string.IsNullOrWhiteSpace(dto.PaymentMethod)
-                ? "counter"
+                ? "cod"
                 : dto.PaymentMethod.Trim().ToLowerInvariant();
 
             if (!PaymentOptions.TryGetValue(paymentMethod, out var paymentOption))
@@ -174,7 +191,7 @@ namespace BaseCore.APIService.Controllers
                     DiscountAmount = discount.Amount,
                     PromotionName = discount.PromotionName,
                     TotalAmount = originalAmount - discount.Amount,
-                    Status = "Pending",
+                    Status = PendingStatus,
                     ShippingAddress = dto.ShippingAddress ?? "",
                     PaymentMethod = paymentMethod,
                     PaymentStatus = paymentOption.Status,
@@ -193,8 +210,8 @@ namespace BaseCore.APIService.Controllers
                 await transaction.CommitAsync();
 
                 var successMessage = IsPaidPayment(order.PaymentStatus)
-                    ? "Đã thanh toán và đặt hàng thành công. " + DeliveryMessage
-                    : "Đặt hàng thành công. Vui lòng hoàn tất thanh toán để đơn hàng được xử lý.";
+                    ? "Đã thanh toán và đặt hàng thành công. Admin sẽ xác nhận đơn hàng trước khi bàn giao vận chuyển."
+                    : "Đặt hàng thành công. Admin sẽ xác nhận đơn hàng trước khi bàn giao vận chuyển.";
 
                 return CreatedAtAction(nameof(GetById), new { id = order.Id }, new
                 {
@@ -219,22 +236,11 @@ namespace BaseCore.APIService.Controllers
         {
             var order = await _orderRepository.GetByIdAsync(id);
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
+            if (!ValidStatuses.Contains(dto.Status))
+                return BadRequest(new { message = "Trạng thái đơn hàng không hợp lệ" });
 
             var nextStatus = dto.Status?.Trim();
             if (string.IsNullOrWhiteSpace(nextStatus))
-                return BadRequest(new { message = "Trạng thái đơn hàng không hợp lệ" });
-
-            if (string.Equals(nextStatus, "Completed", StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new { message = "Chỉ được hoàn thành đơn hàng khi trạng thái giao hàng là đã giao thành công." });
-
-            var allowedStatuses = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-            {
-                "Pending",
-                "Processing",
-                "Cancelled"
-            };
-
-            if (!allowedStatuses.Contains(nextStatus))
                 return BadRequest(new { message = "Trạng thái đơn hàng không hợp lệ" });
 
             if (string.Equals(order.Status, "Completed", StringComparison.OrdinalIgnoreCase))
@@ -247,6 +253,86 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
+        /// Admin confirms the order has been received and accepted for processing.
+        /// </summary>
+        [HttpPut("{id}/admin/confirm")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ConfirmOrder(int id)
+        {
+            var order = await _orderRepository.GetByIdAsync(id);
+            if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
+
+            if (!string.Equals(order.Status, PendingStatus, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Chỉ đơn hàng đang chờ xử lý mới được admin xác nhận" });
+
+            order.Status = ConfirmedStatus;
+            await _orderRepository.UpdateAsync(order);
+
+            return Ok(new
+            {
+                message = "Admin đã xác nhận đơn hàng.",
+                order = ToOrderResponse(order)
+            });
+        }
+
+        /// <summary>
+        /// Admin hands the order over to the shipping provider.
+        /// </summary>
+        [HttpPut("{id}/admin/ship")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> ShipOrder(int id)
+        {
+            var order = await _orderRepository.GetByIdAsync(id);
+            if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
+
+            if (!string.Equals(order.Status, ConfirmedStatus, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Admin cần xác nhận đơn hàng trước khi bàn giao vận chuyển" });
+
+            order.Status = ShippingStatus;
+            await _orderRepository.UpdateAsync(order);
+
+            return Ok(new
+            {
+                message = DeliveryMessage,
+                order = ToOrderResponse(order)
+            });
+        }
+
+        /// <summary>
+        /// Customer confirms the order was received.
+        /// </summary>
+        [HttpPut("{id}/received")]
+        public async Task<IActionResult> ConfirmReceived(int id)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+            var order = await _orderRepository.GetByIdAsync(id);
+            if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
+            if (!string.Equals(order.UserId, userId, StringComparison.Ordinal)) return Forbid();
+
+            if (!string.Equals(order.Status, ShippingStatus, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Chỉ xác nhận đã nhận hàng khi đơn đang được giao" });
+
+            order.Status = CompletedStatus;
+
+            if (string.Equals(order.PaymentMethod, "cod", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(order.PaymentMethod, "counter", StringComparison.OrdinalIgnoreCase))
+            {
+                order.PaymentStatus = "Paid";
+                order.PaymentNote = "Khách hàng đã thanh toán COD khi nhận hàng.";
+            }
+
+            await _orderRepository.UpdateAsync(order);
+
+            return Ok(new
+            {
+                message = "Cảm ơn bạn đã xác nhận nhận hàng.",
+                order = ToOrderResponse(order)
+            });
+        }
+
+        /// <summary>
         /// Cancel order
         /// </summary>
         [HttpPut("{id}/cancel")]
@@ -254,9 +340,11 @@ namespace BaseCore.APIService.Controllers
         {
             var order = await _orderRepository.GetByIdAsync(id);
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
+            if (!CanAccessOrder(order)) return Forbid();
 
-            if (order.Status == "Completed")
-                return BadRequest(new { message = "Không thể hủy đơn hàng đã hoàn thành" });
+            if (string.Equals(order.Status, CompletedStatus, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(order.Status, ShippingStatus, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Không thể hủy đơn hàng đã hoàn thành hoặc đang giao" });
 
             var details = await _orderDetailRepository.GetByOrderAsync(id);
             foreach (var detail in details)
@@ -269,7 +357,7 @@ namespace BaseCore.APIService.Controllers
                 }
             }
 
-            order.Status = "Cancelled";
+            order.Status = CancelledStatus;
             await _orderRepository.UpdateAsync(order);
 
             return Ok(new { message = "Đã hủy đơn hàng", order = ToOrderResponse(order) });
@@ -332,6 +420,7 @@ namespace BaseCore.APIService.Controllers
                 order.PromotionName,
                 order.TotalAmount,
                 order.Status,
+                StatusLabel = GetOrderStatusLabel(order.Status),
                 order.ShippingAddress,
                 order.PaymentMethod,
                 PaymentMethodLabel = GetPaymentMethodLabel(order.PaymentMethod),
@@ -343,7 +432,8 @@ namespace BaseCore.APIService.Controllers
                 DeliveryStatus = NormalizeDeliveryStatus(order.DeliveryStatus),
                 order.DeliveryDate,
                 order.TransportTrackingCode,
-                DeliveryMessage = IsPaidPayment(order.PaymentStatus) ? DeliveryMessage : null
+                DeliveryMessage = IsShippingStatus(order.Status) ? DeliveryMessage : null,
+                CanCustomerConfirmReceived = IsShippingStatus(order.Status)
             };
         }
 
@@ -394,11 +484,30 @@ namespace BaseCore.APIService.Controllers
             };
         }
 
+        private static bool IsShippingStatus(string status)
+        {
+            return string.Equals(status, ShippingStatus, StringComparison.OrdinalIgnoreCase);
+        }
+
         private static string GetPaymentMethodLabel(string paymentMethod)
         {
-            return PaymentOptions.TryGetValue(paymentMethod ?? "", out var option)
+            var key = (paymentMethod ?? "").Trim().ToLowerInvariant();
+            return PaymentOptions.TryGetValue(key, out var option)
                 ? option.Label
                 : "Chưa xác định";
+        }
+
+        private static string GetOrderStatusLabel(string status)
+        {
+            return (status ?? "").ToLowerInvariant() switch
+            {
+                "pending" => "Chờ xác nhận",
+                "confirmed" => "Admin đã xác nhận",
+                "shipping" => "Đang giao hàng",
+                "completed" => "Khách đã nhận hàng",
+                "cancelled" => "Đã hủy",
+                _ => "Chưa xác định"
+            };
         }
 
         private static string GetPaymentStatusLabel(string paymentStatus)
@@ -406,6 +515,7 @@ namespace BaseCore.APIService.Controllers
             return (paymentStatus ?? "").ToLowerInvariant() switch
             {
                 "pending" => "Chưa thanh toán",
+                "unpaid" => "Chưa thanh toán",
                 "paid" => "Đã thanh toán",
                 "payatcounter" => "Thanh toán tại quầy",
                 _ => "Chưa xác định"
@@ -433,6 +543,13 @@ namespace BaseCore.APIService.Controllers
                 "Giao tháº¥t báº¡i" => "Giao thất bại",
                 _ => normalized
             };
+        }
+
+        private bool CanAccessOrder(Order order)
+        {
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            return User.IsInRole("Admin") ||
+                (!string.IsNullOrEmpty(userId) && string.Equals(order.UserId, userId, StringComparison.Ordinal));
         }
 
         private static object ToOrderDetailResponse(OrderDetail detail)

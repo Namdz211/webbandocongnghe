@@ -481,31 +481,105 @@ textarea {
   background: rgba(209, 0, 36, 0.05);
 }
 
-.orders-grid {
+.order-tabs {
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  margin-bottom: 16px;
+  overflow: hidden;
+}
+
+.order-tabs button {
+  align-items: center;
+  background: #fff;
+  border: 0;
+  border-right: 1px solid #edf0f5;
+  color: #2b2d42;
+  display: inline-flex;
+  gap: 8px;
+  justify-content: center;
+  min-height: 52px;
+  padding: 10px 12px;
+}
+
+.order-tabs button:last-child {
+  border-right: 0;
+}
+
+.order-tabs button.active {
+  border-bottom: 3px solid #d10024;
+  color: #d10024;
+  font-weight: 700;
+}
+
+.order-tabs small {
+  align-items: center;
+  background: #f2f4f8;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 11px;
+  justify-content: center;
+  min-width: 22px;
+  padding: 2px 6px;
+}
+
+.order-tabs button.active small {
+  background: rgba(209, 0, 36, 0.1);
+}
+
+.order-list,
+.orders-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .order-card {
-  padding: 24px;
   background: #fff;
   border: 1px solid #e4e7ed;
-  border-radius: 22px;
-  box-shadow: 0 20px 45px rgba(21, 31, 48, 0.06);
+  border-radius: 6px;
+  box-shadow: 0 10px 24px rgba(21, 31, 48, 0.04);
 }
 
-.order-card-header {
-  display: flex;
+.shopee-order-card {
+  overflow: hidden;
+}
+
+.shopee-order-header {
   align-items: center;
+  border-bottom: 1px solid #edf0f5;
+  display: flex;
+  gap: 14px;
   justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 12px;
+  padding: 14px 18px;
 }
 
-.order-card h4 {
-  margin: 0;
-  font-size: 18px;
+.shopee-order-shop {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.shopee-order-shop strong {
+  color: #151f30;
+  font-size: 15px;
+}
+
+.shopee-order-shop span,
+.shopee-order-status-wrap > span:first-child {
+  color: #8d99ae;
+  font-size: 13px;
+}
+
+.shopee-order-status-wrap {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
 }
 
 .order-status {
@@ -525,6 +599,16 @@ textarea {
   color: #a65f00;
 }
 
+.order-status.confirmed {
+  background: rgba(23, 162, 184, 0.12);
+  color: #117a8b;
+}
+
+.order-status.shipping {
+  background: rgba(0, 123, 255, 0.12);
+  color: #0056b3;
+}
+
 .order-status.completed {
   background: rgba(13, 163, 89, 0.12);
   color: #0d8a52;
@@ -535,146 +619,152 @@ textarea {
   color: #d10024;
 }
 
-.order-tracking-card {
+.shopee-order-items {
   display: flex;
   flex-direction: column;
-  gap: 18px;
 }
 
-.order-created-date {
-  display: block;
-  margin-top: 4px;
-  color: #8d99ae;
-  font-size: 13px;
-}
-
-.tracking-timeline {
+.shopee-order-item {
+  align-items: center;
+  border-bottom: 1px solid #f2f4f8;
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  position: relative;
-  gap: 12px;
+  gap: 14px;
+  grid-template-columns: 84px minmax(0, 1fr) minmax(120px, auto);
+  padding: 16px 18px;
 }
 
-.tracking-timeline::before {
-  content: '';
-  position: absolute;
-  top: 18px;
-  left: 8%;
-  right: 8%;
-  height: 2px;
-  background: #e4e7ed;
+.shopee-order-item:last-child {
+  border-bottom: 0;
 }
 
-.tracking-step {
-  position: relative;
-  z-index: 1;
-  display: flex;
+.shopee-order-thumb {
+  aspect-ratio: 1;
+  background: #f4f6f9;
+  border: 1px solid #edf0f5;
+  border-radius: 4px;
+  height: 84px;
+  object-fit: contain;
+  width: 84px;
+}
+
+.shopee-order-thumb.placeholder {
   align-items: center;
-  flex-direction: column;
-  gap: 8px;
   color: #8d99ae;
-  font-size: 12px;
-  font-weight: 700;
-  text-align: center;
-}
-
-.tracking-step-icon {
-  display: inline-flex;
-  align-items: center;
+  display: flex;
+  font-size: 24px;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 2px solid #e4e7ed;
-  border-radius: 50%;
-  color: #8d99ae;
-  background: #fff;
 }
 
-.tracking-step.active {
-  color: #0d8a52;
+.shopee-order-product {
+  min-width: 0;
 }
 
-.tracking-step.active .tracking-step-icon {
-  border-color: #0d8a52;
-  color: #fff;
-  background: #0d8a52;
-}
-
-.tracking-timeline.cancelled .tracking-step {
-  color: #8d99ae;
-}
-
-.tracking-timeline.cancelled .tracking-step-icon {
-  border-color: #e4e7ed;
-  color: #8d99ae;
-  background: #fff;
-}
-
-.tracking-current {
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid rgba(13, 138, 82, 0.16);
-  border-radius: 8px;
-  color: #2b2d42;
-  background: rgba(13, 138, 82, 0.06);
-}
-
-.tracking-current i {
-  margin-top: 3px;
-  color: #0d8a52;
-}
-
-.tracking-current strong,
-.tracking-current span {
+.shopee-order-product strong,
+.shopee-order-product span,
+.shopee-order-product small {
   display: block;
 }
 
-.tracking-current span {
+.shopee-order-product strong {
+  color: #151f30;
+  font-size: 15px;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.shopee-order-product span,
+.shopee-order-product small {
+  color: #8d99ae;
   margin-top: 4px;
-  color: #6c7280;
-  line-height: 1.5;
 }
 
-.tracking-timeline.cancelled + .tracking-current {
-  border-color: rgba(209, 0, 36, 0.16);
-  background: rgba(209, 0, 36, 0.06);
+.shopee-order-line-total {
+  color: #151f30;
+  font-weight: 700;
+  justify-self: end;
+  white-space: nowrap;
 }
 
-.tracking-timeline.cancelled + .tracking-current i {
+.shopee-order-info {
+  align-items: center;
+  background: #fafbfc;
+  border-top: 1px solid #edf0f5;
+  color: #606c80;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  padding: 12px 18px;
+}
+
+.shopee-order-address {
+  color: #606c80;
+  padding: 12px 18px 0;
+}
+
+.shopee-order-address .fa {
   color: #d10024;
+  margin-right: 6px;
 }
 
-.order-info-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px 18px;
+.order-payment-note,
+.order-delivery-note {
+  border-radius: 8px;
+  margin: 12px 18px 0;
+  padding: 10px 12px;
 }
 
-.order-info-grid p,
-.order-discount-line {
+.order-payment-note {
+  background: rgba(23, 162, 184, 0.08);
+  color: #117a8b;
+}
+
+.order-delivery-note {
+  background: rgba(0, 123, 255, 0.08);
+  color: #0056b3;
+  font-weight: 700;
+}
+
+.order-received-btn {
+  margin-top: 14px;
+  width: 100%;
+}
+
+.shopee-order-footer {
+  align-items: center;
+  background: #fffaf8;
+  border-top: 1px solid #f2e0db;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  justify-content: space-between;
+  padding: 16px 18px;
+}
+
+.shopee-order-total {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 10px;
+}
+
+.shopee-order-total span {
+  color: #606c80;
+}
+
+.shopee-order-total strong {
+  color: #d10024;
+  font-size: 22px;
+}
+
+.shopee-order-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.empty-state.compact {
   margin: 0;
-}
-
-.order-info-grid strong {
-  display: block;
-  margin-bottom: 4px;
-  color: #8d99ae;
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.order-info-grid span {
-  color: #2b2d42;
-  line-height: 1.45;
-  overflow-wrap: anywhere;
-}
-
-.order-discount-line {
-  padding-top: 12px;
-  border-top: 1px solid #eef1f6;
-  color: #0d8a52;
+  max-width: none;
 }
 
 .auth-layout {
@@ -1204,36 +1294,44 @@ textarea {
     min-height: 86px;
   }
 
-  .order-card-header {
-    align-items: flex-start;
+  .order-tabs {
+    grid-template-columns: repeat(3, minmax(130px, 1fr));
+    overflow-x: auto;
+  }
+
+  .order-tabs button {
+    border-bottom: 1px solid #edf0f5;
+    min-width: 130px;
+  }
+
+  .shopee-order-header,
+  .shopee-order-footer {
+    align-items: stretch;
     flex-direction: column;
   }
 
-  .tracking-timeline {
-    grid-template-columns: 1fr;
-    gap: 10px;
+  .shopee-order-status-wrap,
+  .shopee-order-actions {
+    justify-content: flex-start;
   }
 
-  .tracking-timeline::before {
-    top: 18px;
-    bottom: 18px;
-    left: 18px;
-    right: auto;
-    width: 2px;
-    height: auto;
+  .shopee-order-item {
+    align-items: start;
+    grid-template-columns: 70px minmax(0, 1fr);
   }
 
-  .tracking-step {
-    align-items: center;
-    flex-direction: row;
-    text-align: left;
+  .shopee-order-thumb {
+    height: 70px;
+    width: 70px;
   }
 
-  .tracking-step-icon {
-    flex: 0 0 36px;
+  .shopee-order-line-total {
+    grid-column: 2;
+    justify-self: start;
   }
 
-  .order-info-grid {
-    grid-template-columns: 1fr;
+  .shopee-order-actions .primary-btn,
+  .shopee-order-actions .secondary-btn {
+    flex: 1;
   }
 }
