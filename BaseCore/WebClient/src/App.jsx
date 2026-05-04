@@ -18,6 +18,16 @@ const FALLBACK_IMAGES = [
   '/electro/img/macbookneo.png',
 ]
 
+const CATEGORY_FALLBACK_IMAGES = [
+  { keywords: ['dien thoai', 'phone'], image: '/electro/img/product02.png' },
+  { keywords: ['laptop'], image: '/electro/img/product01.png' },
+  { keywords: ['smartwatch', 'watch'], image: '/electro/img/product09.png' },
+  { keywords: ['tablet'], image: '/electro/img/product04.png' },
+]
+
+const REAL_PRODUCT_IMAGE_BASE_URL = 'https://tse.mm.bing.net/th'
+const REAL_PRODUCT_IMAGE_PARAMS = 'w=360&h=360&c=7&rs=1&p=0&dpr=1&pid=1.7&mkt=vi-VN'
+
 const SHOP_IMAGES = [
   '/electro/img/shop01.png',
   '/electro/img/shop02.png',
@@ -40,18 +50,23 @@ const STORAGE_KEYS = {
   cart: 'electro-store-cart',
 }
 
+const ORDER_REFRESH_INTERVAL_MS = 5000
+
+const ORDER_STATUS_TABS = [
+  { id: 'all', label: 'Tất cả' },
+  { id: 'pending', label: 'Chờ xác nhận' },
+  { id: 'confirmed', label: 'Đã xác nhận' },
+  { id: 'shipping', label: 'Đang giao' },
+  { id: 'completed', label: 'Đã nhận' },
+  { id: 'cancelled', label: 'Đã hủy' },
+]
+
 const PAYMENT_METHODS = [
   {
-    id: 'momo',
-    name: 'V\u00ed MoMo',
-    description: 'Thanh to\u00e1n b\u1eb1ng v\u00ed MoMo \u0111\u1ec3 \u0111\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.',
-    icon: 'fa-mobile',
-  },
-  {
-    id: 'zalopay',
-    name: 'V\u00ed ZaloPay',
-    description: 'Thanh to\u00e1n b\u1eb1ng v\u00ed ZaloPay \u0111\u1ec3 \u0111\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.',
-    icon: 'fa-credit-card',
+    id: 'cod',
+    name: 'Thanh to\u00e1n khi nh\u1eadn h\u00e0ng (COD)',
+    description: 'Tr\u1ea3 ti\u1ec1n m\u1eb7t cho nh\u00e2n vi\u00ean giao h\u00e0ng sau khi nh\u1eadn s\u1ea3n ph\u1ea9m.',
+    icon: 'fa-truck',
   },
   {
     id: 'bank_transfer',
@@ -60,10 +75,10 @@ const PAYMENT_METHODS = [
     icon: 'fa-university',
   },
   {
-    id: 'counter',
-    name: 'Thanh to\u00e1n t\u1ea1i qu\u1ea7y/v\u0103n ph\u00f2ng',
-    description: 'Thanh to\u00e1n tr\u1ef1c ti\u1ebfp t\u1ea1i qu\u1ea7y ho\u1eb7c v\u0103n ph\u00f2ng khi nh\u1eadn/x\u00e1c nh\u1eadn \u0111\u01a1n.',
-    icon: 'fa-building-o',
+    id: 'e_wallet',
+    name: 'V\u00ed \u0111i\u1ec7n t\u1eed',
+    description: 'Thanh to\u00e1n qua v\u00ed \u0111i\u1ec7n t\u1eed v\u00e0 h\u1ec7 th\u1ed1ng ghi nh\u1eadn thanh to\u00e1n ngay.',
+    icon: 'fa-credit-card',
   },
 ]
 
@@ -215,6 +230,47 @@ function normalizeProductImageUrl(rawImageUrl) {
   return fileName ? `/electro/img/${fileName}` : ''
 }
 
+function normalizeSearchText(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function getProductCategoryName(product) {
+  return (
+    product?.category?.name ||
+    product?.categoryName ||
+    (typeof product?.category === 'string' ? product.category : '') ||
+    ''
+  )
+}
+
+function getLocalProductFallback(product) {
+  const categoryName = normalizeSearchText(getProductCategoryName(product))
+  const categoryFallback = CATEGORY_FALLBACK_IMAGES.find((item) =>
+    item.keywords.some((keyword) => categoryName.includes(keyword)),
+  )
+
+  if (categoryFallback) {
+    return categoryFallback.image
+  }
+
+  const fallbackIndex = Number(product?.id || 0) % FALLBACK_IMAGES.length
+  return FALLBACK_IMAGES[fallbackIndex]
+}
+
+function getRealProductImage(product) {
+  const productName = product?.name?.trim()
+
+  if (!productName) {
+    return ''
+  }
+
+  const query = encodeURIComponent(`${productName} official product photo`)
+  return `${REAL_PRODUCT_IMAGE_BASE_URL}?${REAL_PRODUCT_IMAGE_PARAMS}&q=${query}`
+}
+
 function getProductImage(product) {
   const imageUrl = normalizeProductImageUrl(product?.imageUrl)
 
@@ -222,14 +278,30 @@ function getProductImage(product) {
     return imageUrl
   }
 
-  const fallbackIndex = Number(product?.id || 0) % FALLBACK_IMAGES.length
-  return FALLBACK_IMAGES[fallbackIndex]
+  return getRealProductImage(product) || getLocalProductFallback(product)
+}
+
+function handleProductImageError(event, product) {
+  const imageElement = event.currentTarget
+
+  if (imageElement.dataset.fallbackApplied === 'true') {
+    return
+  }
+
+  imageElement.dataset.fallbackApplied = 'true'
+  imageElement.src = getLocalProductFallback(product)
 }
 
 function toOrderStatusLabel(status) {
   switch ((status || '').toLowerCase()) {
+    case 'pending':
+      return 'Ch\u1edd admin x\u00e1c nh\u1eadn'
+    case 'confirmed':
+      return 'Admin \u0111\u00e3 x\u00e1c nh\u1eadn'
+    case 'shipping':
+      return '\u0110ang giao h\u00e0ng'
     case 'completed':
-      return 'Ho\u00e0n t\u1ea5t'
+      return '\u0110\u00e3 nh\u1eadn h\u00e0ng'
     case 'cancelled':
       return '\u0110\u00e3 h\u1ee7y'
     default:
@@ -309,6 +381,10 @@ function parseRoute() {
 
   if (pathname === '/admin/users') {
     return { name: 'adminUsers', pathname, query }
+  }
+
+  if (pathname === '/admin/orders') {
+    return { name: 'adminOrders', pathname, query }
   }
 
   if (pathname === '/account') {
@@ -418,11 +494,20 @@ const api = {
     request('/orders', {
       token,
     }),
+  getOrder: (id, token) =>
+    request(`/orders/${id}`, {
+      token,
+    }),
   createOrder: (payload, token) =>
     request('/orders', {
       method: 'POST',
       token,
       body: JSON.stringify(payload),
+    }),
+  confirmOrderReceived: (id, token) =>
+    request(`/orders/${id}/received`, {
+      method: 'PUT',
+      token,
     }),
 }
 
@@ -747,7 +832,11 @@ function Header({
                           cart.map((item) => (
                             <div className="product-widget" key={item.id}>
                               <div className="product-img">
-                                <img src={getProductImage(item)} alt={item.name} />
+                                <img
+                                  src={getProductImage(item)}
+                                  alt={item.name}
+                                  onError={(event) => handleProductImageError(event, item)}
+                                />
                               </div>
                               <div className="product-body">
                                 <h3 className="product-name">
@@ -945,7 +1034,11 @@ function ProductCard({ product, onNavigate, onAddToCart, onBuyNow }) {
     <div className="col-md-4 col-xs-6" key={product.id}>
       <div className="product">
         <div className="product-img">
-          <img src={getProductImage(product)} alt={product.name} />
+          <img
+            src={getProductImage(product)}
+            alt={product.name}
+            onError={(event) => handleProductImageError(event, product)}
+          />
           <div className="product-label">
             {product.stock < 5 && <span className="sale">Sắp hết</span>}
             <span className="new">Mới</span>
@@ -1137,7 +1230,11 @@ function HomePage({
               <div className="col-md-3 col-sm-6 col-xs-6" key={product.id}>
                 <div className="product-widget">
                   <div className="product-img">
-                    <img src={getProductImage(product)} alt={product.name} />
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
                   </div>
                   <div className="product-body">
                     <p className="product-category">{product.category?.name || 'Sản phẩm'}</p>
@@ -1468,13 +1565,21 @@ function ProductPage({ productId, onNavigate, onAddToCart, onBuyNow }) {
               <div className="row">
                 <div className="col-md-5 col-md-push-2">
                   <div id="product-main-img" className="product-preview">
-                    <img src={getProductImage(product)} alt={product.name} />
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
                   </div>
                 </div>
 
                 <div className="col-md-2 col-md-pull-5">
                   <div id="product-imgs" className="product-preview-nav">
-                    <img src={getProductImage(product)} alt={product.name} />
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
                     <img
                       src={FALLBACK_IMAGES[(Number(product.id) + 1) % FALLBACK_IMAGES.length]}
                       alt={`${product.name} gallery`}
@@ -1605,7 +1710,7 @@ function CheckoutPage({
   const [shippingAddress, setShippingAddress] = useState(
     '227 Nguy\u1ec5n V\u0103n C\u1eeb, Qu\u1eadn 5, Th\u00e0nh ph\u1ed1 H\u1ed3 Ch\u00ed Minh',
   )
-  const [paymentMethod, setPaymentMethod] = useState('counter')
+  const [paymentMethod, setPaymentMethod] = useState('cod')
 
   const totalAmount = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
@@ -1770,7 +1875,7 @@ function CheckoutPage({
                 disabled={!auth || submitting}
                 onClick={() => onPlaceOrder(shippingAddress, paymentMethod)}
               >
-                {submitting ? '\u0110ang g\u1eedi \u0111\u01a1n...' : 'Thanh to\u00e1n v\u00e0 \u0111\u1eb7t h\u00e0ng'}
+                {submitting ? '\u0110ang g\u1eedi \u0111\u01a1n...' : '\u0110\u1eb7t h\u00e0ng'}
               </button>
             </div>
           </div>
@@ -1780,11 +1885,35 @@ function CheckoutPage({
   )
 }
 
-function OrdersPage({ auth, onNavigate }) {
+function OrdersPage({ auth, onNavigate, onNotify }) {
   const [loading, setLoading] = useState(Boolean(auth))
   const [error, setError] = useState('')
   const [orders, setOrders] = useState([])
+  const [selectedOrderStatus, setSelectedOrderStatus] = useState('all')
+  const [updatingOrderId, setUpdatingOrderId] = useState(null)
   const authToken = getAuthToken(auth)
+
+  async function fetchOrdersWithDetails() {
+    const response = await api.getOrders(authToken)
+    const orderList = Array.isArray(response) ? response : []
+    const detailResults = await Promise.allSettled(
+      orderList.map((order) => api.getOrder(order.id, authToken)),
+    )
+
+    return orderList.map((order, index) => {
+      const result = detailResults[index]
+
+      if (result.status !== 'fulfilled') {
+        return { ...order, details: [] }
+      }
+
+      return {
+        ...order,
+        ...(result.value?.order || {}),
+        details: Array.isArray(result.value?.details) ? result.value.details : [],
+      }
+    })
+  }
 
   useEffect(() => {
     if (!authToken) {
@@ -1795,33 +1924,74 @@ function OrdersPage({ auth, onNavigate }) {
 
     let cancelled = false
 
-    async function loadOrders() {
-      setLoading(true)
+    async function loadOrders({ showLoading = true } = {}) {
+      if (showLoading) {
+        setLoading(true)
+      }
       setError('')
 
       try {
-        const response = await api.getOrders(authToken)
+        const response = await fetchOrdersWithDetails()
 
         if (!cancelled) {
-          setOrders(Array.isArray(response) ? response : [])
+          setOrders(response)
         }
       } catch (requestError) {
         if (!cancelled) {
           setError(requestError.message)
         }
       } finally {
-        if (!cancelled) {
+        if (!cancelled && showLoading) {
           setLoading(false)
         }
       }
     }
 
     loadOrders()
+    const refreshInterval = window.setInterval(
+      () => loadOrders({ showLoading: false }),
+      ORDER_REFRESH_INTERVAL_MS,
+    )
 
     return () => {
       cancelled = true
+      window.clearInterval(refreshInterval)
     }
   }, [authToken])
+
+  async function confirmReceived(orderId) {
+    if (!authToken) {
+      onNavigate('/login?redirect=/orders')
+      return
+    }
+
+    setUpdatingOrderId(orderId)
+    setError('')
+
+    try {
+      const response = await api.confirmOrderReceived(orderId, authToken)
+      const refreshedOrders = await fetchOrdersWithDetails()
+      setOrders(refreshedOrders)
+      onNotify?.('success', response?.message || '\u0110\u00e3 x\u00e1c nh\u1eadn nh\u1eadn h\u00e0ng.')
+    } catch (requestError) {
+      setError(requestError.message)
+      onNotify?.('error', requestError.message)
+    } finally {
+      setUpdatingOrderId(null)
+    }
+  }
+
+  const filteredOrders = selectedOrderStatus === 'all'
+    ? orders
+    : orders.filter((order) => (order.status || '').toLowerCase() === selectedOrderStatus)
+
+  const countOrdersByStatus = (status) => {
+    if (status === 'all') {
+      return orders.length
+    }
+
+    return orders.filter((order) => (order.status || '').toLowerCase() === status).length
+  }
 
   return (
     <>
@@ -1861,41 +2031,129 @@ function OrdersPage({ auth, onNavigate }) {
           ) : orders.length === 0 ? (
             <div className="empty-state">{'T\u00e0i kho\u1ea3n n\u00e0y ch\u01b0a c\u00f3 \u0111\u01a1n h\u00e0ng n\u00e0o.'}</div>
           ) : (
-            <div className="orders-grid">
-              {orders.map((order) => (
-                <article className="order-card" key={order.id}>
-                  <div className="order-card-header">
-                    <h4>{'\u0110\u01a1n'} #{order.id}</h4>
-                    <span className={`order-status ${order.status?.toLowerCase() || 'pending'}`}>
-                      {toOrderStatusLabel(order.status)}
-                    </span>
-                  </div>
-                  <p>
-                    <strong>{'Ng\u00e0y t\u1ea1o:'}</strong> {formatDate(order.orderDate)}
-                  </p>
-                  <p>
-                    <strong>{'\u0110\u1ecba ch\u1ec9:'}</strong> {order.shippingAddress || 'Kh\u00f4ng c\u00f3'}
-                  </p>
-                  <p>
-                    <strong>{'T\u1ed5ng ti\u1ec1n:'}</strong> {formatCurrency(order.totalAmount)}
-                  </p>
-                  <p>
-                    <strong>{'Thanh to\u00e1n:'}</strong> {order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}
-                  </p>
-                  <p>
-                    <strong>{'Tr\u1ea1ng th\u00e1i thanh to\u00e1n:'}</strong> {order.paymentStatusLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}
-                  </p>
-                  <p className="order-payment-code">
-                    <strong>{'M\u00e3 thanh to\u00e1n:'}</strong> {order.paymentCode || `FW-${order.id}`}
-                  </p>
-                  {(order.paymentStatus || '').toLowerCase() === 'paid' && (
-                    <p className="order-delivery-note">
-                      {order.deliveryMessage || '\u0110\u01a1n h\u00e0ng s\u1ebd \u0111\u01b0\u1ee3c giao \u0111\u1ebfn b\u1ea1n trong v\u00f2ng 7 ng\u00e0y, vui l\u00f2ng ch\u00fa \u00fd \u0111i\u1ec7n tho\u1ea1i.'}
-                    </p>
-                  )}
-                </article>
-              ))}
-            </div>
+            <>
+              <div className="order-tabs" role="tablist" aria-label="Lọc đơn hàng">
+                {ORDER_STATUS_TABS.map((tab) => (
+                  <button
+                    className={selectedOrderStatus === tab.id ? 'active' : ''}
+                    key={tab.id}
+                    type="button"
+                    onClick={() => setSelectedOrderStatus(tab.id)}
+                  >
+                    <span>{tab.label}</span>
+                    <small>{countOrdersByStatus(tab.id)}</small>
+                  </button>
+                ))}
+              </div>
+
+              {filteredOrders.length === 0 ? (
+                <div className="empty-state compact">{'Kh\u00f4ng c\u00f3 \u0111\u01a1n h\u00e0ng trong tr\u1ea1ng th\u00e1i n\u00e0y.'}</div>
+              ) : (
+                <div className="order-list">
+                  {filteredOrders.map((order) => {
+                    const details = Array.isArray(order.details) ? order.details : []
+
+                    return (
+                      <article className="order-card shopee-order-card" key={order.id}>
+                        <div className="shopee-order-header">
+                          <div className="shopee-order-shop">
+                            <strong>BaseCore Store</strong>
+                            <span>{'\u0110\u01a1n'} #{order.id}</span>
+                          </div>
+                          <div className="shopee-order-status-wrap">
+                            <span>{formatDate(order.orderDate)}</span>
+                            <span className={`order-status ${order.status?.toLowerCase() || 'pending'}`}>
+                              {toOrderStatusLabel(order.status)}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="shopee-order-items">
+                          {details.length === 0 ? (
+                            <div className="shopee-order-item">
+                              <div className="shopee-order-thumb placeholder">
+                                <i className="fa fa-shopping-bag" />
+                              </div>
+                              <div className="shopee-order-product">
+                                <strong>{'Chi ti\u1ebft s\u1ea3n ph\u1ea9m \u0111ang \u0111\u01b0\u1ee3c \u0111\u1ed3ng b\u1ed9'}</strong>
+                                <span>{order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh thanh to\u00e1n'}</span>
+                              </div>
+                              <div className="shopee-order-line-total">{formatCurrency(order.totalAmount)}</div>
+                            </div>
+                          ) : (
+                            details.map((detail) => {
+                              const product = detail.product || { id: detail.productId }
+
+                              return (
+                                <div className="shopee-order-item" key={detail.id || `${order.id}-${detail.productId}`}>
+                                  <img
+                                    className="shopee-order-thumb"
+                                    src={getProductImage(product)}
+                                    alt={product.name || `Product ${detail.productId}`}
+                                  />
+                                  <div className="shopee-order-product">
+                                    <strong>{product.name || `S\u1ea3n ph\u1ea9m #${detail.productId}`}</strong>
+                                    <span>{`M\u00e3 SP: ${detail.productId} | x${detail.quantity}`}</span>
+                                    <small>{formatCurrency(detail.unitPrice)}</small>
+                                  </div>
+                                  <div className="shopee-order-line-total">
+                                    {formatCurrency(detail.unitPrice * detail.quantity)}
+                                  </div>
+                                </div>
+                              )
+                            })
+                          )}
+                        </div>
+
+                        <div className="shopee-order-info">
+                          <span>{order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh thanh to\u00e1n'}</span>
+                          <span>{order.paymentStatusLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh tr\u1ea1ng th\u00e1i thanh to\u00e1n'}</span>
+                          <span>{order.paymentCode || `FW-${order.id}`}</span>
+                        </div>
+
+                        {order.shippingAddress && (
+                          <div className="shopee-order-address">
+                            <i className="fa fa-map-marker" /> {order.shippingAddress}
+                          </div>
+                        )}
+                        {order.deliveryMessage && (
+                          <div className="order-delivery-note">{order.deliveryMessage}</div>
+                        )}
+                        {order.paymentNote && (
+                          <div className="order-payment-note">{order.paymentNote}</div>
+                        )}
+
+                        <div className="shopee-order-footer">
+                          <div className="shopee-order-total">
+                            <span>{'Th\u00e0nh ti\u1ec1n:'}</span>
+                            <strong>{formatCurrency(order.totalAmount)}</strong>
+                          </div>
+                          <div className="shopee-order-actions">
+                            {(order.canCustomerConfirmReceived || (order.status || '').toLowerCase() === 'shipping') && (
+                              <button
+                                className="primary-btn"
+                                type="button"
+                                disabled={updatingOrderId === order.id}
+                                onClick={() => confirmReceived(order.id)}
+                              >
+                                {updatingOrderId === order.id ? '\u0110ang x\u00e1c nh\u1eadn...' : '\u0110\u00e3 nh\u1eadn h\u00e0ng'}
+                              </button>
+                            )}
+                            <button
+                              className="secondary-btn"
+                              type="button"
+                              onClick={() => onNavigate('/store')}
+                            >
+                              {'Mua l\u1ea1i'}
+                            </button>
+                          </div>
+                        </div>
+                      </article>
+                    )
+                  })}
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
@@ -2235,7 +2493,11 @@ function ProductAdminPage({
                           <tr key={product.id}>
                             <td>
                               <div className="admin-product-cell">
-                                <img src={getProductImage(product)} alt={product.name} />
+                                <img
+                                  src={getProductImage(product)}
+                                  alt={product.name}
+                                  onError={(event) => handleProductImageError(event, product)}
+                                />
                                 <div>
                                   <strong>{product.name}</strong>
                                   <span>{product.description || 'Chưa có mô tả'}</span>
@@ -3074,7 +3336,7 @@ function App() {
         )
         break
       case 'orders':
-        content = <OrdersPage auth={auth} onNavigate={navigate} />
+        content = <OrdersPage auth={auth} onNavigate={navigate} onNotify={openNotice} />
         break
       case 'adminProducts':
         content = (

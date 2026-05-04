@@ -254,7 +254,7 @@
 .admin-stat-grid {
   display: grid;
   gap: 18px;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   margin-bottom: 20px;
 }
 
@@ -270,6 +270,10 @@
 
 .admin-stat.info {
   background: #17a2b8;
+}
+
+.admin-stat.primary {
+  background: #007bff;
 }
 
 .admin-stat.success {
@@ -323,6 +327,7 @@
 
 .admin-row-actions {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
@@ -343,12 +348,26 @@
   background: #17a2b8;
 }
 
+.admin-badge.primary {
+  background: #007bff;
+}
+
 .admin-badge.success {
   background: #28a745;
 }
 
+.admin-badge.warning {
+  background: #ffc107;
+  color: #1f2933;
+}
+
 .admin-badge.secondary {
   background: #6c757d;
+}
+
+.admin-muted {
+  color: #6c757d;
+  font-size: 13px;
 }
 
 .admin-empty {

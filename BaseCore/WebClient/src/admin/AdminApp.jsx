@@ -2,6 +2,12 @@ import { useEffect, useMemo, useState } from 'react'
 import './admin.css'
 
 const ADMIN_TOKEN_KEY = 'electro-store-auth'
+const ORDER_REFRESH_INTERVAL_MS = 5000
+
+const dateFormatter = new Intl.DateTimeFormat('vi-VN', {
+  dateStyle: 'short',
+  timeStyle: 'short',
+})
 
 function getToken(auth) {
   return auth?.token || auth?.Token || ''
@@ -133,6 +139,17 @@ const adminApi = {
       token,
     }),
   getUsers: (params = {}, token) => request(`/users?${toQuery(params)}`, { token }),
+  getOrders: (token) => request('/orders/all', { token }),
+  confirmOrder: (id, token) =>
+    request(`/orders/${id}/admin/confirm`, {
+      method: 'PUT',
+      token,
+    }),
+  shipOrder: (id, token) =>
+    request(`/orders/${id}/admin/ship`, {
+      method: 'PUT',
+      token,
+    }),
   createUser: (payload, token) =>
     request('/users', {
       method: 'POST',
@@ -158,6 +175,56 @@ function formatCurrency(value) {
     currency: 'VND',
     maximumFractionDigits: 0,
   }).format(Number(value || 0))
+}
+
+function formatDate(value) {
+  if (!value) {
+    return 'N/A'
+  }
+
+  try {
+    return dateFormatter.format(new Date(value))
+  } catch {
+    return value
+  }
+}
+
+function getOrderStatusLabel(order) {
+  if (order?.statusLabel) {
+    return order.statusLabel
+  }
+
+  switch ((order?.status || '').toLowerCase()) {
+    case 'pending':
+      return 'Chờ xác nhận'
+    case 'confirmed':
+      return 'Đã xác nhận'
+    case 'shipping':
+      return 'Đang giao'
+    case 'completed':
+      return 'Đã nhận'
+    case 'cancelled':
+      return 'Đã hủy'
+    default:
+      return 'Chưa xác định'
+  }
+}
+
+function getOrderStatusBadge(status) {
+  switch ((status || '').toLowerCase()) {
+    case 'pending':
+      return 'warning'
+    case 'confirmed':
+      return 'info'
+    case 'shipping':
+      return 'primary'
+    case 'completed':
+      return 'success'
+    case 'cancelled':
+      return 'danger'
+    default:
+      return 'secondary'
+  }
 }
 
 function normalizeProductList(data) {
@@ -290,6 +357,7 @@ function RequireAdmin({ auth, route, onNavigate, onLogin, children }) {
 function AdminLayout({ auth, route, onNavigate, onLogout, children }) {
   const links = [
     { path: '/admin', label: 'Dashboard', icon: 'fa-dashboard' },
+    { path: '/admin/orders', label: 'Orders', icon: 'fa-shopping-cart' },
     { path: '/admin/products', label: 'Products', icon: 'fa-archive' },
     { path: '/admin/categories', label: 'Categories', icon: 'fa-tags' },
     { path: '/admin/users', label: 'Users', icon: 'fa-users' },
@@ -354,7 +422,7 @@ function AdminLayout({ auth, route, onNavigate, onLogout, children }) {
 
 function Dashboard({ auth }) {
   const token = getToken(auth)
-  const [stats, setStats] = useState({ products: 0, categories: 0, users: 0 })
+  const [stats, setStats] = useState({ products: 0, categories: 0, users: 0, orders: 0 })
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -376,11 +444,20 @@ function Dashboard({ auth }) {
           usersCount = 0
         }
 
+        let ordersCount = 0
+        try {
+          const orderData = await adminApi.getOrders(token)
+          ordersCount = Array.isArray(orderData) ? orderData.length : 0
+        } catch {
+          ordersCount = 0
+        }
+
         if (!cancelled) {
           setStats({
             products: normalizeProductList(productData).totalCount,
             categories: Array.isArray(categoryData) ? categoryData.length : 0,
             users: usersCount,
+            orders: ordersCount,
           })
         }
       } finally {
@@ -404,13 +481,14 @@ function Dashboard({ auth }) {
     <>
       <PageHeader title="Dashboard" />
       <div className="admin-stat-grid">
+        <StatBox color="primary" icon="fa-shopping-cart" label="Orders" value={stats.orders} />
         <StatBox color="info" icon="fa-archive" label="Products" value={stats.products} />
         <StatBox color="success" icon="fa-tags" label="Categories" value={stats.categories} />
         <StatBox color="warning" icon="fa-users" label="Users" value={stats.users} />
       </div>
       <section className="admin-card">
         <h3>Welcome to BaseCore Sales System</h3>
-        <p>Admin area for products, categories, and users connected to the FW backend.</p>
+        <p>Admin area for orders, products, categories, and users connected to the FW backend.</p>
       </section>
     </>
   )
@@ -432,6 +510,136 @@ function StatBox({ color, icon, label, value }) {
         <p>{label}</p>
       </div>
       <i className={`fa ${icon}`} />
+    </div>
+  )
+}
+
+function Orders({ auth }) {
+  const token = getToken(auth)
+  const [orders, setOrders] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const [actionOrderId, setActionOrderId] = useState(null)
+
+  async function loadData({ showLoading = true } = {}) {
+    if (showLoading) {
+      setLoading(true)
+    }
+    setError('')
+
+    try {
+      const data = await adminApi.getOrders(token)
+      setOrders(Array.isArray(data) ? data : [])
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      if (showLoading) {
+        setLoading(false)
+      }
+    }
+  }
+
+  useEffect(() => {
+    loadData()
+    const refreshInterval = window.setInterval(
+      () => loadData({ showLoading: false }),
+      ORDER_REFRESH_INTERVAL_MS,
+    )
+
+    return () => window.clearInterval(refreshInterval)
+  }, [token])
+
+  async function runOrderAction(order, action) {
+    setActionOrderId(order.id)
+    setError('')
+
+    try {
+      let response
+      if (action === 'confirm') {
+        response = await adminApi.confirmOrder(order.id, token)
+      } else {
+        response = await adminApi.shipOrder(order.id, token)
+      }
+
+      if (response?.order) {
+        setOrders((current) =>
+          current.map((currentOrder) =>
+            currentOrder.id === order.id ? response.order : currentOrder,
+          ),
+        )
+      }
+
+      await loadData({ showLoading: false })
+    } catch (requestError) {
+      setError(requestError.message)
+    } finally {
+      setActionOrderId(null)
+    }
+  }
+
+  return (
+    <>
+      <PageHeader title="Orders Management" />
+      <section className="admin-card">
+        <div className="admin-card-toolbar">
+          <h3>All Orders</h3>
+          <button className="admin-btn primary" type="button" onClick={() => loadData()}>
+            <i className="fa fa-refresh" /> Refresh
+          </button>
+        </div>
+        {error && <div className="admin-alert danger">{error}</div>}
+        {loading ? (
+          <Spinner />
+        ) : (
+          <DataTable
+            emptyText="No orders found"
+            headers={['ID', 'Customer', 'Date', 'Total', 'Payment', 'Status', 'Address', 'Actions']}
+            rows={orders.map((order) => [
+              `#${order.id}`,
+              order.userId,
+              formatDate(order.orderDate),
+              formatCurrency(order.totalAmount),
+              `${order.paymentMethodLabel || 'N/A'} - ${order.paymentStatusLabel || 'N/A'}`,
+              <span key="status" className={`admin-badge ${getOrderStatusBadge(order.status)}`}>
+                {getOrderStatusLabel(order)}
+              </span>,
+              order.shippingAddress || 'N/A',
+              <OrderActions
+                key="actions"
+                order={order}
+                busy={actionOrderId === order.id}
+                onConfirm={() => runOrderAction(order, 'confirm')}
+                onShip={() => runOrderAction(order, 'ship')}
+              />,
+            ])}
+          />
+        )}
+      </section>
+    </>
+  )
+}
+
+function OrderActions({ order, busy, onConfirm, onShip }) {
+  const status = (order.status || '').toLowerCase()
+  const canConfirm = status === 'pending'
+  const canShip = status === 'confirmed'
+
+  if (!canConfirm && !canShip) {
+    return <span className="admin-muted">Không có thao tác</span>
+  }
+
+  return (
+    <div className="admin-row-actions">
+      {canConfirm && (
+        <button className="admin-btn small success" type="button" disabled={busy} onClick={onConfirm}>
+          <i className="fa fa-check" /> Xác nhận
+        </button>
+      )}
+      {canShip && (
+        <button className="admin-btn small info" type="button" disabled={busy} onClick={onShip}>
+          <i className="fa fa-truck" /> Bàn giao VC
+        </button>
+      )}
     </div>
   )
 }
@@ -1021,6 +1229,10 @@ export default function AdminApp({
       return 'products'
     }
 
+    if (route.pathname === '/admin/orders') {
+      return 'orders'
+    }
+
     if (route.pathname === '/admin/categories') {
       return 'categories'
     }
@@ -1048,6 +1260,7 @@ export default function AdminApp({
         }}
       >
         {page === 'dashboard' && <Dashboard auth={auth} />}
+        {page === 'orders' && <Orders auth={auth} />}
         {page === 'products' && <Products auth={auth} onDataChanged={onDataChanged} />}
         {page === 'categories' && <Categories auth={auth} onDataChanged={onDataChanged} />}
         {page === 'users' && <Users auth={auth} />}
