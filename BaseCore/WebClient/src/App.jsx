@@ -228,13 +228,100 @@ function getProductImage(product) {
 
 function toOrderStatusLabel(status) {
   switch ((status || '').toLowerCase()) {
+    case 'processing':
+      return '\u0110ang x\u1eed l\u00fd'
     case 'completed':
       return 'Ho\u00e0n t\u1ea5t'
     case 'cancelled':
       return '\u0110\u00e3 h\u1ee7y'
     default:
-      return '\u0110ang x\u1eed l\u00fd'
+      return 'Ch\u1edd x\u00e1c nh\u1eadn'
   }
+}
+
+const DELIVERY_STEPS = [
+  {
+    key: 'pending',
+    label: 'Ch\u1edd x\u00e1c nh\u1eadn',
+    icon: 'fa-clock-o',
+  },
+  {
+    key: 'packing',
+    label: '\u0110ang chu\u1ea9n b\u1ecb h\u00e0ng',
+    icon: 'fa-archive',
+  },
+  {
+    key: 'shipping',
+    label: '\u0110ang giao',
+    icon: 'fa-truck',
+  },
+  {
+    key: 'delivered',
+    label: '\u0110\u00e3 giao',
+    icon: 'fa-check',
+  },
+]
+
+function normalizeText(value) {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function getDeliveryStep(order) {
+  const orderStatus = normalizeText(order?.status)
+  const deliveryStatus = normalizeText(order?.deliveryStatus || order?.DeliveryStatus)
+
+  if (orderStatus === 'cancelled' || deliveryStatus.includes('that bai')) {
+    return 'cancelled'
+  }
+
+  if (orderStatus === 'completed' || deliveryStatus.includes('thanh cong')) {
+    return 'delivered'
+  }
+
+  if (deliveryStatus.includes('dang giao')) {
+    return 'shipping'
+  }
+
+  if (
+    orderStatus === 'processing' ||
+    deliveryStatus.includes('don vi van chuyen') ||
+    deliveryStatus.includes('cho lay hang')
+  ) {
+    return 'packing'
+  }
+
+  return 'pending'
+}
+
+function getDeliveryStatusLabel(order) {
+  const deliveryStatus = order?.deliveryStatus || order?.DeliveryStatus
+
+  if (deliveryStatus) {
+    return deliveryStatus
+  }
+
+  if ((order?.status || '').toLowerCase() === 'cancelled') {
+    return '\u0110\u00e3 h\u1ee7y'
+  }
+
+  return DELIVERY_STEPS.find((step) => step.key === getDeliveryStep(order))?.label || 'Ch\u1edd x\u00e1c nh\u1eadn'
+}
+
+function getDeliveryProgress(order) {
+  const activeStep = getDeliveryStep(order)
+
+  if (activeStep === 'cancelled') {
+    return -1
+  }
+
+  return Math.max(
+    0,
+    DELIVERY_STEPS.findIndex((step) => step.key === activeStep),
+  )
 }
 
 function isAdmin(auth) {
@@ -597,6 +684,16 @@ function Header({
                           }}
                         >
                           <i className="fa fa-key" /> Đổi mật khẩu
+                        </button>
+                        <button
+                          className="account-menu-item"
+                          type="button"
+                          onClick={() => {
+                            setIsAccountMenuOpen(false)
+                            onNavigate('/orders')
+                          }}
+                        >
+                          <i className="fa fa-truck" /> {'Theo d\u00f5i \u0111\u01a1n h\u00e0ng'}
                         </button>
                         <button
                           className="account-menu-item"
@@ -1838,47 +1935,95 @@ function OrdersPage({ auth, onNavigate }) {
             <div className="empty-state">{'T\u00e0i kho\u1ea3n n\u00e0y ch\u01b0a c\u00f3 \u0111\u01a1n h\u00e0ng n\u00e0o.'}</div>
           ) : (
             <div className="orders-grid">
-              {orders.map((order) => (
-                <article className="order-card" key={order.id}>
-                  <div className="order-card-header">
-                    <h4>{'\u0110\u01a1n'} #{order.id}</h4>
-                    <span className={`order-status ${order.status?.toLowerCase() || 'pending'}`}>
-                      {toOrderStatusLabel(order.status)}
-                    </span>
-                  </div>
-                  <p>
-                    <strong>{'Ng\u00e0y t\u1ea1o:'}</strong> {formatDate(order.orderDate)}
-                  </p>
-                  <p>
-                    <strong>{'\u0110\u1ecba ch\u1ec9:'}</strong> {order.shippingAddress || 'Kh\u00f4ng c\u00f3'}
-                  </p>
-                  <p>
-                    <strong>{'T\u1ea1m t\u00ednh:'}</strong> {formatCurrency(order.originalAmount || order.totalAmount)}
-                  </p>
-                  {(order.discountAmount || 0) > 0 && (
-                    <p>
-                      <strong>{'\u01afu \u0111\u00e3i:'}</strong> -{formatCurrency(order.discountAmount)} ({order.discountPercent}%)
-                    </p>
-                  )}
-                  <p>
-                    <strong>{'T\u1ed5ng thanh to\u00e1n:'}</strong> {formatCurrency(order.totalAmount)}
-                  </p>
-                  <p>
-                    <strong>{'Thanh to\u00e1n:'}</strong> {order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}
-                  </p>
-                  <p>
-                    <strong>{'Tr\u1ea1ng th\u00e1i thanh to\u00e1n:'}</strong> {order.paymentStatusLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}
-                  </p>
-                  <p className="order-payment-code">
-                    <strong>{'M\u00e3 thanh to\u00e1n:'}</strong> {order.paymentCode || `FW-${order.id}`}
-                  </p>
-                  {(order.paymentStatus || '').toLowerCase() === 'paid' && (
-                    <p className="order-delivery-note">
-                      {order.deliveryMessage || '\u0110\u01a1n h\u00e0ng s\u1ebd \u0111\u01b0\u1ee3c giao \u0111\u1ebfn b\u1ea1n trong v\u00f2ng 7 ng\u00e0y, vui l\u00f2ng ch\u00fa \u00fd \u0111i\u1ec7n tho\u1ea1i.'}
-                    </p>
-                  )}
-                </article>
-              ))}
+              {orders.map((order) => {
+                const deliveryProgress = getDeliveryProgress(order)
+                const isCancelled = deliveryProgress < 0
+                const deliveryStatusLabel = getDeliveryStatusLabel(order)
+                const trackingCode = order.transportTrackingCode || order.TransportTrackingCode
+                const transportUnit = order.transportUnit || order.TransportUnit
+                const deliveryDate = order.deliveryDate || order.DeliveryDate
+
+                return (
+                  <article className="order-card order-tracking-card" key={order.id}>
+                    <div className="order-card-header">
+                      <div>
+                        <h4>{'\u0110\u01a1n'} #{order.id}</h4>
+                        <span className="order-created-date">{formatDate(order.orderDate)}</span>
+                      </div>
+                      <span className={`order-status ${order.status?.toLowerCase() || 'pending'}`}>
+                        {toOrderStatusLabel(order.status)}
+                      </span>
+                    </div>
+
+                    <div className={`tracking-timeline ${isCancelled ? 'cancelled' : ''}`}>
+                      {DELIVERY_STEPS.map((step, index) => (
+                        <div
+                          className={`tracking-step ${index <= deliveryProgress ? 'active' : ''}`}
+                          key={step.key}
+                        >
+                          <span className="tracking-step-icon">
+                            <i className={`fa ${step.icon}`} />
+                          </span>
+                          <span>{step.label}</span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="tracking-current">
+                      <i className={`fa ${isCancelled ? 'fa-times-circle' : 'fa-map-marker'}`} />
+                      <div>
+                        <strong>{deliveryStatusLabel}</strong>
+                        <span>
+                          {isCancelled
+                            ? '\u0110\u01a1n h\u00e0ng \u0111\u00e3 d\u1eebng x\u1eed l\u00fd.'
+                            : order.deliveryMessage || '\u0110\u01a1n h\u00e0ng \u0111ang \u0111\u01b0\u1ee3c c\u1eadp nh\u1eadt tr\u1ea1ng th\u00e1i giao h\u00e0ng.'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="order-info-grid">
+                      <p>
+                        <strong>{'\u0110\u1ecba ch\u1ec9'}</strong>
+                        <span>{order.shippingAddress || 'Kh\u00f4ng c\u00f3'}</span>
+                      </p>
+                      <p>
+                        <strong>{'T\u1ed5ng thanh to\u00e1n'}</strong>
+                        <span>{formatCurrency(order.totalAmount)}</span>
+                      </p>
+                      <p>
+                        <strong>{'Thanh to\u00e1n'}</strong>
+                        <span>{order.paymentMethodLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}</span>
+                      </p>
+                      <p>
+                        <strong>{'Tr\u1ea1ng th\u00e1i thanh to\u00e1n'}</strong>
+                        <span>{order.paymentStatusLabel || 'Ch\u01b0a x\u00e1c \u0111\u1ecbnh'}</span>
+                      </p>
+                      <p>
+                        <strong>{'\u0110\u01a1n v\u1ecb v\u1eadn chuy\u1ec3n'}</strong>
+                        <span>{transportUnit || 'Ch\u01b0a ph\u00e2n c\u00f4ng'}</span>
+                      </p>
+                      <p>
+                        <strong>{'M\u00e3 v\u1eadn \u0111\u01a1n'}</strong>
+                        <span>{trackingCode || 'Ch\u01b0a c\u00f3'}</span>
+                      </p>
+                      <p>
+                        <strong>{'Ng\u00e0y giao'}</strong>
+                        <span>{deliveryDate ? formatDate(deliveryDate) : 'Ch\u01b0a c\u1eadp nh\u1eadt'}</span>
+                      </p>
+                      <p>
+                        <strong>{'M\u00e3 thanh to\u00e1n'}</strong>
+                        <span>{order.paymentCode || `FW-${order.id}`}</span>
+                      </p>
+                    </div>
+
+                    {(order.discountAmount || 0) > 0 && (
+                      <p className="order-discount-line">
+                        <strong>{'\u01afu \u0111\u00e3i:'}</strong> -{formatCurrency(order.discountAmount)} ({order.discountPercent}%)
+                      </p>
+                    )}
+                  </article>
+                )
+              })}
             </div>
           )}
         </div>
