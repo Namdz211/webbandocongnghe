@@ -227,6 +227,20 @@ function getOrderStatusBadge(status) {
   }
 }
 
+function getOrderCustomerLabel(order) {
+  return (
+    order.customerName ||
+    order.CustomerName ||
+    order.customerUserName ||
+    order.CustomerUserName ||
+    order.customerEmail ||
+    order.CustomerEmail ||
+    order.userId ||
+    order.UserId ||
+    'N/A'
+  )
+}
+
 function normalizeProductList(data) {
   if (Array.isArray(data)) {
     return { items: data, totalCount: data.length, totalPages: 1 }
@@ -596,7 +610,7 @@ function Orders({ auth }) {
             headers={['ID', 'Customer', 'Date', 'Total', 'Payment', 'Status', 'Address', 'Actions']}
             rows={orders.map((order) => [
               `#${order.id}`,
-              order.userId,
+              getOrderCustomerLabel(order),
               formatDate(order.orderDate),
               formatCurrency(order.totalAmount),
               `${order.paymentMethodLabel || 'N/A'} - ${order.paymentStatusLabel || 'N/A'}`,

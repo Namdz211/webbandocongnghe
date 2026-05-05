@@ -43,6 +43,18 @@ textarea {
   position: relative;
 }
 
+.app-shell > header {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+.app-shell > header #top-header,
+.app-shell > header #header {
+  position: relative;
+}
+
 .brand-logo {
   display: inline-flex;
   align-items: center;
@@ -383,6 +395,47 @@ textarea {
   font-weight: 700;
   margin: -6px 0 8px;
   text-transform: uppercase;
+}
+
+/* Store product list: replace Bootstrap float behavior to avoid empty gaps. */
+#store > .row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+}
+
+#store > .row > [class*="col-"] {
+  display: flex;
+  float: none;
+}
+
+#store > .row .product {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+#store > .row .product-img {
+  height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: #fff;
+}
+
+#store > .row .product-img > img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+#store > .row .product-body {
+  flex: 1 1 auto;
+}
+
+#store > .row .product-name {
+  min-height: 38px;
 }
 
 .detail-manufacturer {

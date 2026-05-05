@@ -51,6 +51,7 @@ const STORAGE_KEYS = {
 }
 
 const ORDER_REFRESH_INTERVAL_MS = 5000
+const ACTIVE_ORDER_STATUSES = new Set(['pending', 'confirmed', 'shipping'])
 
 const ORDER_STATUS_TABS = [
   { id: 'all', label: 'Tất cả' },
@@ -309,6 +310,12 @@ function toOrderStatusLabel(status) {
   }
 }
 
+function countActiveOrders(orders) {
+  return orders.filter((order) =>
+    ACTIVE_ORDER_STATUSES.has((order.status || '').toLowerCase()),
+  ).length
+}
+
 function isAdmin(auth) {
   return String(auth?.role || auth?.Role || '').toLowerCase() === 'admin'
 }
@@ -561,6 +568,7 @@ function Header({
   auth,
   cart,
   categories,
+  orderBadgeCount = 0,
   route,
   onNavigate,
   onLogout,
@@ -826,7 +834,9 @@ function Header({
                     <LinkButton to="/orders" onNavigate={onNavigate}>
                       <i className="fa fa-list-alt" />
                       <span>Đơn của tôi</span>
-                      {auth && <div className="qty">1</div>}
+                      {auth && orderBadgeCount > 0 && (
+                        <div className="qty">{orderBadgeCount}</div>
+                      )}
                     </LinkButton>
                   </div>
 
@@ -2053,7 +2063,7 @@ function CheckoutPage({
   )
 }
 
-function OrdersPage({ auth, onNavigate, onNotify }) {
+function OrdersPage({ auth, onNavigate, onNotify, onOrdersChanged }) {
   const [loading, setLoading] = useState(Boolean(auth))
   const [error, setError] = useState('')
   const [orders, setOrders] = useState([])
@@ -2140,6 +2150,7 @@ function OrdersPage({ auth, onNavigate, onNotify }) {
       const response = await api.confirmOrderReceived(orderId, authToken)
       const refreshedOrders = await fetchOrdersWithDetails()
       setOrders(refreshedOrders)
+      onOrdersChanged?.()
       onNotify?.('success', response?.message || '\u0110\u00e3 x\u00e1c nh\u1eadn nh\u1eadn h\u00e0ng.')
     } catch (requestError) {
       setError(requestError.message)
@@ -2170,6 +2181,7 @@ function OrdersPage({ auth, onNavigate, onNotify }) {
       const response = await api.cancelOrder(orderId, authToken)
       const refreshedOrders = await fetchOrdersWithDetails()
       setOrders(refreshedOrders)
+      onOrdersChanged?.()
       onNotify?.('success', response?.message || '\u0110\u00e3 h\u1ee7y \u0111\u01a1n h\u00e0ng.')
     } catch (requestError) {
       setError(requestError.message)
@@ -3197,7 +3209,10 @@ function App() {
   const [loadingHomeData, setLoadingHomeData] = useState(true)
   const [notice, setNotice] = useState(null)
   const [placingOrder, setPlacingOrder] = useState(false)
+  const [orderBadgeCount, setOrderBadgeCount] = useState(0)
+  const [orderBadgeRefreshKey, setOrderBadgeRefreshKey] = useState(0)
   const noticeTimeoutRef = useRef(null)
+  const authToken = getAuthToken(auth)
 
   useEffect(() => {
     writeStorage(STORAGE_KEYS.cart, cart)
@@ -3210,6 +3225,36 @@ function App() {
       localStorage.removeItem(STORAGE_KEYS.auth)
     }
   }, [auth])
+
+  useEffect(() => {
+    if (!authToken || isExpiredToken(authToken)) {
+      setOrderBadgeCount(0)
+      return undefined
+    }
+
+    let cancelled = false
+
+    async function loadOrderBadgeCount() {
+      try {
+        const response = await api.getOrders(authToken)
+        if (!cancelled) {
+          setOrderBadgeCount(countActiveOrders(Array.isArray(response) ? response : []))
+        }
+      } catch {
+        if (!cancelled) {
+          setOrderBadgeCount(0)
+        }
+      }
+    }
+
+    loadOrderBadgeCount()
+    const refreshInterval = window.setInterval(loadOrderBadgeCount, ORDER_REFRESH_INTERVAL_MS)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(refreshInterval)
+    }
+  }, [authToken, orderBadgeRefreshKey])
 
   useEffect(() => {
     const syncRoute = () => {
@@ -3453,6 +3498,7 @@ function App() {
 
       const createdOrder = await api.createOrder(payload, authToken)
       setCart([])
+      setOrderBadgeRefreshKey((current) => current + 1)
       openNotice('success', createdOrder?.message || '\u0110\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.')
       navigate('/orders')
     } catch (requestError) {
@@ -3558,7 +3604,14 @@ function App() {
         )
         break
       case 'orders':
-        content = <OrdersPage auth={auth} onNavigate={navigate} onNotify={openNotice} />
+        content = (
+          <OrdersPage
+            auth={auth}
+            onNavigate={navigate}
+            onNotify={openNotice}
+            onOrdersChanged={() => setOrderBadgeRefreshKey((current) => current + 1)}
+          />
+        )
         break
       case 'adminProducts':
         content = (
@@ -3609,6 +3662,7 @@ function App() {
         auth={auth}
         cart={cart}
         categories={categories}
+        orderBadgeCount={orderBadgeCount}
         route={route}
         onNavigate={navigate}
         onLogout={logout}
@@ -3639,5 +3693,3 @@ function App() {
 }
 
 export default App
-
-

@@ -71,7 +71,8 @@ namespace BaseCore.APIService.Controllers
                 return Unauthorized();
 
             var orders = await _orderRepository.GetByUserAsync(userId);
-            return Ok(orders.Select(ToOrderResponse));
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == userId);
+            return Ok(orders.Select(order => ToOrderResponse(order, customer)));
         }
 
         /// <summary>
@@ -81,8 +82,20 @@ namespace BaseCore.APIService.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllOrders()
         {
-            var orders = await _orderRepository.GetAllAsync();
-            return Ok(orders.OrderByDescending(order => order.OrderDate).Select(ToOrderResponse));
+            var orders = (await _orderRepository.GetAllAsync())
+                .OrderByDescending(order => order.OrderDate)
+                .ToList();
+            var userIds = orders
+                .Select(order => order.UserId)
+                .Where(userId => !string.IsNullOrEmpty(userId))
+                .Distinct()
+                .ToList();
+            var users = await _dbContext.Users
+                .Where(user => userIds.Contains(user.Id))
+                .ToDictionaryAsync(user => user.Id);
+
+            return Ok(orders.Select(order =>
+                ToOrderResponse(order, users.GetValueOrDefault(order.UserId))));
         }
 
         /// <summary>
@@ -95,10 +108,11 @@ namespace BaseCore.APIService.Controllers
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
             if (!CanAccessOrder(order)) return Forbid();
 
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
             var details = await _orderDetailRepository.GetByOrderAsync(id);
             return Ok(new
             {
-                order = ToOrderResponse(order),
+                order = ToOrderResponse(order, customer),
                 details = details.Select(ToOrderDetailResponse)
             });
         }
@@ -214,7 +228,8 @@ namespace BaseCore.APIService.Controllers
             order.Status = dto.Status;
             await _orderRepository.UpdateAsync(order);
 
-            return Ok(ToOrderResponse(order));
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+            return Ok(ToOrderResponse(order, customer));
         }
 
         /// <summary>
@@ -232,11 +247,12 @@ namespace BaseCore.APIService.Controllers
 
             order.Status = ConfirmedStatus;
             await _orderRepository.UpdateAsync(order);
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
 
             return Ok(new
             {
                 message = "Admin đã xác nhận đơn hàng.",
-                order = ToOrderResponse(order)
+                order = ToOrderResponse(order, customer)
             });
         }
 
@@ -255,11 +271,12 @@ namespace BaseCore.APIService.Controllers
 
             order.Status = ShippingStatus;
             await _orderRepository.UpdateAsync(order);
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
 
             return Ok(new
             {
                 message = DeliveryMessage,
-                order = ToOrderResponse(order)
+                order = ToOrderResponse(order, customer)
             });
         }
 
@@ -349,12 +366,16 @@ namespace BaseCore.APIService.Controllers
             }
         }
 
-        private static object ToOrderResponse(Order order)
+        private static object ToOrderResponse(Order order, User? customer = null)
         {
             return new
             {
                 order.Id,
                 order.UserId,
+                CustomerName = customer?.Name,
+                CustomerUserName = customer?.UserName,
+                CustomerEmail = customer?.Email,
+                CustomerPhone = customer?.Phone,
                 order.OrderDate,
                 order.TotalAmount,
                 order.Status,
