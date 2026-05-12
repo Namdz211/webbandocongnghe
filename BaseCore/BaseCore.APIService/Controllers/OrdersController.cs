@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
 using BaseCore.Repository;
 using BaseCore.Repository.EFCore;
+using BaseCore.Services;
 using System.Security.Claims;
 
 namespace BaseCore.APIService.Controllers
@@ -47,17 +48,20 @@ namespace BaseCore.APIService.Controllers
         private readonly IOrderDetailRepositoryEF _orderDetailRepository;
         private readonly IProductRepositoryEF _productRepository;
         private readonly MySqlDbContext _dbContext;
+        private readonly IOrderService _orderService;
 
         public OrdersController(
             IOrderRepositoryEF orderRepository,
             IOrderDetailRepositoryEF orderDetailRepository,
             IProductRepositoryEF productRepository,
-            MySqlDbContext dbContext)
+            MySqlDbContext dbContext,
+            IOrderService orderService)
         {
             _orderRepository = orderRepository;
             _orderDetailRepository = orderDetailRepository;
             _productRepository = productRepository;
             _dbContext = dbContext;
+            _orderService = orderService;
         }
 
         /// <summary>
@@ -80,22 +84,24 @@ namespace BaseCore.APIService.Controllers
         /// </summary>
         [HttpGet("all")]
         [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> GetAllOrders()
+        public async Task<IActionResult> GetAllOrders(
+            [FromQuery] DateTime? fromDate = null,
+            [FromQuery] DateTime? toDate = null,
+            [FromQuery] string? keyword = null,
+            [FromQuery] string? status = null)
         {
-            var orders = (await _orderRepository.GetAllAsync())
-                .OrderByDescending(order => order.OrderDate)
-                .ToList();
-            var userIds = orders
-                .Select(order => order.UserId)
-                .Where(userId => !string.IsNullOrEmpty(userId))
-                .Distinct()
-                .ToList();
-            var users = await _dbContext.Users
-                .Where(user => userIds.Contains(user.Id))
-                .ToDictionaryAsync(user => user.Id);
+            var query = _dbContext.Orders
+                .Include(o => o.User)
+                .AsNoTracking()
+                .AsQueryable();
 
-            return Ok(orders.Select(order =>
-                ToOrderResponse(order, users.GetValueOrDefault(order.UserId))));
+            if (fromDate.HasValue) query = query.Where(o => o.OrderDate >= fromDate.Value.Date);
+            if (toDate.HasValue) query = query.Where(o => o.OrderDate < toDate.Value.Date.AddDays(1));
+            if (!string.IsNullOrEmpty(keyword)) query = query.Where(o => o.Id.ToString().Contains(keyword));
+            if (!string.IsNullOrEmpty(status)) query = query.Where(o => o.Status == status);
+
+            var orders = await query.OrderByDescending(o => o.OrderDate).ToListAsync();
+            return Ok(orders.Select(order => ToOrderResponse(order)));
         }
 
         /// <summary>
@@ -144,7 +150,7 @@ namespace BaseCore.APIService.Controllers
             if (!PaymentOptions.TryGetValue(paymentMethod, out var paymentOption))
                 return BadRequest(new { message = "Phương thức thanh toán không hợp lệ" });
 
-            decimal totalAmount = 0;
+            decimal originalAmount = 0;
             var orderDetails = new List<OrderDetail>();
 
             await using var transaction = await _dbContext.Database.BeginTransactionAsync();
@@ -160,7 +166,7 @@ namespace BaseCore.APIService.Controllers
                     if (product.Stock < item.Quantity)
                         return BadRequest(new { message = $"Sản phẩm {product.Name} không đủ tồn kho" });
 
-                    totalAmount += product.Price * item.Quantity;
+                    originalAmount += product.Price * item.Quantity;
                     orderDetails.Add(new OrderDetail
                     {
                         ProductId = item.ProductId,
@@ -172,11 +178,17 @@ namespace BaseCore.APIService.Controllers
                     await _productRepository.UpdateAsync(product);
                 }
 
+                var discount = await CalculateCustomerDiscountAsync(userId, originalAmount);
+
                 var order = new Order
                 {
                     UserId = userId,
                     OrderDate = DateTime.Now,
-                    TotalAmount = totalAmount,
+                    OriginalAmount = originalAmount,
+                    DiscountPercent = discount.Percent,
+                    DiscountAmount = discount.Amount,
+                    PromotionName = discount.PromotionName,
+                    TotalAmount = originalAmount - discount.Amount,
                     Status = PendingStatus,
                     ShippingAddress = dto.ShippingAddress ?? "",
                     PaymentMethod = paymentMethod,
@@ -224,8 +236,14 @@ namespace BaseCore.APIService.Controllers
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
             if (!ValidStatuses.Contains(dto.Status))
                 return BadRequest(new { message = "Trạng thái đơn hàng không hợp lệ" });
+            var nextStatus = dto.Status?.Trim();
+            if (string.IsNullOrWhiteSpace(nextStatus))
+                return BadRequest(new { message = "Trạng thái đơn hàng không hợp lệ" });
 
-            order.Status = dto.Status;
+            if (string.Equals(order.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Không thể đổi trạng thái đơn hàng đã hoàn thành." });
+
+            order.Status = nextStatus;
             await _orderRepository.UpdateAsync(order);
 
             var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
@@ -366,17 +384,74 @@ namespace BaseCore.APIService.Controllers
             }
         }
 
+        /// <summary>
+        /// Assign transport unit to order (Admin)
+        /// </summary>
+        [HttpPost("{id}/assign-transport")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> AssignTransport(int id, [FromBody] AssignTransportDto dto)
+        {
+            try
+            {
+                await _orderService.AssignTransportAsync(id, dto.TransportUnit, dto.TrackingCode);
+                var order = await _orderRepository.GetByIdAsync(id);
+                var customer = order == null
+                    ? null
+                    : await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+
+                return Ok(new { message = "Đã giao cho đơn vị vận chuyển", order = order == null ? null : ToOrderResponse(order, customer) });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = GetExceptionMessage(ex) });
+            }
+        }
+
+        /// <summary>
+        /// Update delivery status (Admin)
+        /// </summary>
+        [HttpPut("{id}/update-delivery")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> UpdateDeliveryStatus(int id, [FromBody] UpdateDeliveryDto dto)
+        {
+            try
+            {
+                await _orderService.UpdateDeliveryStatusAsync(id, dto.DeliveryStatus, dto.DeliveryDate);
+                var order = await _orderRepository.GetByIdAsync(id);
+                var customer = order == null
+                    ? null
+                    : await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+
+                return Ok(new { message = "Đã cập nhật trạng thái giao hàng", order = order == null ? null : ToOrderResponse(order, customer) });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = GetExceptionMessage(ex) });
+            }
+        }
+
+        private static string GetExceptionMessage(Exception ex)
+        {
+            return ex.InnerException?.Message ?? ex.Message;
+        }
+
         private static object ToOrderResponse(Order order, User? customer = null)
         {
+            var resolvedCustomer = customer ?? order.User;
+
             return new
             {
                 order.Id,
                 order.UserId,
-                CustomerName = customer?.Name,
-                CustomerUserName = customer?.UserName,
-                CustomerEmail = customer?.Email,
-                CustomerPhone = customer?.Phone,
+                CustomerName = resolvedCustomer?.Name,
+                CustomerUserName = resolvedCustomer?.UserName,
+                CustomerEmail = resolvedCustomer?.Email,
+                CustomerPhone = resolvedCustomer?.Phone,
                 order.OrderDate,
+                order.OriginalAmount,
+                order.DiscountAmount,
+                order.DiscountPercent,
+                order.PromotionName,
                 order.TotalAmount,
                 order.Status,
                 StatusLabel = GetOrderStatusLabel(order.Status),
@@ -387,6 +462,10 @@ namespace BaseCore.APIService.Controllers
                 PaymentStatusLabel = GetPaymentStatusLabel(order.PaymentStatus),
                 order.PaymentCode,
                 order.PaymentNote,
+                order.TransportUnit,
+                DeliveryStatus = NormalizeDeliveryStatus(order.DeliveryStatus),
+                order.DeliveryDate,
+                order.TransportTrackingCode,
                 DeliveryMessage = IsShippingStatus(order.Status) ? DeliveryMessage : null,
                 CanCustomerConfirmReceived = IsShippingStatus(order.Status),
                 CanCustomerCancel = IsPendingStatus(order.Status)
@@ -396,6 +475,47 @@ namespace BaseCore.APIService.Controllers
         private static bool IsPaidPayment(string paymentStatus)
         {
             return string.Equals(paymentStatus, "Paid", StringComparison.OrdinalIgnoreCase);
+        }
+        private async Task<CustomerDiscount> CalculateCustomerDiscountAsync(string userId, decimal originalAmount)
+        {
+            var completedOrders = await _dbContext.Orders
+                .Where(order => order.UserId == userId && order.Status == "Completed")
+                .Select(order => new { order.TotalAmount })
+                .ToListAsync();
+
+            var completedOrderCount = completedOrders.Count;
+            var totalSpent = completedOrders.Sum(order => order.TotalAmount);
+            var segment = CalculateCustomerSegment(completedOrderCount, totalSpent);
+            var percent = GetDiscountPercent(segment);
+            var amount = Math.Round(originalAmount * percent / 100, 0, MidpointRounding.AwayFromZero);
+
+            return new CustomerDiscount
+            {
+                Percent = percent,
+                Amount = amount,
+                PromotionName = percent > 0 ? $"{segment} customer discount" : ""
+            };
+        }
+
+        private static string CalculateCustomerSegment(int completedOrders, decimal totalSpent)
+        {
+            if (completedOrders >= 5 || totalSpent >= 50000000) return "VIP";
+            if (completedOrders >= 3 || totalSpent >= 20000000) return "Loyal";
+            if (completedOrders >= 2 || totalSpent >= 10000000) return "Potential";
+            if (completedOrders == 1) return "New";
+            return "NoOrders";
+        }
+
+        private static decimal GetDiscountPercent(string segment)
+        {
+            return segment switch
+            {
+                "VIP" => 10,
+                "Loyal" => 7,
+                "Potential" => 5,
+                "New" => 3,
+                _ => 0
+            };
         }
 
         private static bool IsShippingStatus(string status)
@@ -447,6 +567,23 @@ namespace BaseCore.APIService.Controllers
             return $"{prefix}-{DateTime.Now:yyyyMMdd}-{suffix}";
         }
 
+        private static string NormalizeDeliveryStatus(string? deliveryStatus)
+        {
+            var normalized = deliveryStatus?.Trim();
+            if (string.IsNullOrEmpty(normalized))
+                return "Chờ lấy hàng";
+
+            return normalized switch
+            {
+                "Chá» láº¥y hÃ ng" => "Chờ lấy hàng",
+                "ÄÃ£ giao Ä‘Æ¡n vá»‹ váº­n chuyá»ƒn" => "Đã giao đơn vị vận chuyển",
+                "Äang giao" => "Đang giao",
+                "ÄÃ£ giao thÃ nh cÃ´ng" => "Đã giao thành công",
+                "Giao tháº¥t báº¡i" => "Giao thất bại",
+                _ => normalized
+            };
+        }
+
         private bool CanAccessOrder(Order order)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -495,5 +632,23 @@ namespace BaseCore.APIService.Controllers
     public class UpdateStatusDto
     {
         public string Status { get; set; } = "";
+    }
+    public class AssignTransportDto
+    {
+        public string TransportUnit { get; set; } = "";
+        public string TrackingCode { get; set; } = "";
+    }
+
+    public class UpdateDeliveryDto
+    {
+        public string DeliveryStatus { get; set; } = "";
+        public DateTime? DeliveryDate { get; set; }
+    }
+
+    public class CustomerDiscount
+    {
+        public decimal Percent { get; set; }
+        public decimal Amount { get; set; }
+        public string PromotionName { get; set; } = "";
     }
 }

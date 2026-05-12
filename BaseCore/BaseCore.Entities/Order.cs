@@ -13,6 +13,14 @@ namespace BaseCore.Entities
 
         public decimal TotalAmount { get; set; }
 
+        public decimal OriginalAmount { get; set; }
+
+        public decimal DiscountAmount { get; set; }
+
+        public decimal DiscountPercent { get; set; }
+
+        public string PromotionName { get; set; } = "";
+
         public string Status { get; set; } = ""; // Pending, Completed, Cancelled
 
         public string ShippingAddress { get; set; } = "";
@@ -24,6 +32,16 @@ namespace BaseCore.Entities
         public string PaymentCode { get; set; } = "";
 
         public string PaymentNote { get; set; } = "";
+
+        public string TransportUnit { get; set; } = "";
+
+        public string DeliveryStatus { get; set; } = "Chờ lấy hàng";
+
+        public DateTime? DeliveryDate { get; set; }
+
+        public string TransportTrackingCode { get; set; } = "";
+
+        public User? User { get; set; }
 
         public List<OrderDetail> OrderDetails { get; set; } = new();
     }

@@ -228,17 +228,22 @@ function getOrderStatusBadge(status) {
 }
 
 function getOrderCustomerLabel(order) {
-  return (
-    order.customerName ||
-    order.CustomerName ||
-    order.customerUserName ||
-    order.CustomerUserName ||
-    order.customerEmail ||
-    order.CustomerEmail ||
-    order.userId ||
-    order.UserId ||
-    'N/A'
-  )
+  const name =
+    order?.customerName ||
+    order?.CustomerName ||
+    order?.customerUserName ||
+    order?.CustomerUserName ||
+    order?.userId ||
+    order?.UserId ||
+    'Khách hàng'
+  const contact =
+    order?.customerEmail ||
+    order?.CustomerEmail ||
+    order?.customerPhone ||
+    order?.CustomerPhone ||
+    ''
+
+  return contact ? `${name} (${contact})` : name
 }
 
 function normalizeProductList(data) {

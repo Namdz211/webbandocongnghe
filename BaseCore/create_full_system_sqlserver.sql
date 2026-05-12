@@ -439,6 +439,14 @@ BEGIN
         PaymentStatus NVARCHAR(50) NOT NULL CONSTRAINT DF_Orders_PaymentStatus DEFAULT (N'PayAtCounter'),
         PaymentCode NVARCHAR(50) NOT NULL CONSTRAINT DF_Orders_PaymentCode DEFAULT (N''),
         PaymentNote NVARCHAR(500) NOT NULL CONSTRAINT DF_Orders_PaymentNote DEFAULT (N'Thanh toán trực tiếp tại quầy hoặc văn phòng khi đến nhận/xác nhận đơn.'),
+        OriginalAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_Orders_OriginalAmount DEFAULT ((0)),
+        DiscountAmount DECIMAL(18,2) NOT NULL CONSTRAINT DF_Orders_DiscountAmount DEFAULT ((0)),
+        DiscountPercent DECIMAL(5,2) NOT NULL CONSTRAINT DF_Orders_DiscountPercent DEFAULT ((0)),
+        PromotionName NVARCHAR(100) NOT NULL CONSTRAINT DF_Orders_PromotionName DEFAULT (N''),
+        TransportUnit NVARCHAR(100) NOT NULL CONSTRAINT DF_Orders_TransportUnit DEFAULT (N''),
+        DeliveryStatus NVARCHAR(100) NOT NULL CONSTRAINT DF_Orders_DeliveryStatus DEFAULT (N'Chờ lấy hàng'),
+        DeliveryDate DATETIME2 NULL,
+        TransportTrackingCode NVARCHAR(100) NOT NULL CONSTRAINT DF_Orders_TransportTrackingCode DEFAULT (N''),
         CONSTRAINT FK_Orders_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id),
         CONSTRAINT CK_Orders_Status CHECK (Status IN (N'Pending', N'Confirmed', N'Shipping', N'Completed', N'Cancelled'))
     );
@@ -446,6 +454,79 @@ BEGIN
     CREATE INDEX IX_Orders_UserId ON dbo.Orders(UserId);
     CREATE INDEX IX_Orders_OrderDate ON dbo.Orders(OrderDate DESC);
 END
+GO
+
+IF COL_LENGTH(N'dbo.Orders', N'OriginalAmount') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD OriginalAmount DECIMAL(18,2) NOT NULL
+        CONSTRAINT DF_Orders_OriginalAmount DEFAULT ((0));
+END
+GO
+
+IF COL_LENGTH(N'dbo.Orders', N'DiscountAmount') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DiscountAmount DECIMAL(18,2) NOT NULL
+        CONSTRAINT DF_Orders_DiscountAmount DEFAULT ((0));
+END
+GO
+
+IF COL_LENGTH(N'dbo.Orders', N'DiscountPercent') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DiscountPercent DECIMAL(5,2) NOT NULL
+        CONSTRAINT DF_Orders_DiscountPercent DEFAULT ((0));
+END
+GO
+
+IF COL_LENGTH(N'dbo.Orders', N'PromotionName') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD PromotionName NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_PromotionName DEFAULT (N'');
+END
+GO
+
+IF COL_LENGTH(N'dbo.Orders', N'TransportUnit') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD TransportUnit NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_TransportUnit DEFAULT (N'');
+END
+GO
+
+IF COL_LENGTH(N'dbo.Orders', N'DeliveryStatus') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DeliveryStatus NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_DeliveryStatus DEFAULT (N'Chờ lấy hàng');
+END
+GO
+
+IF COL_LENGTH(N'dbo.Orders', N'DeliveryDate') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DeliveryDate DATETIME2 NULL;
+END
+GO
+
+IF COL_LENGTH(N'dbo.Orders', N'TransportTrackingCode') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD TransportTrackingCode NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_TransportTrackingCode DEFAULT (N'');
+END
+GO
+
+UPDATE dbo.Orders
+SET OriginalAmount = CASE WHEN OriginalAmount = 0 THEN TotalAmount ELSE OriginalAmount END,
+    DiscountAmount = ISNULL(DiscountAmount, 0),
+    DiscountPercent = ISNULL(DiscountPercent, 0),
+    PromotionName = ISNULL(PromotionName, N''),
+    TransportUnit = ISNULL(TransportUnit, N''),
+    DeliveryStatus = CASE WHEN ISNULL(DeliveryStatus, N'') = N'' THEN N'Chờ lấy hàng' ELSE DeliveryStatus END,
+    TransportTrackingCode = ISNULL(TransportTrackingCode, N'');
 GO
 
 IF OBJECT_ID(N'dbo.OrderDetails', N'U') IS NULL

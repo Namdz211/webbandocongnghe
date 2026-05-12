@@ -58,11 +58,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-//MySQL Configuration with EF Core
-//var connectionString = builder.Configuration.GetConnectionString("MySQL")
-//    ?? "Server=localhost;Database=BaseCoreSales;User=root;Password=;";
-//builder.Services.AddDbContext<MySqlDbContext>(options =>
-//    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 
 
@@ -79,6 +74,7 @@ builder.Services.AddScoped<IOrderRepositoryEF, OrderRepositoryEF>();
 builder.Services.AddScoped<IOrderDetailRepositoryEF, OrderDetailRepositoryEF>();
 builder.Services.AddScoped<IStatisticsRepository, StatisticsRepository>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
+builder.Services.AddScoped<IOrderService, OrderService>();
 
 // JWT Authentication
 var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:SecretKey"] ?? "YourSecretKeyForAuthenticationShouldBeLongEnough");
@@ -326,6 +322,88 @@ END;");
 UPDATE dbo.Orders
 SET PaymentCode = CONCAT(N'LEGACY-', Id)
 WHERE ISNULL(PaymentCode, N'') = N'';");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'OriginalAmount') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD OriginalAmount DECIMAL(18, 2) NOT NULL
+        CONSTRAINT DF_Orders_OriginalAmount DEFAULT (0);
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'DiscountAmount') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DiscountAmount DECIMAL(18, 2) NOT NULL
+        CONSTRAINT DF_Orders_DiscountAmount DEFAULT (0);
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'DiscountPercent') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DiscountPercent DECIMAL(5, 2) NOT NULL
+        CONSTRAINT DF_Orders_DiscountPercent DEFAULT (0);
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'PromotionName') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD PromotionName NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_PromotionName DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'PaymentNote') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD PaymentNote NVARCHAR(500) NOT NULL
+        CONSTRAINT DF_Orders_PaymentNote DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'TransportUnit') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD TransportUnit NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_TransportUnit DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'DeliveryStatus') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DeliveryStatus NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_DeliveryStatus DEFAULT (N'Chờ lấy hàng');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'DeliveryDate') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD DeliveryDate DATETIME2 NULL;
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Orders', N'TransportTrackingCode') IS NULL
+BEGIN
+    ALTER TABLE dbo.Orders
+    ADD TransportTrackingCode NVARCHAR(100) NOT NULL
+        CONSTRAINT DF_Orders_TransportTrackingCode DEFAULT (N'');
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+UPDATE dbo.Orders
+SET OriginalAmount = CASE WHEN OriginalAmount = 0 THEN TotalAmount ELSE OriginalAmount END,
+    DiscountAmount = ISNULL(DiscountAmount, 0),
+    DiscountPercent = ISNULL(DiscountPercent, 0),
+    PromotionName = ISNULL(PromotionName, N''),
+    PaymentNote = ISNULL(PaymentNote, N''),
+    TransportUnit = ISNULL(TransportUnit, N''),
+    DeliveryStatus = CASE WHEN ISNULL(DeliveryStatus, N'') = N'' THEN N'Chờ lấy hàng' ELSE DeliveryStatus END,
+    TransportTrackingCode = ISNULL(TransportTrackingCode, N'');");
 }
 
 static void EnsureOrderWorkflowColumns(MySqlDbContext db)

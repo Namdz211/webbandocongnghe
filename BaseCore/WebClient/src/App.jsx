@@ -1270,6 +1270,7 @@ function HomePage({
                       onError={(event) => handleProductImageError(event, product)}
                     />
                   </div>
+
                   <div className="product-body">
                     <p className="product-category">{product.category?.name || 'Sản phẩm'}</p>
                     <h3 className="product-name">
@@ -1737,6 +1738,7 @@ function ProductPage({ productId, onNavigate, onAddToCart, onBuyNow }) {
             <>
               <div className="row">
                 <div className="col-md-5 col-md-push-2">
+
                   <div id="product-main-img" className="product-preview">
                     <img
                       src={getProductImage(product)}
@@ -2204,6 +2206,7 @@ function OrdersPage({ auth, onNavigate, onNotify, onOrdersChanged }) {
   }
 
   return (
+
     <>
       <div id="breadcrumb" className="section">
         <div className="container">
@@ -2236,6 +2239,7 @@ function OrdersPage({ auth, onNavigate, onNotify, onOrdersChanged }) {
             </div>
           ) : loading ? (
             <div className="empty-state">{'\u0110ang t\u1ea3i l\u1ecbch s\u1eed \u0111\u01a1n h\u00e0ng...'}</div>
+
           ) : error ? (
             <div className="empty-state error-state">{error}</div>
           ) : orders.length === 0 ? (
@@ -2379,6 +2383,7 @@ function OrdersPage({ auth, onNavigate, onNotify, onOrdersChanged }) {
           )}
         </div>
       </div>
+
     </>
   )
 }
@@ -2724,6 +2729,7 @@ function ProductAdminPage({
                         {products.map((product) => (
                           <tr key={product.id}>
                             <td>
+
                               <div className="admin-product-cell">
                                 <img
                                   src={getProductImage(product)}
@@ -2830,6 +2836,7 @@ function AuthPage({ auth, onNavigate, onLogin, onRegister, onLogout, onUpdatePro
           : await onLogin(formData.username.trim(), formData.password.trim())
 
       onNavigate(isAdmin(loggedInAuth) ? '/admin' : redirectPath)
+
     } catch (requestError) {
       setError(requestError.message)
     } finally {
