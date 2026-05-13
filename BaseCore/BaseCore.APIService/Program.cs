@@ -127,6 +127,12 @@ app.Run();
 
 static void SeedProductCatalog(MySqlDbContext db)
 {
+    var retiredCategoryNames = new HashSet<string>
+    {
+        "Clothing",
+        "Sports",
+    };
+
     var categorySeeds = new[]
     {
         new Category { Name = "Điện thoại", Description = "Điện thoại thông minh chính hãng, cấu hình mạnh và camera chất lượng." },
@@ -218,11 +224,17 @@ static void SeedProductCatalog(MySqlDbContext db)
         "Garden Tools Set",
     };
 
+    var retiredCategoryIds = db.Categories
+        .Where(category => retiredCategoryNames.Contains(category.Name))
+        .Select(category => category.Id)
+        .ToHashSet();
     var orderedProductIds = db.OrderDetails
         .Select(orderDetail => orderDetail.ProductId)
         .ToHashSet();
     var obsoleteProducts = db.Products
-        .Where(product => obsoleteProductNames.Contains(product.Name))
+        .Where(product =>
+            obsoleteProductNames.Contains(product.Name) ||
+            retiredCategoryIds.Contains(product.CategoryId))
         .ToList()
         .Where(product => !orderedProductIds.Contains(product.Id))
         .ToList();
@@ -432,5 +444,4 @@ BEGIN
     CHECK (Status IN (N'Pending', N'Confirmed', N'Shipping', N'Completed', N'Cancelled'));
 END;");
 }
-
 

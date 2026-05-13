@@ -26,6 +26,18 @@ namespace BaseCore.Repository.EFCore
         {
         }
 
+        public override async Task<Product?> GetByIdAsync(object id)
+        {
+            if (id is int productId)
+            {
+                return await _dbSet
+                    .Include(p => p.Category)
+                    .FirstOrDefaultAsync(p => p.Id == productId);
+            }
+
+            return await base.GetByIdAsync(id);
+        }
+
         public async Task<(List<Product> Products, int TotalCount)> SearchAsync(
             string? keyword,
             int? categoryId,

@@ -166,12 +166,16 @@ namespace BaseCore.APIService.Controllers
                     if (product.Stock < item.Quantity)
                         return BadRequest(new { message = $"Sản phẩm {product.Name} không đủ tồn kho" });
 
-                    originalAmount += product.Price * item.Quantity;
+                    var unitPrice = item.UnitPrice.HasValue && item.UnitPrice.Value > product.Price
+                        ? item.UnitPrice.Value
+                        : product.Price;
+
+                    originalAmount += unitPrice * item.Quantity;
                     orderDetails.Add(new OrderDetail
                     {
                         ProductId = item.ProductId,
                         Quantity = item.Quantity,
-                        UnitPrice = product.Price
+                        UnitPrice = unitPrice
                     });
 
                     product.Stock -= item.Quantity;
@@ -627,6 +631,7 @@ namespace BaseCore.APIService.Controllers
     {
         public int ProductId { get; set; }
         public int Quantity { get; set; }
+        public decimal? UnitPrice { get; set; }
     }
 
     public class UpdateStatusDto

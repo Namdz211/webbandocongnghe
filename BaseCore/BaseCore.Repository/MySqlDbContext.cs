@@ -54,6 +54,18 @@ namespace BaseCore.Repository
                 entity.Property(e => e.Price).HasPrecision(18, 2);
                 entity.Property(e => e.Description).HasMaxLength(1000);
                 entity.Property(e => e.ImageUrl).HasMaxLength(500);
+                entity.Property(e => e.Cpu).HasMaxLength(200).HasDefaultValue("");
+                entity.Property(e => e.Gpu).HasMaxLength(200).HasDefaultValue("");
+                entity.Property(e => e.Ram).HasMaxLength(100).HasDefaultValue("");
+                entity.Property(e => e.Storage).HasMaxLength(100).HasDefaultValue("");
+                entity.Property(e => e.Screen).HasMaxLength(250).HasDefaultValue("");
+                entity.Property(e => e.Camera).HasMaxLength(250).HasDefaultValue("");
+                entity.Property(e => e.Battery).HasMaxLength(150).HasDefaultValue("");
+                entity.Property(e => e.Weight).HasMaxLength(100).HasDefaultValue("");
+                entity.Property(e => e.OperatingSystem).HasMaxLength(150).HasDefaultValue("");
+                entity.Property(e => e.Connectivity).HasMaxLength(200).HasDefaultValue("");
+                entity.Property(e => e.Sensors).HasMaxLength(250).HasDefaultValue("");
+                entity.Property(e => e.WaterResistance).HasMaxLength(100).HasDefaultValue("");
 
                 // Relationship with Category
                 entity.HasOne(e => e.Category)

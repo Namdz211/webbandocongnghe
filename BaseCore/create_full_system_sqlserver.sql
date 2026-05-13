@@ -1089,4 +1089,3 @@ GO
 
 PRINT N'BaseCoreSales database script completed successfully.';
 GO
-
