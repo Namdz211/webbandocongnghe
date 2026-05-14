@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { productApi, categoryApi } from '../services/api';
+import { productApi, categoryApi, manufacturerApi } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const Products = () => {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);
+    const [manufacturers, setManufacturers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [keyword, setKeyword] = useState('');
     const [categoryId, setCategoryId] = useState('');
@@ -21,12 +22,14 @@ const Products = () => {
         description: '',
         imageUrl: '',
         categoryId: '',
+        manufacturerId: '',
     });
     const [error, setError] = useState('');
     const { isAdmin } = useAuth();
 
     useEffect(() => {
         loadCategories();
+        loadManufacturers();
     }, []);
 
     useEffect(() => {
@@ -39,6 +42,15 @@ const Products = () => {
             setCategories(response.data || []);
         } catch (error) {
             console.error('Failed to load categories:', error);
+        }
+    };
+
+    const loadManufacturers = async () => {
+        try {
+            const response = await manufacturerApi.getAll();
+            setManufacturers(response.data || []);
+        } catch (error) {
+            console.error('Failed to load manufacturers:', error);
         }
     };
 
@@ -77,6 +89,7 @@ const Products = () => {
                 description: product.description || '',
                 imageUrl: product.imageUrl || '',
                 categoryId: product.categoryId,
+                manufacturerId: product.manufacturerId || product.manufacturer?.id || '',
             });
         } else {
             setEditingProduct(null);
@@ -87,6 +100,7 @@ const Products = () => {
                 description: '',
                 imageUrl: '',
                 categoryId: categories[0]?.id || '',
+                manufacturerId: '',
             });
         }
         setError('');
@@ -109,6 +123,7 @@ const Products = () => {
                 price: parseFloat(formData.price),
                 stock: parseInt(formData.stock),
                 categoryId: parseInt(formData.categoryId),
+                manufacturerId: formData.manufacturerId ? parseInt(formData.manufacturerId) : null,
             };
 
             if (editingProduct) {
@@ -210,6 +225,7 @@ const Products = () => {
                                                 <th>ID</th>
                                                 <th>Name</th>
                                                 <th>Category</th>
+                                                <th>Manufacturer</th>
                                                 <th>Price</th>
                                                 <th>Stock</th>
                                                 {isAdmin() && <th>Actions</th>}
@@ -218,7 +234,7 @@ const Products = () => {
                                         <tbody>
                                             {products.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={isAdmin() ? 6 : 5} className="text-center">
+                                                    <td colSpan={isAdmin() ? 7 : 6} className="text-center">
                                                         No products found
                                                     </td>
                                                 </tr>
@@ -228,6 +244,11 @@ const Products = () => {
                                                         <td>{product.id}</td>
                                                         <td>{product.name}</td>
                                                         <td>{product.category?.name}</td>
+                                                        <td>
+                                                            {product.manufacturer?.name ||
+                                                                manufacturers.find(item => item.id === product.manufacturerId)?.name ||
+                                                                'Chưa chọn'}
+                                                        </td>
                                                         <td>{product.price?.toLocaleString()} VND</td>
                                                         <td>{product.stock}</td>
                                                         {isAdmin() && (
@@ -314,6 +335,19 @@ const Products = () => {
                                             <option value="">Select Category</option>
                                             {categories.map(cat => (
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label>Manufacturer</label>
+                                        <select
+                                            className="form-control"
+                                            value={formData.manufacturerId}
+                                            onChange={(e) => setFormData({ ...formData, manufacturerId: e.target.value })}
+                                        >
+                                            <option value="">Select Manufacturer</option>
+                                            {manufacturers.map(manufacturer => (
+                                                <option key={manufacturer.id} value={manufacturer.id}>{manufacturer.name}</option>
                                             ))}
                                         </select>
                                     </div>

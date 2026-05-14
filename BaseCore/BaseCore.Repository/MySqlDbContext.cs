@@ -16,9 +16,13 @@ namespace BaseCore.Repository
         // DbSet for each entity
         public DbSet<User> Users { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<Manufacturer> Manufacturers { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderDetail> OrderDetails { get; set; }
+        public virtual DbSet<Review> Reviews { get; set; }
+
+        
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -45,6 +49,12 @@ namespace BaseCore.Repository
                 entity.Property(e => e.Description).HasMaxLength(500);
             });
 
+            modelBuilder.Entity<Manufacturer>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).HasMaxLength(255).IsRequired();
+            });
+
             // Configure Product entity
             modelBuilder.Entity<Product>(entity =>
             {
@@ -59,6 +69,11 @@ namespace BaseCore.Repository
                       .WithMany()
                       .HasForeignKey(e => e.CategoryId)
                       .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(e => e.Manufacturer)
+                      .WithMany()
+                      .HasForeignKey(e => e.ManufacturerId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Configure Order entity

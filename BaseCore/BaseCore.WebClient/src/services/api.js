@@ -69,6 +69,15 @@ export const categoryApi = {
     delete: (id) => api.delete(`/categories/${id}`),
 };
 
+// Manufacturer API
+export const manufacturerApi = {
+    getAll: () => api.get('/manufacturers'),
+    getById: (id) => api.get(`/manufacturers/${id}`),
+    create: (data) => api.post('/manufacturers', data),
+    update: (id, data) => api.put(`/manufacturers/${id}`, data),
+    delete: (id) => api.delete(`/manufacturers/${id}`),
+};
+
 // Order API
 export const orderApi = {
     create: (data) => api.post('/orders', data),

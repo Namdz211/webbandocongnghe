@@ -8,6 +8,7 @@ import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Users from './pages/Users';
 import Categories from './pages/Categories';
+import Manufacturers from './pages/Manufacturers';
 import Orders from './pages/Orders';
 import Customers from './pages/Customers';
 
@@ -69,6 +70,16 @@ function AppRoutes() {
                     <ProtectedRoute>
                         <MainLayout>
                             <Categories />
+                        </MainLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/manufacturers"
+                element={
+                    <ProtectedRoute>
+                        <MainLayout>
+                            <Manufacturers />
                         </MainLayout>
                     </ProtectedRoute>
                 }

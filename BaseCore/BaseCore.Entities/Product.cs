@@ -20,7 +20,12 @@ namespace BaseCore.Entities
 
         public int CategoryId { get; set; }
 
+        public int? ManufacturerId { get; set; }
+
         [BsonIgnore]
         public Category Category { get; set; }
+
+        [BsonIgnore]
+        public Manufacturer Manufacturer { get; set; }
     }
 }

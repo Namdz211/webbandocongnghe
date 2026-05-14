@@ -80,12 +80,16 @@ namespace BaseCore.APIService.Controllers
             if (category == null)
                 return BadRequest(new { message = "Danh mục không tồn tại" });
 
+            if (dto.ManufacturerId.HasValue && !await ManufacturerExistsAsync(dto.ManufacturerId.Value))
+                return BadRequest(new { message = "NhÃ  sáº£n xuáº¥t khÃ´ng tá»“n táº¡i" });
+
             var product = new Product
             {
                 Name = dto.Name.Trim(),
                 Price = dto.Price,
                 Stock = dto.Stock,
                 CategoryId = dto.CategoryId,
+                ManufacturerId = dto.ManufacturerId,
                 Description = dto.Description?.Trim() ?? "",
                 ImageUrl = dto.ImageUrl?.Trim() ?? ""
             };
@@ -101,7 +105,7 @@ namespace BaseCore.APIService.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] ProductUpdateDto dto)
         {
-            var product = await _productRepository.GetByIdAsync(id);
+            var product = await _productRepository.GetDetailByIdAsync(id);
             if (product == null)
                 return NotFound(new { message = "Không tìm thấy sản phẩm" });
 
@@ -116,10 +120,14 @@ namespace BaseCore.APIService.Controllers
                     return BadRequest(new { message = "Danh mục không tồn tại" });
             }
 
+            if (dto.ManufacturerId.HasValue && !await ManufacturerExistsAsync(dto.ManufacturerId.Value))
+                return BadRequest(new { message = "NhÃ  sáº£n xuáº¥t khÃ´ng tá»“n táº¡i" });
+
             product.Name = dto.Name?.Trim() ?? product.Name;
             product.Price = dto.Price ?? product.Price;
             product.Stock = dto.Stock ?? product.Stock;
             product.CategoryId = dto.CategoryId ?? product.CategoryId;
+            product.ManufacturerId = dto.ManufacturerId ?? product.ManufacturerId;
             product.Description = dto.Description?.Trim() ?? product.Description;
             product.ImageUrl = dto.ImageUrl?.Trim() ?? product.ImageUrl;
 
@@ -203,6 +211,14 @@ namespace BaseCore.APIService.Controllers
 
             return null;
         }
+
+        private async Task<bool> ManufacturerExistsAsync(int manufacturerId)
+        {
+            if (manufacturerId <= 0)
+                return false;
+
+            return await _dbContext.Manufacturers.AnyAsync(manufacturer => manufacturer.Id == manufacturerId);
+        }
     }
 
     // DTOs
@@ -212,6 +228,7 @@ namespace BaseCore.APIService.Controllers
         public decimal Price { get; set; }
         public int Stock { get; set; }
         public int CategoryId { get; set; }
+        public int? ManufacturerId { get; set; }
         public string? Description { get; set; }
         public string? ImageUrl { get; set; }
     }
@@ -222,6 +239,7 @@ namespace BaseCore.APIService.Controllers
         public decimal? Price { get; set; }
         public int? Stock { get; set; }
         public int? CategoryId { get; set; }
+        public int? ManufacturerId { get; set; }
         public string? Description { get; set; }
         public string? ImageUrl { get; set; }
     }
