@@ -60,7 +60,7 @@ function Login({ auth, onNavigate, onLogin, onRegister, onLogout, onUpdateProfil
             })
           : await onLogin(formData.username.trim(), formData.password.trim())
 
-      onNavigate(isAdmin(loggedInAuth) ? '/admin' : redirectPath)
+      onNavigate(redirectPath)
     } catch (requestError) {
       setError(requestError.message)
     } finally {

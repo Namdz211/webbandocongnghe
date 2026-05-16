@@ -1,10 +1,10 @@
 function getResponseMessage(data, response) {
   if (response.status === 401) {
-    return 'Phiên đăng nhập đã hết hạn hoặc token không hợp lệ. Hãy đăng nhập lại bằng tài khoản admin.'
+    return 'Phien dang nhap da het han hoac token khong hop le. Hay dang nhap lai.'
   }
 
   if (response.status === 403) {
-    return 'Tài khoản hiện tại không có quyền admin để thực hiện thao tác này.'
+    return 'Tai khoan hien tai khong co quyen thuc hien thao tac nay.'
   }
 
   if (typeof data === 'string' && data.trim()) {
@@ -31,7 +31,7 @@ function getResponseMessage(data, response) {
     }
   }
 
-  return `Backend trả lỗi ${response.status}. Kiểm tra lại API/gateway và dữ liệu SQL Server.`
+  return `Backend tra loi ${response.status}. Kiem tra lai API/gateway va du lieu SQL Server.`
 }
 
 async function request(path, options = {}) {
@@ -49,7 +49,7 @@ async function request(path, options = {}) {
     })
   } catch {
     throw new Error(
-      'Không kết nối được backend. Hãy chạy BaseCore.APIService ở cổng 5001 và BaseCore.AuthService ở cổng 5002.',
+      'Khong ket noi duoc backend. Hay chay BaseCore.APIService o cong 5001 va BaseCore.AuthService o cong 5002.',
     )
   }
 
@@ -92,11 +92,6 @@ export const api = {
   getCategories: () => request('/categories'),
   getProducts: (params = {}) => request(`/products?${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),
-  createProduct: (payload, token) =>
-    request('/products', { method: 'POST', token, body: JSON.stringify(payload) }),
-  updateProduct: (id, payload, token) =>
-    request(`/products/${id}`, { method: 'PUT', token, body: JSON.stringify(payload) }),
-  deleteProduct: (id, token) => request(`/products/${id}`, { method: 'DELETE', token }),
   login: (username, password) =>
     request('/auth/login', { method: 'POST', body: JSON.stringify({ username, password }) }),
   register: (payload) =>

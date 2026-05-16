@@ -15,14 +15,4 @@ export const orderApi = {
       method: 'PUT',
       token,
     }),
-  confirmByAdmin: (id, token) =>
-    apiRequest(`/orders/${id}/admin/confirm`, {
-      method: 'PUT',
-      token,
-    }),
-  shipByAdmin: (id, token) =>
-    apiRequest(`/orders/${id}/admin/ship`, {
-      method: 'PUT',
-      token,
-    }),
 }

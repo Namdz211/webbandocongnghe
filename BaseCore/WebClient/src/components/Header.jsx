@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import LinkButton from './LinkButton'
 import { api } from '../api'
-import { buildStorePath, formatCurrency, getProductImage, handleProductImageError, isAdmin } from '../utils/storefront'
+import { buildStorePath, formatCurrency, getProductImage, handleProductImageError } from '../utils/storefront'
 
 function Header({
   auth,
@@ -393,13 +393,6 @@ function Header({
                   Đơn hàng
                 </LinkButton>
               </li>
-              {isAdmin(auth) && (
-                <li className={route.name.startsWith('admin') ? 'active' : ''}>
-                  <LinkButton to="/admin" onNavigate={onNavigate}>
-                    Admin
-                  </LinkButton>
-                </li>
-              )}
             </ul>
           </div>
         </div>

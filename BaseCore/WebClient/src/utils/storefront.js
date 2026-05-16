@@ -251,9 +251,9 @@ export function handleProductImageError(event, product) {
 export function toOrderStatusLabel(status) {
   switch ((status || '').toLowerCase()) {
     case 'pending':
-      return 'Ch\u1edd admin x\u00e1c nh\u1eadn'
+      return 'Ch\u1edd x\u00e1c nh\u1eadn'
     case 'confirmed':
-      return 'Admin \u0111\u00e3 x\u00e1c nh\u1eadn'
+      return '\u0110\u00e3 x\u00e1c nh\u1eadn'
     case 'shipping':
       return '\u0110ang giao h\u00e0ng'
     case 'completed':
@@ -263,10 +263,6 @@ export function toOrderStatusLabel(status) {
     default:
       return '\u0110ang x\u1eed l\u00fd'
   }
-}
-
-export function isAdmin(auth) {
-  return String(auth?.role || auth?.Role || '').toLowerCase() === 'admin'
 }
 
 export function buildStorePath({
@@ -321,26 +317,6 @@ export function parseRoute() {
 
   if (pathname === '/orders') {
     return { name: 'orders', pathname, query }
-  }
-
-  if (pathname === '/admin' || pathname === '/admin/login') {
-    return { name: pathname === '/admin/login' ? 'adminLogin' : 'adminDashboard', pathname, query }
-  }
-
-  if (pathname === '/admin/products') {
-    return { name: 'adminProducts', pathname, query }
-  }
-
-  if (pathname === '/admin/categories') {
-    return { name: 'adminCategories', pathname, query }
-  }
-
-  if (pathname === '/admin/users') {
-    return { name: 'adminUsers', pathname, query }
-  }
-
-  if (pathname === '/admin/orders') {
-    return { name: 'adminOrders', pathname, query }
   }
 
   if (pathname === '/account') {

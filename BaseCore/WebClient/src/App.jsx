@@ -4,12 +4,10 @@ import {
   useRef,
   useState,
 } from 'react'
-import AdminApp from './pages/admin/AdminApp.jsx'
 import { api } from './api'
 import {
   getAuthToken,
   getAuthUserId,
-  isAdmin,
   isExpiredToken,
   parseRoute,
   readStorage,
@@ -25,7 +23,6 @@ import {
   HomePage,
   NotFoundPage,
   OrdersPage,
-  ProductAdminPage,
   ProductPage,
   StorePage,
 } from './pages/customer/CustomerPages.jsx'
@@ -140,20 +137,6 @@ function App() {
       cancelled = true
     }
   }, [])
-
-  async function refreshShellData() {
-    try {
-      const [categoryData, productData] = await Promise.all([
-        api.getCategories(),
-        api.getProducts({ page: 1, pageSize: 12 }),
-      ])
-
-      setCategories(Array.isArray(categoryData) ? categoryData : [])
-      setHighlightedProducts(productData.items || [])
-    } catch (requestError) {
-      openNotice('error', requestError.message)
-    }
-  }
 
   function navigate(path) {
     if (`${window.location.pathname}${window.location.search}` === path) {
@@ -341,21 +324,6 @@ function App() {
     total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
   }
 
-  if (route.name.startsWith('admin')) {
-    return (
-      <AdminApp
-        auth={auth}
-        route={route}
-        onNavigate={navigate}
-        onLogin={(adminAuth) => {
-          setAuth(adminAuth)
-        }}
-        onLogout={logout}
-        onDataChanged={refreshShellData}
-      />
-    )
-  }
-
   let content = null
   const needsAuthFirst = !auth && route.name !== 'login'
 
@@ -433,17 +401,6 @@ function App() {
         break
       case 'orders':
         content = <OrdersPage auth={auth} onNavigate={navigate} onNotify={openNotice} />
-        break
-      case 'adminProducts':
-        content = (
-          <ProductAdminPage
-            auth={auth}
-            categories={categories}
-            onNavigate={navigate}
-            onNotify={openNotice}
-            onAdminProductsChanged={refreshShellData}
-          />
-        )
         break
       case 'login':
         content = (
