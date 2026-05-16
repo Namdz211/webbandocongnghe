@@ -1,7 +1,11 @@
-import LinkButton from './LinkButton'
-import { formatCurrency, getProductImage, handleProductImageError } from '../utils/storefront'
+import LinkButton from './LinkButton.jsx'
+import { formatCurrency } from '../utils/formatters.js'
+import { getProductImage, handleProductImageError } from '../utils/productImages.js'
+import { getCategoryName, getManufacturerName } from '../utils/productFields.js'
 
-function ProductCard({ product, onNavigate, onAddToCart, onBuyNow }) {
+export default function ProductCard({ product, onNavigate, onAddToCart, onBuyNow }) {
+  const manufacturerName = getManufacturerName(product)
+
   return (
     <div className="col-md-4 col-xs-6" key={product.id}>
       <div className="product">
@@ -18,6 +22,9 @@ function ProductCard({ product, onNavigate, onAddToCart, onBuyNow }) {
         </div>
         <div className="product-body">
           <p className="product-category">{product.category?.name || 'Sản phẩm'}</p>
+          {manufacturerName && (
+            <p className="product-manufacturer">{manufacturerName}</p>
+          )}
           <h3 className="product-name">
             <LinkButton to={`/product/${product.id}`} onNavigate={onNavigate}>
               {product.name}
@@ -64,5 +71,3 @@ function ProductCard({ product, onNavigate, onAddToCart, onBuyNow }) {
     </div>
   )
 }
-
-export default ProductCard

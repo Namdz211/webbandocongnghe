@@ -1,4 +1,4 @@
-function LinkButton({ to, className = '', onNavigate, children }) {
+export default function LinkButton({ to, className = '', onNavigate, children }) {
   return (
     <a
       className={className}
@@ -22,5 +22,3 @@ function LinkButton({ to, className = '', onNavigate, children }) {
     </a>
   )
 }
-
-export default LinkButton

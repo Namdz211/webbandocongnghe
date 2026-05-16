@@ -1,6 +1,6 @@
-import LinkButton from './LinkButton'
+import LinkButton from './LinkButton.jsx'
 
-function SectionHeader({ title, description, linkTo, onNavigate }) {
+export default function SectionHeader({ title, description, linkTo, onNavigate }) {
   return (
     <div className="section-title">
       <h3 className="title">{title}</h3>
@@ -15,5 +15,3 @@ function SectionHeader({ title, description, linkTo, onNavigate }) {
     </div>
   )
 }
-
-export default SectionHeader

@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
-import LinkButton from './LinkButton'
-import { api } from '../api'
-import { buildStorePath, formatCurrency, getProductImage, handleProductImageError } from '../utils/storefront'
+import { api } from '../api/client.js'
+import LinkButton from './LinkButton.jsx'
+import { formatCurrency } from '../utils/formatters.js'
+import { getProductImage, handleProductImageError } from '../utils/productImages.js'
+import { buildStorePath } from '../utils/routes.js'
 
-function Header({
+export default function Header({
   auth,
   cart,
   categories,
-  orderCount = 0,
+  orderBadgeCount = 0,
   route,
   onNavigate,
   onLogout,
@@ -24,11 +26,6 @@ function Header({
   const suggestRootRef = useRef(null)
   const suggestInputRef = useRef(null)
   const accountMenuRef = useRef(null)
-
-  useEffect(() => {
-    setKeyword(route.query.keyword || '')
-    setCategoryId(route.query.categoryId || '')
-  }, [route.query.keyword, route.query.categoryId])
 
   useEffect(() => {
     if (!isAccountMenuOpen) {
@@ -58,8 +55,7 @@ function Header({
     window.clearTimeout(suggestDebounceRef.current)
 
     if (!normalizedKeyword) {
-      setSuggestions([])
-      return
+      return undefined
     }
 
     const requestId = ++suggestRequestRef.current
@@ -98,19 +94,19 @@ function Header({
   }
 
   return (
-    <div className="site-header-sticky">
+    <>
       <header>
         <div id="top-header">
           <div className="container">
             <ul className="header-links pull-left">
               <li>
                 <a href="tel:+84000000000">
-                  <i className="fa fa-phone" /> 097527435
+                  <i className="fa fa-phone" /> 0975274355
                 </a>
               </li>
               <li>
                 <a href="mailto:support@basecore.vn">
-                  <i className="fa fa-envelope-o" /> support@basecore.vn
+                  <i className="fa fa-envelope-o" /> hnmobile@mta.vn
                 </a>
               </li>
               <li>
@@ -193,7 +189,7 @@ function Header({
                 <div className="header-logo">
                   <LinkButton to="/" className="logo brand-logo" onNavigate={onNavigate}>
                     <img src="/electro/img/logo.png" alt="BaseCore Store" />
-                    <span className="brand-tagline">Storefront</span>
+                    <span className="brand-tagline">HN Mobile</span>
                   </LinkButton>
                 </div>
               </div>
@@ -220,7 +216,11 @@ function Header({
                         ref={suggestInputRef}
                         value={keyword}
                         onChange={(event) => {
-                          setKeyword(event.target.value)
+                          const nextKeyword = event.target.value
+                          setKeyword(nextKeyword)
+                          if (!nextKeyword.trim()) {
+                            setSuggestions([])
+                          }
                           setIsSuggestOpen(true)
                         }}
                         onFocus={() => setIsSuggestOpen(true)}
@@ -273,7 +273,9 @@ function Header({
                     <LinkButton to="/orders" onNavigate={onNavigate}>
                       <i className="fa fa-list-alt" />
                       <span>Đơn của tôi</span>
-                      {auth && orderCount > 0 && <div className="qty">{orderCount}</div>}
+                      {auth && orderBadgeCount > 0 && (
+                        <div className="qty">{orderBadgeCount}</div>
+                      )}
                     </LinkButton>
                   </div>
 
@@ -298,7 +300,7 @@ function Header({
                           <div className="empty-dropdown">Chưa có sản phẩm trong giỏ.</div>
                         ) : (
                           cart.map((item) => (
-                            <div className="product-widget" key={item.id}>
+                            <div className="product-widget" key={item.cartKey || item.id}>
                               <div className="product-img">
                                 <img
                                   src={getProductImage(item)}
@@ -319,11 +321,14 @@ function Header({
                                   <span className="qty">{item.quantity}x</span>
                                   {formatCurrency(item.price)}
                                 </h4>
+                                {item.selectedSpecSummary && (
+                                  <p className="cart-item-options">{item.selectedSpecSummary}</p>
+                                )}
                               </div>
                               <button
                                 className="delete"
                                 type="button"
-                                onClick={() => onRemoveCartItem(item.id)}
+                                onClick={() => onRemoveCartItem(item.cartKey || item.id)}
                               >
                                 <i className="fa fa-close" />
                               </button>
@@ -397,8 +402,6 @@ function Header({
           </div>
         </div>
       </nav>
-    </div>
+    </>
   )
 }
-
-export default Header

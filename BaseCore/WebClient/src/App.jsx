@@ -4,28 +4,23 @@ import {
   useRef,
   useState,
 } from 'react'
-import { api } from './api'
-import {
-  getAuthToken,
-  getAuthUserId,
-  isExpiredToken,
-  parseRoute,
-  readStorage,
-  STORAGE_KEYS,
-  writeStorage,
-  formatCurrency,
-} from './utils/storefront'
-import {
-  AuthPage,
-  CheckoutPage,
-  Footer,
-  Header,
-  HomePage,
-  NotFoundPage,
-  OrdersPage,
-  ProductPage,
-  StorePage,
-} from './pages/customer/CustomerPages.jsx'
+import { api } from './api/client.js'
+import { ORDER_REFRESH_INTERVAL_MS } from './constants/orders.js'
+import { STORAGE_KEYS } from './constants/storage.js'
+import Header from './components/Header.jsx'
+import Footer from './components/Footer.jsx'
+import HomePage from './pages/HomePage.jsx'
+import StorePage from './pages/StorePage.jsx'
+import ProductPage from './pages/ProductPage.jsx'
+import CheckoutPage from './pages/CheckoutPage.jsx'
+import OrdersPage from './pages/OrdersPage.jsx'
+import AuthPage from './pages/AuthPage.jsx'
+import NotFoundPage from './pages/NotFoundPage.jsx'
+import { getAuthToken, getAuthUserId, isExpiredToken } from './utils/auth.js'
+import { formatCurrency } from './utils/formatters.js'
+import { countActiveOrders } from './utils/orders.js'
+import { parseRoute } from './utils/routes.js'
+import { readStorage, writeStorage } from './utils/storage.js'
 
 function App() {
   const [route, setRoute] = useState(parseRoute)
@@ -33,11 +28,13 @@ function App() {
   const [cart, setCart] = useState(() => readStorage(STORAGE_KEYS.cart, []))
   const [categories, setCategories] = useState([])
   const [highlightedProducts, setHighlightedProducts] = useState([])
-  const [orderCount, setOrderCount] = useState(0)
   const [loadingHomeData, setLoadingHomeData] = useState(true)
   const [notice, setNotice] = useState(null)
   const [placingOrder, setPlacingOrder] = useState(false)
+  const [orderBadgeCount, setOrderBadgeCount] = useState(0)
+  const [orderBadgeRefreshKey, setOrderBadgeRefreshKey] = useState(0)
   const noticeTimeoutRef = useRef(null)
+  const authToken = getAuthToken(auth)
 
   useEffect(() => {
     writeStorage(STORAGE_KEYS.cart, cart)
@@ -52,35 +49,34 @@ function App() {
   }, [auth])
 
   useEffect(() => {
-    const authToken = getAuthToken(auth)
-
     if (!authToken || isExpiredToken(authToken)) {
-      setOrderCount(0)
-      return
+      setOrderBadgeCount(0)
+      return undefined
     }
 
     let cancelled = false
 
-    async function loadOrderCount() {
+    async function loadOrderBadgeCount() {
       try {
         const response = await api.getOrders(authToken)
-
         if (!cancelled) {
-          setOrderCount(Array.isArray(response) ? response.length : 0)
+          setOrderBadgeCount(countActiveOrders(Array.isArray(response) ? response : []))
         }
       } catch {
         if (!cancelled) {
-          setOrderCount(0)
+          setOrderBadgeCount(0)
         }
       }
     }
 
-    loadOrderCount()
+    loadOrderBadgeCount()
+    const refreshInterval = window.setInterval(loadOrderBadgeCount, ORDER_REFRESH_INTERVAL_MS)
 
     return () => {
       cancelled = true
+      window.clearInterval(refreshInterval)
     }
-  }, [auth])
+  }, [authToken, orderBadgeRefreshKey])
 
   useEffect(() => {
     const syncRoute = () => {
@@ -154,13 +150,18 @@ function App() {
   }
 
   function upsertCart(product, quantity) {
+    if (!product) {
+      return
+    }
+
     const safeQuantity = Math.max(1, Number(quantity || 1))
+    const cartKey = product.cartKey || String(product.id)
 
     setCart((current) => {
-      const existing = current.find((item) => item.id === product.id)
+      const existing = current.find((item) => (item.cartKey || String(item.id)) === cartKey)
       if (existing) {
         return current.map((item) =>
-          item.id === product.id
+          (item.cartKey || String(item.id)) === cartKey
             ? {
                 ...item,
                 quantity: Math.min(
@@ -175,18 +176,26 @@ function App() {
       return [
         ...current,
         {
+          cartKey,
           id: product.id,
           name: product.name,
+          manufacturer: product.manufacturer || '',
           price: product.price,
+          basePrice: product.basePrice ?? product.price,
           quantity: Math.min(safeQuantity, Math.max(1, product.stock || safeQuantity)),
           imageUrl: product.imageUrl,
           stock: product.stock,
           categoryId: product.categoryId,
+          selectedSpecifications: product.selectedSpecifications || [],
+          selectedSpecSummary: product.selectedSpecSummary || '',
         },
       ]
     })
 
-    openNotice('success', `Đã thêm "${product.name}" vào giỏ hàng.`)
+    openNotice(
+      'success',
+      `Đã thêm "${product.name}${product.selectedSpecSummary ? ` (${product.selectedSpecSummary})` : ''}" vào giỏ hàng.`,
+    )
   }
 
   function buyNow(product, quantity) {
@@ -194,8 +203,8 @@ function App() {
     navigate('/checkout')
   }
 
-  function removeCartItem(productId) {
-    setCart((current) => current.filter((item) => item.id !== productId))
+  function removeCartItem(cartKey) {
+    setCart((current) => current.filter((item) => (item.cartKey || String(item.id)) !== String(cartKey)))
     openNotice('success', 'Đã xóa sản phẩm khỏi giỏ hàng.')
   }
 
@@ -288,9 +297,11 @@ function App() {
       })
 
       if (invalidItems.length > 0) {
-        const invalidIds = new Set(invalidItems.map((item) => item.id))
+        const invalidKeys = new Set(invalidItems.map((item) => item.cartKey || String(item.id)))
 
-        setCart((current) => current.filter((item) => !invalidIds.has(item.id)))
+        setCart((current) =>
+          current.filter((item) => !invalidKeys.has(item.cartKey || String(item.id))),
+        )
         openNotice(
           'error',
           'Giỏ hàng có sản phẩm đã thay đổi hoặc không đủ tồn kho. Tôi đã xóa sản phẩm lỗi, vui lòng kiểm tra lại giỏ hàng.',
@@ -304,12 +315,13 @@ function App() {
         items: cart.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
+          unitPrice: item.price,
         })),
       }
 
       const createdOrder = await api.createOrder(payload, authToken)
       setCart([])
-      setOrderCount((current) => current + 1)
+      setOrderBadgeRefreshKey((current) => current + 1)
       openNotice('success', createdOrder?.message || '\u0110\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.')
       navigate('/orders')
     } catch (requestError) {
@@ -382,6 +394,7 @@ function App() {
         content = (
           <ProductPage
             productId={route.params.id}
+            categories={categories}
             onNavigate={navigate}
             onAddToCart={upsertCart}
             onBuyNow={buyNow}
@@ -400,7 +413,14 @@ function App() {
         )
         break
       case 'orders':
-        content = <OrdersPage auth={auth} onNavigate={navigate} onNotify={openNotice} />
+        content = (
+          <OrdersPage
+            auth={auth}
+            onNavigate={navigate}
+            onNotify={openNotice}
+            onOrdersChanged={() => setOrderBadgeRefreshKey((current) => current + 1)}
+          />
+        )
         break
       case 'login':
         content = (
@@ -436,11 +456,11 @@ function App() {
   return (
     <div className="app-shell">
       <Header
-        key={`${route.pathname}?keyword=${route.query.keyword || ''}&categoryId=${route.query.categoryId || ''}`}
+        key={`${route.pathname}?keyword=${route.query.keyword || ''}&categoryId=${route.query.categoryId || ''}&manufacturer=${route.query.manufacturer || ''}&minPrice=${route.query.minPrice || ''}&maxPrice=${route.query.maxPrice || ''}`}
         auth={auth}
         cart={cart}
         categories={categories}
-        orderCount={orderCount}
+        orderBadgeCount={orderBadgeCount}
         route={route}
         onNavigate={navigate}
         onLogout={logout}
@@ -471,4 +491,3 @@ function App() {
 }
 
 export default App
-

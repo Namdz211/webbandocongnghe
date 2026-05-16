@@ -1,114 +1,62 @@
-﻿/* ================================================================
-   PRODUCT GRID FIX — chỉ nhắm #store, không ảnh hưởng layout khác
-   ================================================================ */
-
-/* Grid sản phẩm dùng CSS Grid thay Bootstrap float */
-#store .products-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 20px;
-  margin-top: 16px;
+/* Product grid only. Do not override every Bootstrap .row in the app. */
+#store .row,
+.product-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
 }
 
-#store .products-grid > [class*="col-"] {
-  width: 100% !important;
-  padding: 0 !important;
-  float: none !important;
+#store .row > [class*="col-"],
+.product-row > [class*="col-"] {
+  display: flex;
+  float: none;
 }
 
-#store .products-grid .product {
+#store .product,
+.product-row .product {
   display: flex;
   flex-direction: column;
-  height: 100%;
   width: 100%;
-  box-sizing: border-box;
+  min-height: 100%;
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  margin-bottom: 30px;
 }
 
-#store .products-grid .product .product-img {
-  flex: 0 0 auto;
+#store .product-img,
+.product-row .product-img {
   height: 200px;
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 10px;
 }
 
-#store .products-grid .product .product-img img {
+#store .product-img img,
+.product-row .product-img img {
   max-height: 100%;
   width: auto;
   object-fit: contain;
 }
 
-#store .products-grid .product .product-body {
+#store .product-body,
+.product-row .product-body {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
-#store .products-grid .product .add-to-cart {
-  flex: 0 0 auto;
-}
-
-@media (max-width: 991px) {
-  #store .products-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 16px;
+@media (max-width: 767px) {
+  #store .row > [class*="col-"],
+  .product-row > [class*="col-"] {
+    width: 50%;
   }
 }
 
 @media (max-width: 480px) {
-  #store .products-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 10px;
-  }
-}
-
-/* ================================================================
-   FOOTER STYLES — layout cho footer mới
-   ================================================================ */
-
-.ecommerce-footer .footer-main-section {
-  padding: 50px 0 40px;
-  border-bottom: 1px solid #333;
-}
-
-.ecommerce-footer .footer-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 32px;
-}
-
-.ecommerce-footer .footer-col {
-  min-width: 0;
-}
-
-.ecommerce-footer .footer-bottom-inner {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-@media (max-width: 991px) {
-  .ecommerce-footer .footer-grid {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 24px;
-  }
-}
-
-@media (max-width: 575px) {
-  .ecommerce-footer .footer-grid {
-    grid-template-columns: 1fr;
-    gap: 20px;
-  }
-
-  .ecommerce-footer .footer-bottom-inner {
-    flex-direction: column;
-    text-align: center;
-  }
-
-  .ecommerce-footer .footer-copyright {
-    text-align: center !important;
+  #store .product-img,
+  .product-row .product-img {
+    height: 160px;
   }
 }
