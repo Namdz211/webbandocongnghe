@@ -1,7 +1,5 @@
 import { getResponseMessage } from '../utils/apiErrors.js'
 
-
-
 async function request(path, options = {}) {
   const { token, ...restOptions } = options
   let response
@@ -118,6 +116,14 @@ export const api = {
     request(`/orders/${id}/cancel`, {
       method: 'PUT',
       token,
+    }),
+  getReviews: (productId) => request(`/reviews/product/${productId}`),
+  canReview: (productId, token) => request(`/reviews/can-review/${productId}`, { token }),
+  createReview: (payload, token) =>
+    request('/reviews', {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
     }),
 }
 

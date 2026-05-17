@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { categoryApi } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { AlertMessage, LoadingState, PageHeader } from '../../components/common';
+import { categoryApi } from '../../services';
+import { useAuth } from '../../auth/AuthContext';
 
 const Categories = () => {
     const [categories, setCategories] = useState([]);
@@ -88,15 +89,7 @@ const Categories = () => {
 
     return (
         <div className="content-wrapper">
-            <div className="content-header">
-                <div className="container-fluid">
-                    <div className="row mb-2">
-                        <div className="col-sm-6">
-                            <h1 className="m-0">Categories Management</h1>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <PageHeader title="Categories Management" />
 
             <section className="content">
                 <div className="container-fluid">
@@ -117,9 +110,7 @@ const Categories = () => {
                         </div>
                         <div className="card-body">
                             {loading ? (
-                                <div className="text-center py-5">
-                                    <div className="spinner-border text-primary"></div>
-                                </div>
+                                <LoadingState />
                             ) : (
                                 <table className="table table-bordered table-striped">
                                     <thead>
@@ -185,7 +176,7 @@ const Categories = () => {
                             </div>
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body">
-                                    {error && <div className="alert alert-danger">{error}</div>}
+                                    <AlertMessage>{error}</AlertMessage>
                                     <div className="form-group">
                                         <label>Name</label>
                                         <input

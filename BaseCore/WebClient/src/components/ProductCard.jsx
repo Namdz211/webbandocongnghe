@@ -31,12 +31,24 @@ export default function ProductCard({ product, onNavigate, onAddToCart, onBuyNow
             </LinkButton>
           </h3>
           <h4 className="product-price">{formatCurrency(product.price)}</h4>
-          <div className="product-rating">
-            <i className="fa fa-star" />
-            <i className="fa fa-star" />
-            <i className="fa fa-star" />
-            <i className="fa fa-star" />
-            <i className="fa fa-star-o" />
+          <div className="product-rating" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '3px', margin: '10px 0' }}>
+            {(() => {
+              const stars = []
+              const rating = product.averageRating || 0
+              for (let i = 1; i <= 5; i++) {
+                if (rating >= i) {
+                  stars.push(<i key={i} className="fa fa-star" style={{ color: '#FFB656' }} />)
+                } else if (rating >= i - 0.5) {
+                  stars.push(<i key={i} className="fa fa-star-half-o" style={{ color: '#FFB656' }} />)
+                } else {
+                  stars.push(<i key={i} className="fa fa-star-o" style={{ color: '#DCDCDC' }} />)
+                }
+              }
+              return stars
+            })()}
+            <span style={{ fontSize: '12px', color: '#8D9796', marginLeft: '5px' }}>
+              ({product.reviewsCount || 0})
+            </span>
           </div>
           <div className="product-btns">
             <button

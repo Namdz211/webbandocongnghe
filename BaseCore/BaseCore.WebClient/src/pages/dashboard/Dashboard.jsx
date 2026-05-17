@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { productApi, userApi, categoryApi, statisticsApi, customerApi } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { productApi, userApi, categoryApi, statisticsApi, customerApi } from '../../services';
+import { useAuth } from '../../auth/AuthContext';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveContainer } from 'recharts';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];

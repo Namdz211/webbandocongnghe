@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { orderApi } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { orderApi } from '../../services';
+import { useAuth } from '../../auth/AuthContext';
 
 const Orders = () => {
     const { user } = useAuth();

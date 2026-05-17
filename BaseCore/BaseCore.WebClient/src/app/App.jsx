@@ -1,16 +1,17 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import React from 'react';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import MainLayout from './components/MainLayout';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Users from './pages/Users';
-import Categories from './pages/Categories';
-import Manufacturers from './pages/Manufacturers';
-import Orders from './pages/Orders';
-import Customers from './pages/Customers';
+import { AuthProvider, useAuth } from '../auth/AuthContext';
+import ProtectedRoute from '../routes/ProtectedRoute';
+import AdminLayout from '../layouts/AdminLayout';
+import Login from '../pages/login/Login';
+import Dashboard from '../pages/dashboard/Dashboard';
+import Products from '../pages/products/Products';
+import Users from '../pages/users/Users';
+import Categories from '../pages/categories/Categories';
+import Manufacturers from '../pages/manufacturers/Manufacturers';
+import Orders from '../pages/orders/Orders';
+import Customers from '../pages/customers/Customers';
+import Reviews from '../pages/reviews/Reviews';
 
 // Wrapper to redirect authenticated users away from login
 const PublicRoute = ({ children }) => {
@@ -48,9 +49,9 @@ function AppRoutes() {
                 path="/"
                 element={
                     <ProtectedRoute>
-                        <MainLayout>
+                        <AdminLayout>
                             <Dashboard />
-                        </MainLayout>
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -58,9 +59,9 @@ function AppRoutes() {
                 path="/products"
                 element={
                     <ProtectedRoute>
-                        <MainLayout>
+                        <AdminLayout>
                             <Products />
-                        </MainLayout>
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -68,9 +69,9 @@ function AppRoutes() {
                 path="/categories"
                 element={
                     <ProtectedRoute>
-                        <MainLayout>
+                        <AdminLayout>
                             <Categories />
-                        </MainLayout>
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -78,9 +79,9 @@ function AppRoutes() {
                 path="/manufacturers"
                 element={
                     <ProtectedRoute>
-                        <MainLayout>
+                        <AdminLayout>
                             <Manufacturers />
-                        </MainLayout>
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -88,9 +89,9 @@ function AppRoutes() {
                 path="/users"
                 element={
                     <ProtectedRoute adminOnly={true}>
-                        <MainLayout>
+                        <AdminLayout>
                             <Users />
-                        </MainLayout>
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -98,9 +99,9 @@ function AppRoutes() {
                 path="/orders"
                 element={
                     <ProtectedRoute adminOnly={true}>
-                        <MainLayout>
+                        <AdminLayout>
                             <Orders />
-                        </MainLayout>
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
@@ -108,9 +109,19 @@ function AppRoutes() {
                 path="/customers"
                 element={
                     <ProtectedRoute adminOnly={true}>
-                        <MainLayout>
+                        <AdminLayout>
                             <Customers />
-                        </MainLayout>
+                        </AdminLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/reviews"
+                element={
+                    <ProtectedRoute adminOnly={true}>
+                        <AdminLayout>
+                            <Reviews />
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />

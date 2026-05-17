@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { manufacturerApi } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { AlertMessage, LoadingState, PageHeader } from '../../components/common';
+import { manufacturerApi } from '../../services';
+import { useAuth } from '../../auth/AuthContext';
 
 const Manufacturers = () => {
     const [manufacturers, setManufacturers] = useState([]);
@@ -97,15 +98,7 @@ const Manufacturers = () => {
 
     return (
         <div className="content-wrapper">
-            <div className="content-header">
-                <div className="container-fluid">
-                    <div className="row mb-2">
-                        <div className="col-sm-6">
-                            <h1 className="m-0">Manufacturers Management</h1>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            <PageHeader title="Manufacturers Management" />
 
             <section className="content">
                 <div className="container-fluid">
@@ -134,9 +127,7 @@ const Manufacturers = () => {
                         </div>
                         <div className="card-body">
                             {loading ? (
-                                <div className="text-center py-5">
-                                    <div className="spinner-border text-primary"></div>
-                                </div>
+                                <LoadingState />
                             ) : (
                                 <>
                                     <div className="table-responsive">
@@ -206,7 +197,7 @@ const Manufacturers = () => {
                             </div>
                             <form onSubmit={handleSubmit}>
                                 <div className="modal-body">
-                                    {error && <div className="alert alert-danger">{error}</div>}
+                                    <AlertMessage>{error}</AlertMessage>
                                     <div className="form-group">
                                         <label>Name</label>
                                         <input

@@ -455,6 +455,26 @@ BEGIN
 END
 GO
 
+IF OBJECT_ID(N'dbo.Reviews', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Reviews
+    (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Reviews PRIMARY KEY,
+        ProductId INT NOT NULL,
+        UserId NVARCHAR(50) NOT NULL,
+        Rating INT NOT NULL,
+        Comment NVARCHAR(MAX) NOT NULL CONSTRAINT DF_Reviews_Comment DEFAULT (N''),
+        CreatedDate DATETIME2 NOT NULL CONSTRAINT DF_Reviews_CreatedDate DEFAULT (SYSUTCDATETIME()),
+        CONSTRAINT FK_Reviews_Products FOREIGN KEY (ProductId) REFERENCES dbo.Products(Id),
+        CONSTRAINT FK_Reviews_Users FOREIGN KEY (UserId) REFERENCES dbo.Users(Id),
+        CONSTRAINT CK_Reviews_Rating CHECK (Rating >= 1 AND Rating <= 5)
+    );
+
+    CREATE INDEX IX_Reviews_ProductId ON dbo.Reviews(ProductId);
+    CREATE INDEX IX_Reviews_UserId ON dbo.Reviews(UserId);
+END
+GO
+
 /* =========================================================
    System/configuration tables
    ========================================================= */

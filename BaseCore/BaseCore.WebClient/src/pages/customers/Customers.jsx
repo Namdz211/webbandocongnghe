@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { customerApi } from '../services/api';
+import { AlertMessage, LoadingState, PageHeader, StatBox } from '../../components/common';
+import { customerApi } from '../../services';
 
 const SEGMENT_OPTIONS = [
     { value: '', label: 'Tất cả' },
@@ -73,6 +74,8 @@ const Customers = () => {
 
     return (
         <div className="content-wrapper">
+            <PageHeader title="Quản lý khách hàng" activeLabel="Customers" />
+            {/*
             <div className="content-header">
                 <div className="container-fluid">
                     <div className="row mb-2">
@@ -88,6 +91,7 @@ const Customers = () => {
                     </div>
                 </div>
             </div>
+            */}
 
             <section className="content">
                 <div className="container-fluid">
@@ -145,11 +149,7 @@ const Customers = () => {
                         </div>
                     </div>
 
-                    {error && (
-                        <div className="alert alert-danger">
-                            {error}
-                        </div>
-                    )}
+                    <AlertMessage>{error}</AlertMessage>
 
                     <div className="card">
                         <div className="card-header">
@@ -157,11 +157,7 @@ const Customers = () => {
                         </div>
                         <div className="card-body">
                             {loading ? (
-                                <div className="text-center py-4">
-                                    <div className="spinner-border text-primary" role="status">
-                                        <span className="sr-only">Loading...</span>
-                                    </div>
-                                </div>
+                                <LoadingState className="py-4" />
                             ) : (
                                 <div className="table-responsive">
                                     <table className="table table-bordered table-striped">
@@ -227,21 +223,6 @@ const Customers = () => {
         </div>
     );
 };
-
-const StatBox = ({ color, icon, label, value }) => (
-    <div className="col-lg-3 col-6">
-        <div className={`small-box bg-${color}`}>
-            <div className="inner">
-                <h3 style={{ fontSize: 'clamp(1.5rem, 2.4vw, 2.2rem)', overflowWrap: 'anywhere' }}>{value}</h3>
-                <p>{label}</p>
-            </div>
-            <div className="icon">
-                <i className={icon}></i>
-            </div>
-            <span className="small-box-footer">&nbsp;</span>
-        </div>
-    </div>
-);
 
 const CustomerModal = ({ customer, orders, onClose }) => (
     <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>

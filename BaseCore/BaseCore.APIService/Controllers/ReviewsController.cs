@@ -86,6 +86,112 @@ namespace BaseCore.APIService.Controllers
 
             return Ok(review);
         }
+
+        [HttpGet]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> GetAll(
+            [FromQuery] string? search, 
+            [FromQuery] int? rating, 
+            [FromQuery] string? sortBy, 
+            [FromQuery] bool? negativeOnly,
+            [FromQuery] int page = 1, 
+            [FromQuery] int pageSize = 10)
+        {
+            var query = _dbContext.Reviews
+                .Include(r => r.User)
+                .AsQueryable();
+
+            var reviewsWithProduct = from r in query
+                                     join p in _dbContext.Products on r.ProductId equals p.Id
+                                     select new
+                                     {
+                                         r.Id,
+                                         r.ProductId,
+                                         ProductName = p.Name,
+                                         r.UserId,
+                                         UserName = r.User != null ? r.User.Name : "Khách hàng",
+                                         r.Rating,
+                                         r.Comment,
+                                         r.CreatedDate
+                                     };
+
+            if (!string.IsNullOrEmpty(search))
+            {
+                var searchLower = search.ToLower();
+                reviewsWithProduct = reviewsWithProduct.Where(r => 
+                    r.ProductName.ToLower().Contains(searchLower) || 
+                    r.Comment.ToLower().Contains(searchLower) || 
+                    r.UserName.ToLower().Contains(searchLower));
+            }
+
+            if (rating.HasValue)
+            {
+                reviewsWithProduct = reviewsWithProduct.Where(r => r.Rating == rating.Value);
+            }
+            else if (negativeOnly == true)
+            {
+                reviewsWithProduct = reviewsWithProduct.Where(r => r.Rating <= 3);
+            }
+
+            if (sortBy == "rating_desc")
+            {
+                reviewsWithProduct = reviewsWithProduct.OrderByDescending(r => r.Rating).ThenByDescending(r => r.CreatedDate);
+            }
+            else if (sortBy == "rating_asc")
+            {
+                reviewsWithProduct = reviewsWithProduct.OrderBy(r => r.Rating).ThenByDescending(r => r.CreatedDate);
+            }
+            else if (sortBy == "oldest")
+            {
+                reviewsWithProduct = reviewsWithProduct.OrderBy(r => r.CreatedDate);
+            }
+            else
+            {
+                reviewsWithProduct = reviewsWithProduct.OrderByDescending(r => r.CreatedDate);
+            }
+
+            var totalCount = await reviewsWithProduct.CountAsync();
+            var items = await reviewsWithProduct
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            // Calculate global stats for admin dashboard summary
+            var statsQuery = _dbContext.Reviews.AsQueryable();
+            var totalCountGlobal = await statsQuery.CountAsync();
+            var averageRatingGlobal = totalCountGlobal > 0 ? await statsQuery.AverageAsync(r => r.Rating) : 0;
+            var negativeCountGlobal = await statsQuery.CountAsync(r => r.Rating <= 3);
+
+            return Ok(new
+            {
+                totalCount,
+                page,
+                pageSize,
+                items,
+                summary = new
+                {
+                    totalReviews = totalCountGlobal,
+                    averageRating = Math.Round(averageRatingGlobal, 1),
+                    negativeCount = negativeCountGlobal
+                }
+            });
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "Admin")]
+        public async Task<IActionResult> Delete(int id)
+        {
+            var review = await _dbContext.Reviews.FindAsync(id);
+            if (review == null)
+            {
+                return NotFound(new { message = "Không tìm thấy đánh giá." });
+            }
+
+            _dbContext.Reviews.Remove(review);
+            await _dbContext.SaveChangesAsync();
+
+            return Ok(new { message = "Đã xóa đánh giá thành công." });
+        }
     }
 
     public class CreateReviewDto

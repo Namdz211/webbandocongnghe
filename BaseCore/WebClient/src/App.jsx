@@ -322,7 +322,7 @@ function App() {
       const createdOrder = await api.createOrder(payload, authToken)
       setCart([])
       setOrderBadgeRefreshKey((current) => current + 1)
-      openNotice('success', createdOrder?.message || '\u0110\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.')
+      openNotice('success', createdOrder?.message || 'Đặt hàng thành công.')
       navigate('/orders')
     } catch (requestError) {
       openNotice('error', requestError.message)
@@ -398,6 +398,7 @@ function App() {
             onNavigate={navigate}
             onAddToCart={upsertCart}
             onBuyNow={buyNow}
+            auth={auth}
           />
         )
         break

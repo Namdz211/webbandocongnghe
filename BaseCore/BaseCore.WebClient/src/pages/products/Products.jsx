@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { productApi, categoryApi, manufacturerApi } from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import { productApi, categoryApi, manufacturerApi } from '../../services';
+import { useAuth } from '../../auth/AuthContext';
 
 const Products = () => {
     const [products, setProducts] = useState([]);
@@ -162,6 +162,22 @@ const Products = () => {
         return pages;
     };
 
+    const renderStars = (rating) => {
+        const stars = [];
+        const fullStars = Math.floor(rating);
+        const hasHalfStar = rating % 1 >= 0.5;
+        for (let i = 1; i <= 5; i++) {
+            if (i <= fullStars) {
+                stars.push(<i key={i} className="fas fa-star text-warning" style={{ fontSize: '12px', marginRight: '1px' }}></i>);
+            } else if (i === fullStars + 1 && hasHalfStar) {
+                stars.push(<i key={i} className="fas fa-star-half-alt text-warning" style={{ fontSize: '12px', marginRight: '1px' }}></i>);
+            } else {
+                stars.push(<i key={i} className="far fa-star text-muted" style={{ fontSize: '12px', marginRight: '1px' }}></i>);
+            }
+        }
+        return stars;
+    };
+
     return (
         <div className="content-wrapper">
             <div className="content-header">
@@ -228,13 +244,14 @@ const Products = () => {
                                                 <th>Manufacturer</th>
                                                 <th>Price</th>
                                                 <th>Stock</th>
+                                                <th className="text-center">Đánh giá</th>
                                                 {isAdmin() && <th>Actions</th>}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {products.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={isAdmin() ? 7 : 6} className="text-center">
+                                                    <td colSpan={isAdmin() ? 8 : 7} className="text-center">
                                                         No products found
                                                     </td>
                                                 </tr>
@@ -251,6 +268,22 @@ const Products = () => {
                                                         </td>
                                                         <td>{product.price?.toLocaleString()} VND</td>
                                                         <td>{product.stock}</td>
+                                                        <td className="text-center">
+                                                            {product.averageRating > 0 ? (
+                                                                <div>
+                                                                    <div className="d-flex justify-content-center align-items-center mb-1" style={{ gap: '2px' }}>
+                                                                        {renderStars(product.averageRating)}
+                                                                    </div>
+                                                                    <span className="text-muted" style={{ fontSize: '12px', display: 'block' }}>
+                                                                        <strong>{product.averageRating}</strong> ({product.reviewsCount} đánh giá)
+                                                                    </span>
+                                                                </div>
+                                                            ) : (
+                                                                <span className="text-muted" style={{ fontSize: '13px' }}>
+                                                                    Chưa có
+                                                                </span>
+                                                            )}
+                                                        </td>
                                                         {isAdmin() && (
                                                             <td>
                                                                 <button

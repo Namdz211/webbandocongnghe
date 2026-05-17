@@ -41,9 +41,37 @@ namespace BaseCore.APIService.Controllers
         {
             var (products, totalCount) = await _productRepository.SearchAsync(keyword, categoryId, page, pageSize);
 
+            var productIds = products.Select(p => p.Id).ToList();
+            var reviewStats = await _dbContext.Reviews
+                .Where(r => productIds.Contains(r.ProductId))
+                .GroupBy(r => r.ProductId)
+                .Select(g => new
+                {
+                    ProductId = g.Key,
+                    AverageRating = g.Average(r => r.Rating),
+                    ReviewsCount = g.Count()
+                })
+                .ToDictionaryAsync(x => x.ProductId, x => x);
+
+            var items = products.Select(p => new
+            {
+                p.Id,
+                p.Name,
+                p.Price,
+                p.Stock,
+                p.ImageUrl,
+                p.Description,
+                p.CategoryId,
+                p.ManufacturerId,
+                p.Category,
+                p.Manufacturer,
+                AverageRating = reviewStats.ContainsKey(p.Id) ? Math.Round(reviewStats[p.Id].AverageRating, 1) : 0.0,
+                ReviewsCount = reviewStats.ContainsKey(p.Id) ? reviewStats[p.Id].ReviewsCount : 0
+            }).ToList();
+
             return Ok(new
             {
-                items = products,
+                items,
                 totalCount,
                 page,
                 pageSize,
@@ -61,7 +89,31 @@ namespace BaseCore.APIService.Controllers
             if (product == null)
                 return NotFound(new { message = "Product not found" });
 
-            return Ok(product);
+            var stats = await _dbContext.Reviews
+                .Where(r => r.ProductId == id)
+                .GroupBy(r => r.ProductId)
+                .Select(g => new
+                {
+                    AverageRating = g.Average(r => r.Rating),
+                    ReviewsCount = g.Count()
+                })
+                .FirstOrDefaultAsync();
+
+            return Ok(new
+            {
+                product.Id,
+                product.Name,
+                product.Price,
+                product.Stock,
+                product.ImageUrl,
+                product.Description,
+                product.CategoryId,
+                product.ManufacturerId,
+                product.Category,
+                product.Manufacturer,
+                AverageRating = stats != null ? Math.Round(stats.AverageRating, 1) : 0.0,
+                ReviewsCount = stats != null ? stats.ReviewsCount : 0
+            });
         }
 
         /// <summary>

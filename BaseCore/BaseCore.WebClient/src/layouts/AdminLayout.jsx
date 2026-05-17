@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../auth/AuthContext';
 
-const MainLayout = ({ children }) => {
+const AdminLayout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout, isAdmin } = useAuth();
@@ -111,6 +111,12 @@ const MainLayout = ({ children }) => {
                                             <p>Users</p>
                                         </Link>
                                     </li>
+                                    <li className="nav-item">
+                                        <Link to="/reviews" className={`nav-link ${isActive('/reviews')}`}>
+                                            <i className="nav-icon fas fa-star text-warning"></i>
+                                            <p>Reviews</p>
+                                        </Link>
+                                    </li>
                                 </>
                             )}
                         </ul>
@@ -132,4 +138,4 @@ const MainLayout = ({ children }) => {
     );
 };
 
-export default MainLayout;
+export default AdminLayout;
