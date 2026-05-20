@@ -24,6 +24,8 @@ namespace BaseCore.APIService.Controllers
         private const string CompletedStatus = "Completed";
         private const string CancelledStatus = "Cancelled";
         private const string DeliveryMessage = "Đơn hàng đang trên đường giao đến bạn, vui lòng chú ý điện thoại.";
+        private const string GuestCustomerId = "guest_checkout";
+        private const string GuestCustomerUserName = "guest_checkout";
 
         private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -127,21 +129,49 @@ namespace BaseCore.APIService.Controllers
         /// Create new order
         /// </summary>
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Create([FromBody] CreateOrderDto dto)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized();
-
-            var userExists = await _dbContext.Users.AnyAsync(user => user.Id == userId);
-            if (!userExists)
-                return Unauthorized(new { message = "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại." });
+            if (dto == null)
+                return BadRequest(new { message = "Dữ liệu đơn hàng không hợp lệ" });
 
             if (dto.Items == null || dto.Items.Count == 0)
                 return BadRequest(new { message = "Giỏ hàng đang trống" });
 
             if (dto.Items.Any(item => item.ProductId <= 0 || item.Quantity <= 0))
                 return BadRequest(new { message = "Dữ liệu sản phẩm trong đơn hàng không hợp lệ" });
+
+            if (string.IsNullOrWhiteSpace(dto.ShippingAddress))
+                return BadRequest(new { message = "Vui lòng nhập địa chỉ giao hàng." });
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var isAuthenticatedOrder = !string.IsNullOrEmpty(userId);
+            User? customer = null;
+
+            if (isAuthenticatedOrder)
+            {
+                customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == userId);
+                if (customer == null)
+                    return Unauthorized(new { message = "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại." });
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(dto.CustomerName))
+                    return BadRequest(new { message = "Vui lòng nhập tên người nhận." });
+
+                if (string.IsNullOrWhiteSpace(dto.CustomerPhone))
+                    return BadRequest(new { message = "Vui lòng nhập số điện thoại người nhận." });
+
+                userId = await EnsureGuestCustomerAsync();
+            }
+
+            if (string.IsNullOrEmpty(userId))
+                return BadRequest(new { message = "Không xác định được khách hàng của đơn hàng." });
+
+            var orderUserId = userId;
+            var shippingAddress = BuildShippingAddress(dto, customer);
+            if (shippingAddress.Length > 500)
+                return BadRequest(new { message = "Thông tin giao hàng tối đa 500 ký tự. Vui lòng rút gọn lại." });
 
             var paymentMethod = string.IsNullOrWhiteSpace(dto.PaymentMethod)
                 ? "cod"
@@ -182,11 +212,13 @@ namespace BaseCore.APIService.Controllers
                     await _productRepository.UpdateAsync(product);
                 }
 
-                var discount = await CalculateCustomerDiscountAsync(userId, originalAmount);
+                var discount = isAuthenticatedOrder
+                    ? await CalculateCustomerDiscountAsync(orderUserId, originalAmount)
+                    : new CustomerDiscount();
 
                 var order = new Order
                 {
-                    UserId = userId,
+                    UserId = orderUserId,
                     OrderDate = DateTime.Now,
                     OriginalAmount = originalAmount,
                     DiscountPercent = discount.Percent,
@@ -194,7 +226,7 @@ namespace BaseCore.APIService.Controllers
                     PromotionName = discount.PromotionName,
                     TotalAmount = originalAmount - discount.Amount,
                     Status = PendingStatus,
-                    ShippingAddress = dto.ShippingAddress ?? "",
+                    ShippingAddress = shippingAddress,
                     PaymentMethod = paymentMethod,
                     PaymentStatus = paymentOption.Status,
                     PaymentCode = GeneratePaymentCode(paymentOption.CodePrefix),
@@ -218,7 +250,7 @@ namespace BaseCore.APIService.Controllers
                 return CreatedAtAction(nameof(GetById), new { id = order.Id }, new
                 {
                     message = successMessage,
-                    order = ToOrderResponse(order),
+                    order = ToOrderResponse(order, customer),
                     details = orderDetails.Select(ToOrderDetailResponse)
                 });
             }
@@ -480,6 +512,83 @@ namespace BaseCore.APIService.Controllers
         {
             return string.Equals(paymentStatus, "Paid", StringComparison.OrdinalIgnoreCase);
         }
+
+        private async Task<string> EnsureGuestCustomerAsync()
+        {
+            var guestUser = await _dbContext.Users
+                .FirstOrDefaultAsync(user => user.Id == GuestCustomerId || user.UserName == GuestCustomerUserName);
+
+            if (guestUser != null)
+                return guestUser.Id;
+
+            guestUser = new User
+            {
+                Id = GuestCustomerId,
+                UserName = GuestCustomerUserName,
+                Password = "",
+                Salt = Array.Empty<byte>(),
+                Name = "Khách vãng lai",
+                Email = "",
+                Phone = "",
+                Position = "Customer",
+                Contact = "",
+                Image = "",
+                IsActive = false,
+                UserType = 0,
+                Created = DateTime.Now
+            };
+
+            await _dbContext.Users.AddAsync(guestUser);
+
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+                return guestUser.Id;
+            }
+            catch (DbUpdateException)
+            {
+                _dbContext.Entry(guestUser).State = EntityState.Detached;
+                var existingGuest = await _dbContext.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(user => user.Id == GuestCustomerId || user.UserName == GuestCustomerUserName);
+
+                if (existingGuest != null)
+                    return existingGuest.Id;
+
+                throw;
+            }
+        }
+
+        private static string BuildShippingAddress(CreateOrderDto dto, User? customer)
+        {
+            var customerName = NormalizeText(dto.CustomerName);
+            var customerEmail = NormalizeText(dto.CustomerEmail);
+            var customerPhone = NormalizeText(dto.CustomerPhone);
+            var address = NormalizeText(dto.ShippingAddress);
+
+            if (string.IsNullOrWhiteSpace(customerName))
+                customerName = NormalizeText(customer?.Name ?? customer?.UserName);
+
+            if (string.IsNullOrWhiteSpace(customerEmail))
+                customerEmail = NormalizeText(customer?.Email);
+
+            if (string.IsNullOrWhiteSpace(customerPhone))
+                customerPhone = NormalizeText(customer?.Phone);
+
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(customerName)) parts.Add($"Người nhận: {customerName}");
+            if (!string.IsNullOrWhiteSpace(customerPhone)) parts.Add($"SĐT: {customerPhone}");
+            if (!string.IsNullOrWhiteSpace(customerEmail)) parts.Add($"Email: {customerEmail}");
+            if (!string.IsNullOrWhiteSpace(address)) parts.Add($"Địa chỉ: {address}");
+
+            return string.Join(" | ", parts);
+        }
+
+        private static string NormalizeText(string? value)
+        {
+            return value?.Trim() ?? "";
+        }
+
         private async Task<CustomerDiscount> CalculateCustomerDiscountAsync(string userId, decimal originalAmount)
         {
             var completedOrders = await _dbContext.Orders
@@ -623,6 +732,9 @@ namespace BaseCore.APIService.Controllers
     public class CreateOrderDto
     {
         public List<OrderItemDto> Items { get; set; } = new();
+        public string? CustomerName { get; set; }
+        public string? CustomerEmail { get; set; }
+        public string? CustomerPhone { get; set; }
         public string? ShippingAddress { get; set; }
         public string? PaymentMethod { get; set; }
     }

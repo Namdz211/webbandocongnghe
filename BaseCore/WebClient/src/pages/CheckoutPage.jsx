@@ -10,15 +10,25 @@ export default function CheckoutPage({
   onPlaceOrder,
   submitting,
 }) {
-  const [shippingAddress, setShippingAddress] = useState(
-    '227 Nguy\u1ec5n V\u0103n C\u1eeb, Qu\u1eadn 5, Th\u00e0nh ph\u1ed1 H\u1ed3 Ch\u00ed Minh',
-  )
+  const [shippingInfo, setShippingInfo] = useState(() => ({
+    customerName: auth?.name || auth?.Name || auth?.username || auth?.Username || '',
+    customerEmail: auth?.email || auth?.Email || '',
+    customerPhone: auth?.phone || auth?.Phone || '',
+    shippingAddress: '',
+  }))
   const [paymentMethod, setPaymentMethod] = useState('cod')
 
   const totalAmount = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   )
+
+  function updateShippingInfo(field, value) {
+    setShippingInfo((current) => ({
+      ...current,
+      [field]: value,
+    }))
+  }
 
   if (cart.length === 0) {
     return (
@@ -68,42 +78,42 @@ export default function CheckoutPage({
                 <div className="form-group">
                   <input
                     className="input"
-                    value={auth?.name || auth?.username || ''}
-                    disabled
-                    placeholder={'T\u00ean kh\u00e1ch h\u00e0ng'}
+                    value={shippingInfo.customerName}
+                    onChange={(event) => updateShippingInfo('customerName', event.target.value)}
+                    placeholder={'T\u00ean ng\u01b0\u1eddi nh\u1eadn'}
+                    maxLength="100"
                   />
                 </div>
                 <div className="form-group">
                   <input
                     className="input"
-                    value={auth?.email || ''}
-                    disabled
+                    type="tel"
+                    value={shippingInfo.customerPhone}
+                    onChange={(event) => updateShippingInfo('customerPhone', event.target.value)}
+                    placeholder={'S\u1ed1 \u0111i\u1ec7n tho\u1ea1i'}
+                    maxLength="20"
+                  />
+                </div>
+                <div className="form-group">
+                  <input
+                    className="input"
+                    type="email"
+                    value={shippingInfo.customerEmail}
+                    onChange={(event) => updateShippingInfo('customerEmail', event.target.value)}
                     placeholder="Email"
+                    maxLength="100"
                   />
                 </div>
                 <div className="form-group">
                   <textarea
                     className="input"
                     rows="5"
-                    value={shippingAddress}
-                    onChange={(event) => setShippingAddress(event.target.value)}
+                    value={shippingInfo.shippingAddress}
+                    onChange={(event) => updateShippingInfo('shippingAddress', event.target.value)}
                     placeholder={'\u0110\u1ecba ch\u1ec9 giao h\u00e0ng'}
+                    maxLength="220"
                   />
                 </div>
-                {!auth && (
-                  <div className="order-note danger-note">
-                    {'B\u1ea1n c\u1ea7n \u0111\u0103ng nh\u1eadp \u0111\u1ec3 t\u1ea1o \u0111\u01a1n h\u00e0ng. H\u1ec7 th\u1ed1ng FW y\u00eau c\u1ea7u JWT token cho endpoint `/api/orders`.'}
-                    <div className="empty-actions">
-                      <LinkButton
-                        to="/login?redirect=/checkout"
-                        className="primary-btn"
-                        onNavigate={onNavigate}
-                      >
-                        {'\u0110\u0103ng nh\u1eadp ngay'}
-                      </LinkButton>
-                    </div>
-                  </div>
-                )}
                 <div className="section-title payment-section-title">
                   <h3 className="title">{'Ph\u01b0\u01a1ng th\u1ee9c thanh to\u00e1n'}</h3>
                 </div>
@@ -178,8 +188,8 @@ export default function CheckoutPage({
               <button
                 className="primary-btn order-submit"
                 type="button"
-                disabled={!auth || submitting}
-                onClick={() => onPlaceOrder(shippingAddress, paymentMethod)}
+                disabled={submitting}
+                onClick={() => onPlaceOrder(shippingInfo, paymentMethod)}
               >
                 {submitting ? '\u0110ang g\u1eedi \u0111\u01a1n...' : '\u0110\u1eb7t h\u00e0ng'}
               </button>

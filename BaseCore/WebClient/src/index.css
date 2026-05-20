@@ -428,6 +428,24 @@ textarea {
   width: 100%;
 }
 
+.product-card-clickable {
+  cursor: pointer;
+}
+
+.product-card-clickable .product-name {
+  font-weight: 700;
+}
+
+.product-card-clickable:hover .product-name,
+.product-card-clickable:focus-visible .product-name {
+  color: #d10024;
+}
+
+.product-card-clickable:focus-visible {
+  outline: 3px solid rgba(209, 0, 36, 0.35);
+  outline-offset: 3px;
+}
+
 #store > .row .product-img {
   height: 260px;
   display: flex;

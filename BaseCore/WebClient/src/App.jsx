@@ -26,7 +26,7 @@ import { readStorage, writeStorage } from './utils/storage.js'
 
 function App() {
   const [route, setRoute] = useState(parseRoute)
-  const [auth, setAuth] = useState(null)
+  const [auth, setAuth] = useState(() => readStorage(STORAGE_KEYS.auth, null))
   const [cart, setCart] = useState(() => readStorage(STORAGE_KEYS.cart, []))
   const [categories, setCategories] = useState([])
   const [highlightedProducts, setHighlightedProducts] = useState([])
@@ -272,21 +272,29 @@ function App() {
     openNotice('success', 'Đã đăng xuất tài khoản.')
   }
 
-  async function placeOrder(shippingAddress, paymentMethod) {
+  async function placeOrder(shippingInfo, paymentMethod) {
     const authToken = getAuthToken(auth)
+    const activeAuthToken = authToken && !isExpiredToken(authToken) ? authToken : ''
+    const customerName = shippingInfo?.customerName?.trim() || ''
+    const customerEmail = shippingInfo?.customerEmail?.trim() || ''
+    const customerPhone = shippingInfo?.customerPhone?.trim() || ''
+    const shippingAddress = shippingInfo?.shippingAddress?.trim() || ''
 
-    if (!authToken) {
-      navigate('/login?redirect=/checkout')
+    if (authToken && !activeAuthToken) {
+      setAuth(null)
+    }
+
+    if (!customerName) {
+      openNotice('error', 'Vui lòng nhập tên người nhận.')
       return
     }
 
-    if (isExpiredToken(authToken)) {
-      openNotice('error', 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trước khi đặt hàng.')
-      navigate('/login?redirect=/checkout')
+    if (!customerPhone) {
+      openNotice('error', 'Vui lòng nhập số điện thoại người nhận.')
       return
     }
 
-    if (!shippingAddress.trim()) {
+    if (!shippingAddress) {
       openNotice('error', 'Vui lòng nhập địa chỉ giao hàng.')
       return
     }
@@ -326,6 +334,9 @@ function App() {
       }
 
       const payload = {
+        customerName,
+        customerEmail,
+        customerPhone,
         shippingAddress,
         paymentMethod,
         items: cart.map((item) => ({
@@ -335,11 +346,15 @@ function App() {
         })),
       }
 
-      const createdOrder = await api.createOrder(payload, authToken)
+      const createdOrder = await api.createOrder(payload, activeAuthToken)
       setCart([])
-      setOrderBadgeRefreshKey((current) => current + 1)
       openNotice('success', createdOrder?.message || '\u0110\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.')
-      navigate('/orders')
+      if (activeAuthToken) {
+        setOrderBadgeRefreshKey((current) => current + 1)
+        navigate('/orders')
+      } else {
+        navigate('/store')
+      }
     } catch (requestError) {
       openNotice('error', requestError.message)
     } finally {
@@ -368,7 +383,8 @@ function App() {
   }
 
   let content = null
-  const needsAuthFirst = !auth && route.name !== 'login'
+  const authRequiredRoutes = new Set(['orders', 'account'])
+  const needsAuthFirst = !auth && authRequiredRoutes.has(route.name)
 
   if (needsAuthFirst) {
     content = (
