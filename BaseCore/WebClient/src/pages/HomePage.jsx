@@ -1,12 +1,188 @@
+import { useEffect, useState } from 'react'
 import LinkButton from '../components/LinkButton.jsx'
 import ProductCard from '../components/ProductCard.jsx'
-import HeroShops from '../components/HeroShops.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import { formatCurrency } from '../utils/formatters.js'
 import { getProductImage, handleProductImageError } from '../utils/productImages.js'
 
+const productIntroThemes = [
+  {
+    accent: '#1b6f8f',
+    accentDark: '#0e4b63',
+    soft: '#e8f6fb',
+  },
+  {
+    accent: '#2f7df0',
+    accentDark: '#245fc0',
+    soft: '#eef5ff',
+  },
+  {
+    accent: '#e87422',
+    accentDark: '#bc5017',
+    soft: '#fff4eb',
+  },
+]
+
+function getProductCategoryLabel(product) {
+  return (
+    product?.category?.name ||
+    product?.categoryName ||
+    product?.manufacturer ||
+    'Sản phẩm nổi bật'
+  )
+}
+
+function ProductIntroCarousel({ products, onNavigate }) {
+  const slides = (Array.isArray(products) ? products : []).filter(Boolean).slice(0, 5)
+  const slideCount = slides.length
+  const [activeIndex, setActiveIndex] = useState(0)
+
+  useEffect(() => {
+    if (slideCount <= 1) {
+      return undefined
+    }
+
+    const slideTimer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % slideCount)
+    }, 4500)
+
+    return () => window.clearInterval(slideTimer)
+  }, [slideCount])
+
+  if (slideCount === 0) {
+    return null
+  }
+
+  const safeActiveIndex = Math.min(activeIndex, slideCount - 1)
+
+  const openProductDetail = (product) => {
+    onNavigate(`/product/${product.id}`)
+  }
+
+  const handleSlideKeyDown = (event, product) => {
+    if (event.key !== 'Enter' && event.key !== ' ') {
+      return
+    }
+
+    event.preventDefault()
+    openProductDetail(product)
+  }
+
+  const moveSlide = (direction) => {
+    setActiveIndex((current) => {
+      const nextIndex = current + direction
+
+      if (nextIndex < 0) {
+        return slideCount - 1
+      }
+
+      if (nextIndex >= slideCount) {
+        return 0
+      }
+
+      return nextIndex
+    })
+  }
+
+  return (
+    <section className="product-intro-carousel" aria-label="Giới thiệu sản phẩm nổi bật">
+      {slideCount > 1 && (
+        <button
+          className="product-intro-arrow product-intro-arrow-left"
+          type="button"
+          aria-label="Sản phẩm trước"
+          onClick={() => moveSlide(-1)}
+        >
+          <i className="fa fa-arrow-left" />
+        </button>
+      )}
+
+      <div className="product-intro-viewport">
+        <div
+          className="product-intro-track"
+          style={{ transform: `translateX(-${safeActiveIndex * 100}%)` }}
+        >
+          {slides.map((product, index) => {
+            const theme = productIntroThemes[index % productIntroThemes.length]
+            const categoryLabel = getProductCategoryLabel(product)
+
+            return (
+              <article
+                className="product-intro-slide product-intro-slide-clickable"
+                key={product.id}
+                role="button"
+                tabIndex={0}
+                aria-label={`Xem chi tiết ${product.name}`}
+                onClick={() => openProductDetail(product)}
+                onKeyDown={(event) => handleSlideKeyDown(event, product)}
+                style={{
+                  '--intro-accent': theme.accent,
+                  '--intro-accent-dark': theme.accentDark,
+                  '--intro-soft': theme.soft,
+                }}
+              >
+                <div className="container product-intro-content">
+                  <div className="product-intro-image">
+                    <img
+                      src={getProductImage(product)}
+                      alt={product.name}
+                      onError={(event) => handleProductImageError(event, product)}
+                    />
+                  </div>
+
+                  <div className="product-intro-info">
+                    <p className="product-intro-label">{categoryLabel}</p>
+                    <h2>{product.name}</h2>
+                    <div className="product-intro-price">
+                      <span>Giá từ</span>
+                      <strong>{formatCurrency(product.price)}</strong>
+                    </div>
+                    <div className="product-intro-offer">
+                      <span>{product.manufacturer || categoryLabel}</span>
+                      <small>
+                        {product.stock > 0
+                          ? `Còn ${product.stock} sản phẩm`
+                          : 'Nhấn vào slide để xem chi tiết sản phẩm'}
+                      </small>
+                    </div>
+                    <span className="product-intro-buy">Xem chi tiết</span>
+                  </div>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+      </div>
+
+      {slideCount > 1 && (
+        <button
+          className="product-intro-arrow product-intro-arrow-right"
+          type="button"
+          aria-label="Sản phẩm tiếp theo"
+          onClick={() => moveSlide(1)}
+        >
+          <i className="fa fa-arrow-right" />
+        </button>
+      )}
+
+      {slideCount > 1 && (
+        <div className="product-intro-dots">
+          {slides.map((product, index) => (
+            <button
+              className={index === safeActiveIndex ? 'active' : ''}
+              key={product.id}
+              type="button"
+              aria-label={`Chuyển đến ${product.name}`}
+              onClick={() => setActiveIndex(index)}
+            />
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 export default function HomePage({
-  categories,
   highlightedProducts,
   onNavigate,
   onAddToCart,
@@ -17,13 +193,12 @@ export default function HomePage({
 
   return (
     <>
-      <HeroShops categories={categories} onNavigate={onNavigate} />
+      <ProductIntroCarousel products={highlightedProducts} onNavigate={onNavigate} />
 
       <div className="section">
         <div className="container">
           <SectionHeader
             title="Sản phẩm nổi bật"
-            // description="Lấy dữ liệu trực tiếp từ FW API Gateway"
             linkTo="/store"
             onNavigate={onNavigate}
           />
@@ -81,7 +256,6 @@ export default function HomePage({
         <div className="container">
           <SectionHeader
             title="Bán chạy"
-           // description="Những sản phẩm mới cập nhật trong hệ thống"
             linkTo="/store"
             onNavigate={onNavigate}
           />

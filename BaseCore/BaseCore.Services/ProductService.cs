@@ -47,10 +47,11 @@ namespace BaseCore.Services
             string manufacturer,
             decimal? minPrice,
             decimal? maxPrice,
+            string sortBy,
             int page,
             int pageSize)
         {
-            return await _productRepository.SearchAsync(keyword, categoryId, manufacturer, minPrice, maxPrice, page, pageSize);
+            return await _productRepository.SearchAsync(keyword, categoryId, manufacturer, minPrice, maxPrice, sortBy, page, pageSize);
         }
     }
 }

@@ -1,8 +1,32 @@
 import { formatCurrency } from '../utils/formatters.js'
 import { getProductImage, handleProductImageError } from '../utils/productImages.js'
 
+const RATING_STARS = [1, 2, 3, 4, 5]
+
+function getProductRating(product) {
+  return Number(product?.averageRating || product?.AverageRating || 0)
+}
+
+function getProductReviewCount(product) {
+  return Number(product?.reviewCount || product?.ReviewCount || 0)
+}
+
+function renderRatingStars(rating) {
+  return RATING_STARS.map((star) => {
+    const iconClass = rating >= star
+      ? 'fa-star'
+      : rating >= star - 0.5
+        ? 'fa-star-half-o'
+        : 'fa-star-o'
+
+    return <i className={`fa ${iconClass}`} key={star} />
+  })
+}
+
 export default function ProductCard({ product, onNavigate }) {
   const productPath = `/product/${product.id}`
+  const averageRating = getProductRating(product)
+  const reviewCount = getProductReviewCount(product)
 
   function openProductDetail() {
     if (typeof onNavigate === 'function') {
@@ -48,12 +72,11 @@ export default function ProductCard({ product, onNavigate }) {
           )}
           <h3 className="product-name">{product.name}</h3>
           <h4 className="product-price">{formatCurrency(product.price)}</h4>
-          <div className="product-rating">
-            <i className="fa fa-star" />
-            <i className="fa fa-star" />
-            <i className="fa fa-star" />
-            <i className="fa fa-star" />
-            <i className="fa fa-star-o" />
+          <div className="product-rating product-card-rating">
+            {renderRatingStars(averageRating)}
+            {reviewCount > 0 && (
+              <span>{averageRating.toFixed(1)} ({reviewCount})</span>
+            )}
           </div>
         </div>
       </div>

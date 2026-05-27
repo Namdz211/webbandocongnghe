@@ -211,6 +211,9 @@ export default function OrdersPage({ auth, onNavigate, onNotify, onOrdersChanged
                     const orderStatus = (order.status || '').toLowerCase()
                     const canCancelOrder = order.canCustomerCancel || orderStatus === 'pending' || orderStatus === 'confirmed'
                     const canReorder = orderStatus === 'completed'
+                    const reviewProductId = details
+                      .map((detail) => detail.product?.id || detail.productId)
+                      .find((productId) => Number(productId) > 0)
 
                     return (
                       <article className="order-card shopee-order-card" key={order.id}>
@@ -315,13 +318,24 @@ export default function OrdersPage({ auth, onNavigate, onNotify, onOrdersChanged
                               </button>
                             )}
                             {canReorder && (
-                              <button
-                                className="secondary-btn"
-                                type="button"
-                                onClick={() => onNavigate('/store')}
-                              >
-                                {'Mua l\u1ea1i'}
-                              </button>
+                              <>
+                                <button
+                                  className="secondary-btn"
+                                  type="button"
+                                  onClick={() => onNavigate('/store')}
+                                >
+                                  {'Mua l\u1ea1i'}
+                                </button>
+                                {reviewProductId && (
+                                  <button
+                                    className="primary-btn"
+                                    type="button"
+                                    onClick={() => onNavigate(`/product/${reviewProductId}#reviews`)}
+                                  >
+                                    {'\u0110\u00e1nh gi\u00e1 s\u1ea3n ph\u1ea9m'}
+                                  </button>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>

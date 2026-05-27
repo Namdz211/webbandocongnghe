@@ -4,6 +4,7 @@ export function buildStorePath({
   manufacturer = '',
   minPrice = '',
   maxPrice = '',
+  sortBy = '',
   page = 1,
 } = {}) {
   const params = new URLSearchParams()
@@ -29,6 +30,10 @@ export function buildStorePath({
     params.set('maxPrice', String(maxPrice))
   }
 
+  if (sortBy && sortBy !== 'recent') {
+    params.set('sortBy', String(sortBy))
+  }
+
   if (page > 1) {
     params.set('page', String(page))
   }
@@ -41,6 +46,7 @@ export function parseRoute() {
   const url = new URL(window.location.href)
   const pathname = url.pathname.replace(/\/+$/, '') || '/'
   const query = Object.fromEntries(url.searchParams.entries())
+  const hash = url.hash
 
   if (pathname === '/' || pathname === '') {
     return { name: 'home', pathname: '/', query }
@@ -55,6 +61,7 @@ export function parseRoute() {
       name: 'product',
       pathname,
       query,
+      hash,
       params: { id: pathname.split('/').pop() },
     }
   }

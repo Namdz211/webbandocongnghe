@@ -58,10 +58,22 @@ function toQueryString(params = {}) {
 
 export const api = {
   getCategories: () => request('/categories'),
-  getManufacturers: () => request('/products/manufacturers'),
+  getManufacturers: (params = {}) =>
+    request(`/products/manufacturers?${toQueryString(params)}`),
   getProducts: (params = {}) =>
     request(`/products?${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),
+  getProductReviews: (id, token) =>
+    request(`/products/${id}/reviews`, {
+      token,
+      cache: 'no-store',
+    }),
+  saveProductReview: (id, payload, token) =>
+    request(`/products/${id}/reviews`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
+    }),
   createProduct: (payload, token) =>
     request('/products', {
       method: 'POST',

@@ -4,7 +4,8 @@ import { FALLBACK_IMAGES } from '../constants/images.js'
 import LinkButton from '../components/LinkButton.jsx'
 import ProductCard from '../components/ProductCard.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
-import { formatCurrency } from '../utils/formatters.js'
+import { getAuthToken } from '../utils/auth.js'
+import { formatCurrency, formatDate } from '../utils/formatters.js'
 import { getProductImage, handleProductImageError } from '../utils/productImages.js'
 
 const SPEC_SOURCE_KEYS = [
@@ -77,6 +78,64 @@ const VARIANT_PRICE_STEP_PERCENT = {
   ram: 0.06,
   screen: 0.12,
   storage: 0.08,
+}
+
+const EMPTY_REVIEW_DATA = {
+  items: [],
+  totalCount: 0,
+  averageRating: 0,
+  canReview: false,
+  myReview: null,
+}
+
+const RATING_STARS = [1, 2, 3, 4, 5]
+
+function normalizeReviewData(data) {
+  return {
+    items: Array.isArray(data?.items) ? data.items : [],
+    totalCount: Number(data?.totalCount || 0),
+    averageRating: Number(data?.averageRating || 0),
+    canReview: Boolean(data?.canReview),
+    myReview: data?.myReview || null,
+  }
+}
+
+async function getMergedProductReviewData(productId, authToken) {
+  const publicReviewData = normalizeReviewData(await api.getProductReviews(productId))
+
+  if (!authToken) {
+    return publicReviewData
+  }
+
+  try {
+    const authReviewData = normalizeReviewData(await api.getProductReviews(productId, authToken))
+
+    return {
+      ...publicReviewData,
+      canReview: authReviewData.canReview,
+      myReview: authReviewData.myReview,
+    }
+  } catch {
+    return publicReviewData
+  }
+}
+
+function renderRatingStars(rating) {
+  const safeRating = Number(rating || 0)
+
+  return RATING_STARS.map((star) => {
+    const iconClass = safeRating >= star
+      ? 'fa-star'
+      : safeRating >= star - 0.5
+        ? 'fa-star-half-o'
+        : 'fa-star-o'
+
+    return <i className={`fa ${iconClass}`} key={star} />
+  })
+}
+
+function getReviewCustomerName(review) {
+  return review?.customerName || review?.CustomerName || review?.customerUserName || review?.CustomerUserName || 'Khách hàng'
 }
 
 function hasSpecValue(value) {
@@ -774,10 +833,13 @@ function getProductSpecificationRows(product, categories = [], selectedSpecValue
 
 export default function ProductPage({
   productId,
+  reviewTarget = '',
+  auth,
   categories = [],
   onNavigate,
   onAddToCart,
   onBuyNow,
+  onNotify,
 }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -785,6 +847,12 @@ export default function ProductPage({
   const [relatedProducts, setRelatedProducts] = useState([])
   const [selectedSpecValues, setSelectedSpecValues] = useState({})
   const [quantity, setQuantity] = useState(1)
+  const [reviewData, setReviewData] = useState(EMPTY_REVIEW_DATA)
+  const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [reviewsError, setReviewsError] = useState('')
+  const [reviewForm, setReviewForm] = useState({ rating: 5, content: '' })
+  const [submittingReview, setSubmittingReview] = useState(false)
+  const authToken = getAuthToken(auth)
 
   useEffect(() => {
     let cancelled = false
@@ -834,6 +902,60 @@ export default function ProductPage({
     }
   }, [productId])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadReviews() {
+      setReviewsLoading(true)
+      setReviewsError('')
+
+      try {
+        const nextReviewData = await getMergedProductReviewData(productId, authToken)
+        const myReview = nextReviewData.myReview
+
+        if (!cancelled) {
+          setReviewData(nextReviewData)
+          setReviewForm({
+            rating: Number(myReview?.rating || myReview?.Rating || 5),
+            content: myReview?.content || myReview?.Content || '',
+          })
+        }
+      } catch (requestError) {
+        if (!cancelled) {
+          setReviewData(EMPTY_REVIEW_DATA)
+          setReviewsError(requestError.message)
+        }
+      } finally {
+        if (!cancelled) {
+          setReviewsLoading(false)
+        }
+      }
+    }
+
+    loadReviews()
+
+    return () => {
+      cancelled = true
+    }
+  }, [productId, authToken])
+
+  useEffect(() => {
+    if (loading || !product || reviewTarget !== '#reviews') {
+      return undefined
+    }
+
+    const scrollTimer = window.setTimeout(() => {
+      const reviewSection = document.getElementById('reviews')
+
+      if (reviewSection) {
+        reviewSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        reviewSection.focus({ preventScroll: true })
+      }
+    }, 100)
+
+    return () => window.clearTimeout(scrollTimer)
+  }, [loading, product, reviewTarget])
+
   const variantGroups = product ? getVariantGroups(product) : []
   const selectedPrice = product
     ? getSelectedVariantPrice(product, variantGroups, selectedSpecValues)
@@ -845,9 +967,61 @@ export default function ProductPage({
     ? getProductSpecificationRows(product, categories, selectedSpecValues)
     : []
   const maxQuantity = product ? Math.max(1, product.stock || 1) : 1
+  const averageRatingLabel = reviewData.totalCount > 0
+    ? reviewData.averageRating.toFixed(1)
+    : '0.0'
+  const canWriteReview = Boolean(authToken && reviewData.canReview)
+  const hasMyReview = Boolean(reviewData.myReview)
   const changeQuantity = (nextQuantity) => {
     const safeQuantity = Number(nextQuantity || 1)
     setQuantity(Math.max(1, Math.min(safeQuantity, maxQuantity)))
+  }
+
+  async function submitReview(event) {
+    event.preventDefault()
+
+    if (!authToken) {
+      onNavigate(`/login?redirect=${encodeURIComponent(`/product/${productId}`)}`)
+      return
+    }
+
+    if (!product) {
+      return
+    }
+
+    const content = reviewForm.content.trim()
+    if (!content) {
+      onNotify?.('error', 'Vui lòng nhập nội dung đánh giá.')
+      return
+    }
+
+    setSubmittingReview(true)
+    setReviewsError('')
+
+    try {
+      const response = await api.saveProductReview(
+        product.id,
+        {
+          rating: Number(reviewForm.rating),
+          content,
+        },
+        authToken,
+      )
+      const refreshedReviews = await getMergedProductReviewData(product.id, authToken)
+      const myReview = refreshedReviews.myReview
+
+      setReviewData(refreshedReviews)
+      setReviewForm({
+        rating: Number(myReview?.rating || myReview?.Rating || reviewForm.rating),
+        content: myReview?.content || myReview?.Content || content,
+      })
+      onNotify?.('success', response?.message || 'Đã gửi đánh giá sản phẩm.')
+    } catch (requestError) {
+      setReviewsError(requestError.message)
+      onNotify?.('error', requestError.message)
+    } finally {
+      setSubmittingReview(false)
+    }
   }
 
   return (
@@ -922,12 +1096,13 @@ export default function ProductPage({
                       </p>
                     )}
                     <div>
-                      <div className="product-rating">
-                        <i className="fa fa-star" />
-                        <i className="fa fa-star" />
-                        <i className="fa fa-star" />
-                        <i className="fa fa-star" />
-                        <i className="fa fa-star-o" />
+                      <div className="product-rating product-rating-summary">
+                        {renderRatingStars(reviewData.averageRating)}
+                        <span>
+                          {reviewData.totalCount > 0
+                            ? `${averageRatingLabel} (${reviewData.totalCount} đánh giá)`
+                            : 'Chưa có đánh giá'}
+                        </span>
                       </div>
                     </div>
                     <div>
@@ -1048,6 +1223,105 @@ export default function ProductPage({
                       </li>
                     </ul> */}
                   </div>
+                </div>
+              </div>
+
+              <div className="product-review-section" id="reviews" tabIndex="-1">
+                <div className="product-review-header">
+                  <div>
+                    <h3>Đánh giá sản phẩm</h3>
+                    <p>{reviewData.totalCount} đánh giá từ khách đã mua hàng</p>
+                  </div>
+                  <div className="product-review-score">
+                    <strong>{averageRatingLabel}</strong>
+                    <span>{renderRatingStars(reviewData.averageRating)}</span>
+                  </div>
+                </div>
+
+                {reviewsError && (
+                  <div className="empty-state compact error-state">{reviewsError}</div>
+                )}
+
+                {auth ? (
+                  canWriteReview ? (
+                    <form className="product-review-form" onSubmit={submitReview}>
+                      <div className="review-form-title">
+                        {hasMyReview ? 'Cập nhật đánh giá của bạn' : 'Đánh giá của bạn'}
+                      </div>
+                      <div className="review-star-input" aria-label="Chọn số sao">
+                        {RATING_STARS.map((star) => (
+                          <button
+                            className={star <= Number(reviewForm.rating) ? 'active' : ''}
+                            key={star}
+                            type="button"
+                            onClick={() =>
+                              setReviewForm((current) => ({
+                                ...current,
+                                rating: star,
+                              }))
+                            }
+                          >
+                            <i className="fa fa-star" />
+                          </button>
+                        ))}
+                      </div>
+                      <textarea
+                        maxLength="1000"
+                        placeholder="Chia sẻ trải nghiệm thực tế của bạn về sản phẩm"
+                        value={reviewForm.content}
+                        onChange={(event) =>
+                          setReviewForm((current) => ({
+                            ...current,
+                            content: event.target.value,
+                          }))
+                        }
+                      />
+                      <div className="review-form-actions">
+                        <small>{reviewForm.content.length}/1000</small>
+                        <button className="primary-btn" type="submit" disabled={submittingReview}>
+                          {submittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <div className="review-note">
+                      Bạn có thể đánh giá sau khi đơn hàng chứa sản phẩm này được xác nhận đã nhận hàng.
+                    </div>
+                  )
+                ) : (
+                  <div className="review-note review-login-note">
+                    <span>Đăng nhập bằng tài khoản đã mua hàng để gửi đánh giá.</span>
+                    <LinkButton
+                      className="secondary-btn"
+                      to={`/login?redirect=${encodeURIComponent(`/product/${product.id}`)}`}
+                      onNavigate={onNavigate}
+                    >
+                      Đăng nhập
+                    </LinkButton>
+                  </div>
+                )}
+
+                <div className="product-review-list">
+                  {reviewsLoading ? (
+                    <div className="empty-state compact">Đang tải đánh giá...</div>
+                  ) : reviewData.items.length === 0 ? (
+                    <div className="empty-state compact">Chưa có đánh giá nào cho sản phẩm này.</div>
+                  ) : (
+                    reviewData.items.map((review) => (
+                      <article className="product-review-item" key={review.id || review.Id}>
+                        <div className="review-item-header">
+                          <div>
+                            <strong>{getReviewCustomerName(review)}</strong>
+                            <span>{formatDate(review.createdAt || review.CreatedAt)}</span>
+                          </div>
+                          <div className="product-rating">
+                            {renderRatingStars(review.rating || review.Rating)}
+                          </div>
+                        </div>
+                        <p>{review.content || review.Content}</p>
+                      </article>
+                    ))
+                  )}
                 </div>
               </div>
 

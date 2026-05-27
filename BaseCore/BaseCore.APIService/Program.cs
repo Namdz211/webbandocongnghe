@@ -106,6 +106,7 @@ using (var scope = app.Services.CreateScope())
     EnsureOrderPaymentColumns(db);
     EnsureOrderWorkflowColumns(db);
     EnsureProductManufacturerColumn(db);
+    EnsureProductReviewTable(db);
     SeedProductCatalog(db);
 }
 
@@ -320,6 +321,55 @@ END
 WHERE ISNULL(Manufacturer, N'') = N'';");
 }
 
+static void EnsureProductReviewTable(MySqlDbContext db)
+{
+    db.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'dbo.ProductReviews', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.ProductReviews
+    (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_ProductReviews PRIMARY KEY,
+        ProductId INT NOT NULL,
+        UserId NVARCHAR(50) NOT NULL,
+        OrderId INT NOT NULL,
+        Rating INT NOT NULL,
+        Content NVARCHAR(1000) NOT NULL CONSTRAINT DF_ProductReviews_Content DEFAULT (N''),
+        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_ProductReviews_CreatedAt DEFAULT (SYSUTCDATETIME()),
+        UpdatedAt DATETIME2 NULL,
+        CONSTRAINT CK_ProductReviews_Rating CHECK (Rating BETWEEN 1 AND 5),
+        CONSTRAINT FK_ProductReviews_Products_ProductId FOREIGN KEY (ProductId) REFERENCES dbo.Products(Id),
+        CONSTRAINT FK_ProductReviews_Users_UserId FOREIGN KEY (UserId) REFERENCES dbo.Users(Id),
+        CONSTRAINT FK_ProductReviews_Orders_OrderId FOREIGN KEY (OrderId) REFERENCES dbo.Orders(Id)
+    );
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'dbo.ProductReviews', N'U') IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM sys.indexes
+        WHERE name = N'IX_ProductReviews_UserId_ProductId'
+            AND object_id = OBJECT_ID(N'dbo.ProductReviews')
+    )
+BEGIN
+    CREATE UNIQUE INDEX IX_ProductReviews_UserId_ProductId
+    ON dbo.ProductReviews(UserId, ProductId);
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'dbo.ProductReviews', N'U') IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM sys.indexes
+        WHERE name = N'IX_ProductReviews_ProductId'
+            AND object_id = OBJECT_ID(N'dbo.ProductReviews')
+    )
+BEGIN
+    CREATE INDEX IX_ProductReviews_ProductId
+    ON dbo.ProductReviews(ProductId);
+END;");
+}
+
 static void EnsureOrderPaymentColumns(MySqlDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
@@ -444,4 +494,3 @@ BEGIN
     CHECK (Status IN (N'Pending', N'Confirmed', N'Shipping', N'Completed', N'Cancelled'));
 END;");
 }
-

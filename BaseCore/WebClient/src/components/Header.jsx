@@ -374,11 +374,6 @@ export default function Header({
                   Trang chủ
                 </LinkButton>
               </li>
-              <li className={route.name === 'store' ? 'active' : ''}>
-                <LinkButton to="/store" onNavigate={onNavigate}>
-                  Cửa hàng
-                </LinkButton>
-              </li>
               {featuredCategories.map((category) => (
                 <li
                   className={

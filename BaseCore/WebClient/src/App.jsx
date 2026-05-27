@@ -441,10 +441,13 @@ function App() {
         content = (
           <ProductPage
             productId={route.params.id}
+            reviewTarget={route.hash}
+            auth={auth}
             categories={categories}
             onNavigate={navigate}
             onAddToCart={upsertCart}
             onBuyNow={buyNow}
+            onNotify={openNotice}
           />
         )
         break

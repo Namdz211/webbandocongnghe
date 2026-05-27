@@ -14,10 +14,11 @@ namespace BaseCore.Repository.EFCore
             string? manufacturer,
             decimal? minPrice,
             decimal? maxPrice,
+            string? sortBy,
             int page,
             int pageSize);
         Task<List<Product>> GetByCategoryAsync(int categoryId);
-        Task<List<string>> GetManufacturersAsync();
+        Task<List<string>> GetManufacturersAsync(int? categoryId = null);
     }
 
     public class ProductRepositoryEF : Repository<Product>, IProductRepositoryEF
@@ -44,6 +45,7 @@ namespace BaseCore.Repository.EFCore
             string? manufacturer,
             decimal? minPrice,
             decimal? maxPrice,
+            string? sortBy,
             int page,
             int pageSize)
         {
@@ -81,8 +83,14 @@ namespace BaseCore.Repository.EFCore
 
             var totalCount = await query.CountAsync();
 
+            query = (sortBy ?? "recent").Trim().ToLowerInvariant() switch
+            {
+                "priceasc" => query.OrderBy(p => p.Price).ThenByDescending(p => p.Id),
+                "pricedesc" => query.OrderByDescending(p => p.Price).ThenByDescending(p => p.Id),
+                _ => query.OrderByDescending(p => p.Id)
+            };
+
             var products = await query
-                .OrderByDescending(p => p.Id)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();
@@ -98,9 +106,16 @@ namespace BaseCore.Repository.EFCore
                 .ToListAsync();
         }
 
-        public async Task<List<string>> GetManufacturersAsync()
+        public async Task<List<string>> GetManufacturersAsync(int? categoryId = null)
         {
-            return await _dbSet
+            var query = _dbSet.AsQueryable();
+
+            if (categoryId.HasValue && categoryId > 0)
+            {
+                query = query.Where(p => p.CategoryId == categoryId);
+            }
+
+            return await query
                 .Where(p => p.Manufacturer != "")
                 .Select(p => p.Manufacturer)
                 .Distinct()
