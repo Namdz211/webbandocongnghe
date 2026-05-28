@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import AdminAssets from './AdminAssets';
 
 const MainLayout = ({ children }) => {
     const location = useLocation();
@@ -9,13 +10,14 @@ const MainLayout = ({ children }) => {
 
     const handleLogout = () => {
         logout();
-        navigate('/login');
+        navigate('/admin/login');
     };
 
     const isActive = (path) => location.pathname === path ? 'active' : '';
 
     return (
         <div className="wrapper">
+            <AdminAssets />
             {/* Navbar */}
             <nav className="main-header navbar navbar-expand navbar-white navbar-light">
                 <ul className="navbar-nav">
@@ -25,7 +27,7 @@ const MainLayout = ({ children }) => {
                         </a>
                     </li>
                     <li className="nav-item d-none d-sm-inline-block">
-                        <Link to="/" className="nav-link">Home</Link>
+                        <Link to="/" className="nav-link">Shop</Link>
                     </li>
                 </ul>
 
@@ -49,7 +51,7 @@ const MainLayout = ({ children }) => {
 
             {/* Sidebar */}
             <aside className="main-sidebar sidebar-dark-primary elevation-4">
-                <Link to="/" className="brand-link">
+                <Link to="/admin" className="brand-link">
                     <span className="brand-text font-weight-light ml-3">
                         <b>Store</b> Sales
                     </span>
@@ -68,26 +70,32 @@ const MainLayout = ({ children }) => {
                     <nav className="mt-2">
                         <ul className="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
                             <li className="nav-item">
-                                <Link to="/" className={`nav-link ${isActive('/')}`}>
+                                <Link to="/admin" className={`nav-link ${isActive('/admin')}`}>
                                     <i className="nav-icon fas fa-tachometer-alt"></i>
                                     <p>Dashboard</p>
                                 </Link>
                             </li>
                             <li className="nav-item">
-                                <Link to="/products" className={`nav-link ${isActive('/products')}`}>
+                                <Link to="/admin/orders" className={`nav-link ${isActive('/admin/orders')}`}>
+                                    <i className="nav-icon fas fa-shopping-cart"></i>
+                                    <p>Orders</p>
+                                </Link>
+                            </li>
+                            <li className="nav-item">
+                                <Link to="/admin/products" className={`nav-link ${isActive('/admin/products')}`}>
                                     <i className="nav-icon fas fa-box"></i>
                                     <p>Products</p>
                                 </Link>
                             </li>
                             <li className="nav-item">
-                                <Link to="/categories" className={`nav-link ${isActive('/categories')}`}>
+                                <Link to="/admin/categories" className={`nav-link ${isActive('/admin/categories')}`}>
                                     <i className="nav-icon fas fa-tags"></i>
                                     <p>Categories</p>
                                 </Link>
                             </li>
                             {isAdmin() && (
                                 <li className="nav-item">
-                                    <Link to="/coupons" className={`nav-link ${isActive('/coupons')}`}>
+                                    <Link to="/admin/coupons" className={`nav-link ${isActive('/admin/coupons')}`}>
                                         <i className="nav-icon fas fa-ticket-alt"></i>
                                         <p>Coupons</p>
                                     </Link>
@@ -95,7 +103,7 @@ const MainLayout = ({ children }) => {
                             )}
                             {isAdmin() && (
                                 <li className="nav-item">
-                                    <Link to="/users" className={`nav-link ${isActive('/users')}`}>
+                                    <Link to="/admin/users" className={`nav-link ${isActive('/admin/users')}`}>
                                         <i className="nav-icon fas fa-users"></i>
                                         <p>Users</p>
                                     </Link>

@@ -3,15 +3,17 @@ import React from 'react';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import MainLayout from './components/MainLayout';
+import ShopApp from './shop/ShopApp';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Products from './pages/Products';
 import Users from './pages/Users';
 import Categories from './pages/Categories';
 import Coupons from './pages/Coupons';
+import Orders from './pages/Orders';
 
 // Wrapper to redirect authenticated users away from login
-const PublicRoute = ({ children }) => {
+const PublicRoute = ({ children, redirectTo = '/admin' }) => {
     const { isAuthenticated, loading } = useAuth();
 
     if (loading) {
@@ -25,7 +27,7 @@ const PublicRoute = ({ children }) => {
     }
 
     if (isAuthenticated) {
-        return <Navigate to="/" replace />;
+        return <Navigate to={redirectTo} replace />;
     }
 
     return children;
@@ -35,17 +37,17 @@ function AppRoutes() {
     return (
         <Routes>
             <Route
-                path="/login"
+                path="/admin/login"
                 element={
-                    <PublicRoute>
+                    <PublicRoute redirectTo="/admin">
                         <Login />
                     </PublicRoute>
                 }
             />
             <Route
-                path="/"
+                path="/admin"
                 element={
-                    <ProtectedRoute>
+                    <ProtectedRoute loginPath="/admin/login">
                         <MainLayout>
                             <Dashboard />
                         </MainLayout>
@@ -53,9 +55,19 @@ function AppRoutes() {
                 }
             />
             <Route
-                path="/products"
+                path="/admin/orders"
                 element={
-                    <ProtectedRoute>
+                    <ProtectedRoute adminOnly={true} loginPath="/admin/login" redirectPath="/admin">
+                        <MainLayout>
+                            <Orders />
+                        </MainLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/products"
+                element={
+                    <ProtectedRoute loginPath="/admin/login">
                         <MainLayout>
                             <Products />
                         </MainLayout>
@@ -63,9 +75,9 @@ function AppRoutes() {
                 }
             />
             <Route
-                path="/categories"
+                path="/admin/categories"
                 element={
-                    <ProtectedRoute>
+                    <ProtectedRoute loginPath="/admin/login">
                         <MainLayout>
                             <Categories />
                         </MainLayout>
@@ -73,9 +85,9 @@ function AppRoutes() {
                 }
             />
             <Route
-                path="/users"
+                path="/admin/users"
                 element={
-                    <ProtectedRoute adminOnly={true}>
+                    <ProtectedRoute adminOnly={true} loginPath="/admin/login" redirectPath="/admin">
                         <MainLayout>
                             <Users />
                         </MainLayout>
@@ -83,16 +95,17 @@ function AppRoutes() {
                 }
             />
             <Route
-                path="/coupons"
+                path="/admin/coupons"
                 element={
-                    <ProtectedRoute adminOnly={true}>
+                    <ProtectedRoute adminOnly={true} loginPath="/admin/login" redirectPath="/admin">
                         <MainLayout>
                             <Coupons />
                         </MainLayout>
                     </ProtectedRoute>
                 }
             />
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
+            <Route path="/*" element={<ShopApp />} />
         </Routes>
     );
 }

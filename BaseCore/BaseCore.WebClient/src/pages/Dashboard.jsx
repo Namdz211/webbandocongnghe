@@ -139,7 +139,7 @@ const Dashboard = () => {
                                     <div className="icon">
                                         <i className="fas fa-box"></i>
                                     </div>
-                                    <a href="/products" className="small-box-footer">
+                                    <a href="/admin/products" className="small-box-footer">
                                         Xem chi tiết <i className="fas fa-arrow-circle-right"></i>
                                     </a>
                                 </div>
@@ -153,7 +153,7 @@ const Dashboard = () => {
                                     <div className="icon">
                                         <i className="fas fa-tags"></i>
                                     </div>
-                                    <a href="/categories" className="small-box-footer">
+                                    <a href="/admin/categories" className="small-box-footer">
                                         Xem chi tiết <i className="fas fa-arrow-circle-right"></i>
                                     </a>
                                 </div>
@@ -168,7 +168,7 @@ const Dashboard = () => {
                                         <div className="icon">
                                             <i className="fas fa-users"></i>
                                         </div>
-                                        <a href="/users" className="small-box-footer">
+                                        <a href="/admin/users" className="small-box-footer">
                                             Xem chi tiết <i className="fas fa-arrow-circle-right"></i>
                                         </a>
                                     </div>

@@ -84,7 +84,10 @@ export const couponApi = {
 export const orderApi = {
     create: (data) => api.post('/orders', data),
     getMyOrders: () => api.get('/orders'),
+    getAllForAdmin: () => api.get('/orders/all'),
     getById: (id) => api.get(`/orders/${id}`),
+    confirm: (id) => api.put(`/orders/${id}/admin/confirm`),
+    ship: (id) => api.put(`/orders/${id}/admin/ship`),
 };
 
 // Statistics API

@@ -18,7 +18,7 @@ const Login = () => {
         const result = await login(username, password);
 
         if (result.success) {
-            navigate('/');
+            navigate('/admin');
         } else {
             setError(result.message);
         }
@@ -30,7 +30,7 @@ const Login = () => {
         <div className="login-page" style={{ minHeight: '100vh' }}>
             <div className="login-box">
                 <div className="login-logo">
-                    <a href="/">BaseCore Sales</a>
+                    <a href="/admin">BaseCore Sales</a>
                 </div>
                 <div className="card">
                     <div className="card-body login-card-body">

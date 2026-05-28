@@ -1,0 +1,105 @@
+﻿/* Product grid fixes: increase selector specificity to override Bootstrap floats */
+/* Target rows inside .container to avoid affecting global layout */
+/* .container .row > [class*="col-"],
+.container .row > [class*="col-md-"],
+.container .product-row > [class*="col-"] {
+  display: flex !important;
+  align-items: flex-start !important;
+} */
+/* 
+ .container .row > [class*="col-"] > .product,
+.container .row > [class*="col-md-"] > .product,
+.container .product-row > [class*="col-"] > .product {
+  display: flex !important;
+  flex-direction: column !important;
+  width: 100% !important;
+  height: 100% !important;
+  box-sizing: border-box !important;
+} 
+
+.container .row .product .product-body,
+.container .product-row .product .product-body {
+  flex: 1 1 auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: space-between !important;
+} */
+
+/* Ensure product image area doesn't stretch and stays aligned to top */
+/* .container .row .product .product-img,
+.container .product-row .product .product-img {
+  flex: 0 0 auto !important;
+} */
+
+/* Keep product image centered within its area and constrain height */
+/* .container .row .product .product-img img,
+.container .product-row .product .product-img img {
+  display: block !important;
+  margin: 0 auto !important;
+  max-height: 240px !important;
+  object-fit: contain !important;
+} */
+/* Sử dụng Flexbox để ép các hàng luôn thẳng hàng */
+/* 1. Ép tất cả các hàng (row) sử dụng Flexbox để triệt tiêu lỗi float */
+/* 1. Ép container chứa danh sách sản phẩm dùng Flexbox */
+/* Ép hàng chứa sản phẩm luôn dùng Flexbox và cho phép xuống hàng */
+.container .row, 
+#store .row {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: stretch !important; /* Đổi từ flex-start thành stretch để các cột bằng chiều cao nhau */
+    justify-content: flex-start !important; /* Luôn bắt đầu từ bên trái */
+}
+
+/* Fix lỗi các cột không quay về đầu dòng */
+.container .row > [class*="col-"],
+#store .row > [class*="col-"] {
+    display: flex !important;
+    float: none !important;
+    clear: none !important; /* Bỏ các lệnh clear cũ của Bootstrap */
+}
+
+/* Đảm bảo khi co màn hình, sản phẩm vẫn nằm trong khung */
+.product {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    height: 100% !important;
+    background: #fff;
+    border: 1px solid #e4e7ed;
+    margin-bottom: 30px;
+}
+
+/* Giữ cho ảnh sản phẩm không bị méo và luôn đồng nhất */
+.product-img {
+    height: 200px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+}
+
+.product-img img {
+    max-height: 100% !important;
+    width: auto !important;
+    object-fit: contain !important;
+}
+
+/* Đẩy phần giá và nút bấm xuống đáy */
+.product-body {
+    flex: 1 1 auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: space-between !important;
+}
+/* Fix sản phẩm thẳng hàng theo hàng ngang */
+.container .row.product-row,
+.container .row {
+  display: flex !important;
+  flex-wrap: wrap !important;
+}
+
+/* Xóa float của Bootstrap để dùng flexbox */
+.container .row > [class*="col-"] {
+  float: none !important;
+}
