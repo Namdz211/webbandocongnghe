@@ -20,6 +20,7 @@ namespace BaseCore.Repository
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderDetail> OrderDetails { get; set; }
         public DbSet<ProductReview> ProductReviews { get; set; }
+        public DbSet<Coupon> Coupons { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -143,6 +144,19 @@ namespace BaseCore.Repository
                       .WithMany()
                       .HasForeignKey(e => e.OrderId)
                       .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // Configure Coupon entity
+            modelBuilder.Entity<Coupon>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Code).HasMaxLength(50).IsRequired();
+                entity.HasIndex(e => e.Code).IsUnique();
+                entity.Property(e => e.Description).HasMaxLength(200).HasDefaultValue("");
+                entity.Property(e => e.DiscountType).HasMaxLength(10).HasDefaultValue("percent");
+                entity.Property(e => e.DiscountValue).HasPrecision(18, 2);
+                entity.Property(e => e.MaxDiscountAmount).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.MinOrderAmount).HasPrecision(18, 2).HasDefaultValue(0m);
             });
 
             // Seed initial data

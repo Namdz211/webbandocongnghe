@@ -107,6 +107,7 @@ using (var scope = app.Services.CreateScope())
     EnsureOrderWorkflowColumns(db);
     EnsureProductManufacturerColumn(db);
     EnsureProductReviewTable(db);
+    EnsureCouponsTable(db);
     SeedProductCatalog(db);
 }
 
@@ -123,7 +124,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 Console.WriteLine("BaseCore API Service running on port 5001");
-Console.WriteLine("Endpoints: /api/products, /api/categories, /api/orders");
+Console.WriteLine("Endpoints: /api/products, /api/categories, /api/orders, /api/coupons");
 app.Run();
 
 static void SeedProductCatalog(MySqlDbContext db)
@@ -367,6 +368,43 @@ IF OBJECT_ID(N'dbo.ProductReviews', N'U') IS NOT NULL
 BEGIN
     CREATE INDEX IX_ProductReviews_ProductId
     ON dbo.ProductReviews(ProductId);
+END;");
+}
+
+static void EnsureCouponsTable(MySqlDbContext db)
+{
+    db.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'dbo.Coupons', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Coupons
+    (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Coupons PRIMARY KEY,
+        Code NVARCHAR(50) NOT NULL,
+        Description NVARCHAR(200) NOT NULL CONSTRAINT DF_Coupons_Description DEFAULT (N''),
+        DiscountType NVARCHAR(10) NOT NULL CONSTRAINT DF_Coupons_DiscountType DEFAULT (N'percent'),
+        DiscountValue DECIMAL(18, 2) NOT NULL,
+        MaxDiscountAmount DECIMAL(18, 2) NOT NULL CONSTRAINT DF_Coupons_MaxDiscountAmount DEFAULT (0),
+        MinOrderAmount DECIMAL(18, 2) NOT NULL CONSTRAINT DF_Coupons_MinOrderAmount DEFAULT (0),
+        UsageLimit INT NOT NULL CONSTRAINT DF_Coupons_UsageLimit DEFAULT (0),
+        UsedCount INT NOT NULL CONSTRAINT DF_Coupons_UsedCount DEFAULT (0),
+        StartDate DATETIME2 NOT NULL CONSTRAINT DF_Coupons_StartDate DEFAULT (SYSUTCDATETIME()),
+        ExpiryDate DATETIME2 NOT NULL,
+        IsActive BIT NOT NULL CONSTRAINT DF_Coupons_IsActive DEFAULT (1),
+        CreatedAt DATETIME2 NOT NULL CONSTRAINT DF_Coupons_CreatedAt DEFAULT (SYSUTCDATETIME())
+    );
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'dbo.Coupons', N'U') IS NOT NULL
+    AND NOT EXISTS (
+        SELECT 1
+        FROM sys.indexes
+        WHERE name = N'IX_Coupons_Code'
+            AND object_id = OBJECT_ID(N'dbo.Coupons')
+    )
+BEGIN
+    CREATE UNIQUE INDEX IX_Coupons_Code
+    ON dbo.Coupons(Code);
 END;");
 }
 

@@ -69,6 +69,17 @@ export const categoryApi = {
     delete: (id) => api.delete(`/categories/${id}`),
 };
 
+// Coupon API
+export const couponApi = {
+    getAll: (params) => api.get('/coupons', { params }),
+    getById: (id) => api.get(`/coupons/${id}`),
+    validate: (code, orderAmount) => api.get(`/coupons/validate/${code}`, { params: { orderAmount } }),
+    create: (data) => api.post('/coupons', data),
+    update: (id, data) => api.put(`/coupons/${id}`, data),
+    toggle: (id) => api.patch(`/coupons/${id}/toggle`),
+    delete: (id) => api.delete(`/coupons/${id}`),
+};
+
 // Order API
 export const orderApi = {
     create: (data) => api.post('/orders', data),
