@@ -820,8 +820,17 @@ export default function ProductPage({
 
         // Get reviews
         try {
-          const reviewsData = await api.getReviews(currentProduct.id)
-          if (!cancelled) setReviews(reviewsData || [])
+          const token = auth?.token || auth?.Token || ''
+          const reviewsData = await api.getProductReviews(currentProduct.id, token || undefined)
+          if (!cancelled) {
+            setReviews((reviewsData?.items || []).map(normalizeReview))
+            setCanReview(Boolean(reviewsData?.canReview))
+            if (reviewsData?.myReview) {
+              const myReview = normalizeReview(reviewsData.myReview)
+              setRating(myReview.rating || 5)
+              setComment(myReview.comment || '')
+            }
+          }
         } catch (err) {
           console.error('Lỗi khi tải đánh giá:', err)
         }
@@ -893,12 +902,10 @@ export default function ProductPage({
 
     setSubmittingReview(true)
     try {
-      await api.createReview({ productId: product.id, rating, comment }, token)
-      const newReviews = await api.getReviews(product.id)
-      setReviews(newReviews || [])
-      setComment('')
-      setRating(5)
-      setCanReview(false)
+      await api.saveProductReview(product.id, { rating, content: comment }, token)
+      const reviewsData = await api.getProductReviews(product.id, token)
+      setReviews((reviewsData?.items || []).map(normalizeReview))
+      setCanReview(Boolean(reviewsData?.canReview))
       alert('Cảm ơn bạn đã gửi đánh giá chất lượng sản phẩm!')
     } catch (err) {
       alert(err.message || 'Có lỗi xảy ra khi gửi đánh giá.')
@@ -952,6 +959,15 @@ export default function ProductPage({
       </div>
     )
   }
+
+  const normalizeReview = (review) => ({
+    ...review,
+    id: review.id ?? review.Id,
+    rating: Number(review.rating ?? review.Rating ?? 0),
+    comment: review.comment ?? review.content ?? review.Comment ?? review.Content ?? '',
+    createdAt: review.createdAt ?? review.createdDate ?? review.CreatedAt ?? review.CreatedDate,
+    userName: review.userName ?? review.customerName ?? review.customerUserName ?? review.UserName ?? review.CustomerName ?? review.CustomerUserName,
+  })
 
   const reviewsCount = reviews.length
   const averageRating = reviewsCount > 0

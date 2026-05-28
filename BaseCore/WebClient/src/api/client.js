@@ -125,6 +125,16 @@ export const api = {
       token,
       body: JSON.stringify(payload),
     }),
+  getProductReviews: (productId, token) =>
+    request(`/products/${productId}/reviews`, {
+      token,
+    }),
+  saveProductReview: (productId, payload, token) =>
+    request(`/products/${productId}/reviews`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify(payload),
+    }),
 }
 
 export default api

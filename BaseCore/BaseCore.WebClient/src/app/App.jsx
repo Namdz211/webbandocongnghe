@@ -12,6 +12,7 @@ import Manufacturers from '../pages/manufacturers/Manufacturers';
 import Orders from '../pages/orders/Orders';
 import Customers from '../pages/customers/Customers';
 import Reviews from '../pages/reviews/Reviews';
+import Coupons from '../pages/coupons/Coupons';
 
 // Wrapper to redirect authenticated users away from login
 const PublicRoute = ({ children }) => {
@@ -121,6 +122,16 @@ function AppRoutes() {
                     <ProtectedRoute adminOnly={true}>
                         <AdminLayout>
                             <Reviews />
+                        </AdminLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/coupons"
+                element={
+                    <ProtectedRoute adminOnly={true}>
+                        <AdminLayout>
+                            <Coupons />
                         </AdminLayout>
                     </ProtectedRoute>
                 }

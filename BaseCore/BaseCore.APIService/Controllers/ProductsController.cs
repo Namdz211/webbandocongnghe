@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
 using BaseCore.Repository;
 using BaseCore.Repository.EFCore;
+using System.Security.Claims;
 
 namespace BaseCore.APIService.Controllers
 {
@@ -36,10 +37,31 @@ namespace BaseCore.APIService.Controllers
         public async Task<IActionResult> GetAll(
             [FromQuery] string? keyword,
             [FromQuery] int? categoryId,
+            [FromQuery] string? manufacturer,
+            [FromQuery] decimal? minPrice,
+            [FromQuery] decimal? maxPrice,
+            [FromQuery] string? sortBy,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
-            var (products, totalCount) = await _productRepository.SearchAsync(keyword, categoryId, page, pageSize);
+            if (minPrice.HasValue && minPrice.Value < 0)
+                return BadRequest(new { message = "Giá tối thiểu không được âm" });
+
+            if (maxPrice.HasValue && maxPrice.Value < 0)
+                return BadRequest(new { message = "Giá tối đa không được âm" });
+
+            if (minPrice.HasValue && maxPrice.HasValue && minPrice.Value > maxPrice.Value)
+                return BadRequest(new { message = "Giá tối thiểu không được lớn hơn giá tối đa" });
+
+            var (products, totalCount) = await _productRepository.SearchAsync(
+                keyword,
+                categoryId,
+                manufacturer,
+                minPrice,
+                maxPrice,
+                sortBy,
+                page,
+                pageSize);
 
             var productIds = products.Select(p => p.Id).ToList();
             var reviewStats = await _dbContext.Reviews
@@ -224,6 +246,101 @@ namespace BaseCore.APIService.Controllers
             return Ok(products);
         }
 
+        /// <summary>
+        /// Get product reviews and the current user's review eligibility.
+        /// </summary>
+        [HttpGet("{id}/reviews")]
+        public async Task<IActionResult> GetReviews(int id)
+        {
+            var productExists = await _dbContext.Products.AnyAsync(product => product.Id == id);
+            if (!productExists)
+                return NotFound(new { message = "Không tìm thấy sản phẩm" });
+
+            var reviews = await _dbContext.Reviews
+                .Include(review => review.User)
+                .AsNoTracking()
+                .Where(review => review.ProductId == id)
+                .OrderByDescending(review => review.CreatedDate)
+                .ToListAsync();
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var myReview = string.IsNullOrEmpty(userId)
+                ? null
+                : reviews.FirstOrDefault(review => string.Equals(review.UserId, userId, StringComparison.Ordinal));
+            var canReview = !string.IsNullOrEmpty(userId)
+                && await HasCompletedOrderForProductAsync(userId, id);
+
+            return Ok(new
+            {
+                items = reviews.Select(ToProductReviewResponse),
+                totalCount = reviews.Count,
+                averageRating = reviews.Count == 0 ? 0 : Math.Round(reviews.Average(review => review.Rating), 1),
+                canReview,
+                myReview = myReview == null ? null : ToProductReviewResponse(myReview)
+            });
+        }
+
+        /// <summary>
+        /// Create or update the current user's review after a completed order.
+        /// </summary>
+        [HttpPost("{id}/reviews")]
+        [Authorize]
+        public async Task<IActionResult> SaveReview(int id, [FromBody] ProductReviewDto dto)
+        {
+            if (dto == null)
+                return BadRequest(new { message = "Dữ liệu đánh giá không hợp lệ" });
+
+            if (dto.Rating < 1 || dto.Rating > 5)
+                return BadRequest(new { message = "Số sao đánh giá phải từ 1 đến 5" });
+
+            var content = (dto.Content ?? dto.Comment ?? "").Trim();
+            if (string.IsNullOrWhiteSpace(content))
+                return BadRequest(new { message = "Vui lòng nhập nội dung đánh giá" });
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var productExists = await _dbContext.Products.AnyAsync(product => product.Id == id);
+            if (!productExists)
+                return NotFound(new { message = "Không tìm thấy sản phẩm" });
+
+            if (!await HasCompletedOrderForProductAsync(userId, id))
+                return BadRequest(new { message = "Bạn chỉ có thể đánh giá sau khi đã nhận đơn hàng có sản phẩm này" });
+
+            var review = await _dbContext.Reviews
+                .FirstOrDefaultAsync(item => item.ProductId == id && item.UserId == userId);
+            var isNewReview = review == null;
+
+            if (review == null)
+            {
+                review = new Review
+                {
+                    ProductId = id,
+                    UserId = userId,
+                    CreatedDate = DateTime.UtcNow
+                };
+
+                _dbContext.Reviews.Add(review);
+            }
+
+            review.Rating = dto.Rating;
+            review.Comment = content;
+
+            await _dbContext.SaveChangesAsync();
+
+            var savedReview = await _dbContext.Reviews
+                .Include(item => item.User)
+                .AsNoTracking()
+                .FirstAsync(item => item.Id == review.Id);
+
+            return Ok(new
+            {
+                message = isNewReview ? "Đã gửi đánh giá sản phẩm" : "Đã cập nhật đánh giá sản phẩm",
+                review = ToProductReviewResponse(savedReview)
+            });
+        }
+
         private static string? ValidateCreateDto(ProductCreateDto dto)
         {
             if (dto == null)
@@ -271,6 +388,34 @@ namespace BaseCore.APIService.Controllers
 
             return await _dbContext.Manufacturers.AnyAsync(manufacturer => manufacturer.Id == manufacturerId);
         }
+
+        private async Task<bool> HasCompletedOrderForProductAsync(string userId, int productId)
+        {
+            return await _dbContext.OrderDetails
+                .Include(orderDetail => orderDetail.Order)
+                .AnyAsync(orderDetail =>
+                    orderDetail.ProductId == productId &&
+                    orderDetail.Order.UserId == userId &&
+                    orderDetail.Order.Status == "Completed");
+        }
+
+        private static object ToProductReviewResponse(Review review)
+        {
+            return new
+            {
+                review.Id,
+                review.ProductId,
+                review.UserId,
+                review.Rating,
+                Content = review.Comment,
+                Comment = review.Comment,
+                CreatedAt = review.CreatedDate,
+                CreatedDate = review.CreatedDate,
+                CustomerName = review.User?.Name,
+                CustomerUserName = review.User?.UserName,
+                UserName = review.User?.Name ?? review.User?.UserName ?? "Khách hàng"
+            };
+        }
     }
 
     // DTOs
@@ -294,5 +439,12 @@ namespace BaseCore.APIService.Controllers
         public int? ManufacturerId { get; set; }
         public string? Description { get; set; }
         public string? ImageUrl { get; set; }
+    }
+
+    public class ProductReviewDto
+    {
+        public int Rating { get; set; }
+        public string? Content { get; set; }
+        public string? Comment { get; set; }
     }
 }

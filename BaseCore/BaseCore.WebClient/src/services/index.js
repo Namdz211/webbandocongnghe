@@ -8,4 +8,5 @@ export { orderApi } from './orderApi';
 export { customerApi } from './customerApi';
 export { statisticsApi } from './statisticsApi';
 export { reviewApi } from './reviewApi';
+export { couponApi } from './couponApi';
 

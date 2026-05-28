@@ -253,6 +253,7 @@ function App() {
 
   function logout() {
     setAuth(null)
+    setCart([])
     openNotice('success', 'Đã đăng xuất tài khoản.')
   }
 
