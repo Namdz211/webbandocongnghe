@@ -22,6 +22,16 @@ export default defineConfig({
                 changeOrigin: true,
                 secure: false,
             },
+            '/api/statistics': {
+                target: 'http://localhost:5001',
+                changeOrigin: true,
+                secure: false,
+            },
+            '/api/coupons': {
+                target: 'http://localhost:5001',
+                changeOrigin: true,
+                secure: false,
+            },
             '/api/auth': {
                 target: 'http://localhost:5002',
                 changeOrigin: true,

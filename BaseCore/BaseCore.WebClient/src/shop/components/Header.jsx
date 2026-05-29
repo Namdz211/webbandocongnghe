@@ -150,6 +150,18 @@ export default function Header({
                         >
                           <i className="fa fa-id-card-o" /> Thông tin cá nhân
                         </button>
+                        {isAdmin(auth) && (
+                          <button
+                            className="account-menu-item"
+                            type="button"
+                            onClick={() => {
+                              setIsAccountMenuOpen(false)
+                              window.location.assign('/admin')
+                            }}
+                          >
+                            <i className="fa fa-briefcase" /> Quản lý cửa hàng
+                          </button>
+                        )}
                         <button
                           className="account-menu-item"
                           type="button"
@@ -394,11 +406,6 @@ export default function Header({
                   Đơn hàng
                 </LinkButton>
               </li>
-              {isAdmin(auth) && (
-                <li className={route.name.startsWith('admin') ? 'active' : ''}>
-                  <a href="/admin">Admin</a>
-                </li>
-              )}
             </ul>
           </div>
         </div>

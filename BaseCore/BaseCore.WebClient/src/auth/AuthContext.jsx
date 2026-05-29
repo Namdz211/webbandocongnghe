@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authApi } from '../services/api';
+import { authApi } from '../services';
 
 const AuthContext = createContext(null);
 const SHOP_AUTH_KEY = 'electro-store-auth';

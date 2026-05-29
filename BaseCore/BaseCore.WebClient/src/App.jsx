@@ -1,16 +1,19 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import React from 'react';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute';
-import MainLayout from './components/MainLayout';
+import { AuthProvider, useAuth } from './auth/AuthContext';
+import ProtectedRoute from './routes/ProtectedRoute';
+import AdminLayout from './layouts/AdminLayout';
 import ShopApp from './shop/ShopApp';
-import Login from './pages/Login';
-import Dashboard from './pages/Dashboard';
-import Products from './pages/Products';
-import Users from './pages/Users';
-import Categories from './pages/Categories';
-import Coupons from './pages/Coupons';
-import Orders from './pages/Orders';
+import Login from './pages/login/Login';
+import Dashboard from './pages/dashboard/Dashboard';
+import Products from './pages/products/Products';
+import Users from './pages/users/Users';
+import Categories from './pages/categories/Categories';
+import Manufacturers from './pages/manufacturers/Manufacturers';
+import Orders from './pages/orders/Orders';
+import Customers from './pages/customers/Customers';
+import Reviews from './pages/reviews/Reviews';
+import Coupons from './pages/coupons/Coupons';
 
 // Wrapper to redirect authenticated users away from login
 const PublicRoute = ({ children, redirectTo = '/admin' }) => {
@@ -34,6 +37,13 @@ const PublicRoute = ({ children, redirectTo = '/admin' }) => {
 };
 
 function AppRoutes() {
+    const location = useLocation();
+    const isAdminArea = location.pathname === '/admin' || location.pathname.startsWith('/admin/');
+
+    if (!isAdminArea) {
+        return <ShopApp />;
+    }
+
     return (
         <Routes>
             <Route
@@ -47,65 +57,94 @@ function AppRoutes() {
             <Route
                 path="/admin"
                 element={
-                    <ProtectedRoute loginPath="/admin/login">
-                        <MainLayout>
+                    <ProtectedRoute>
+                        <AdminLayout>
                             <Dashboard />
-                        </MainLayout>
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/admin/orders"
-                element={
-                    <ProtectedRoute adminOnly={true} loginPath="/admin/login" redirectPath="/admin">
-                        <MainLayout>
-                            <Orders />
-                        </MainLayout>
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
             <Route
                 path="/admin/products"
                 element={
-                    <ProtectedRoute loginPath="/admin/login">
-                        <MainLayout>
+                    <ProtectedRoute>
+                        <AdminLayout>
                             <Products />
-                        </MainLayout>
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
             <Route
                 path="/admin/categories"
                 element={
-                    <ProtectedRoute loginPath="/admin/login">
-                        <MainLayout>
+                    <ProtectedRoute>
+                        <AdminLayout>
                             <Categories />
-                        </MainLayout>
+                        </AdminLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/manufacturers"
+                element={
+                    <ProtectedRoute>
+                        <AdminLayout>
+                            <Manufacturers />
+                        </AdminLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/orders"
+                element={
+                    <ProtectedRoute adminOnly={true}>
+                        <AdminLayout>
+                            <Orders />
+                        </AdminLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/customers"
+                element={
+                    <ProtectedRoute adminOnly={true}>
+                        <AdminLayout>
+                            <Customers />
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
             <Route
                 path="/admin/users"
                 element={
-                    <ProtectedRoute adminOnly={true} loginPath="/admin/login" redirectPath="/admin">
-                        <MainLayout>
+                    <ProtectedRoute adminOnly={true}>
+                        <AdminLayout>
                             <Users />
-                        </MainLayout>
+                        </AdminLayout>
+                    </ProtectedRoute>
+                }
+            />
+            <Route
+                path="/admin/reviews"
+                element={
+                    <ProtectedRoute adminOnly={true}>
+                        <AdminLayout>
+                            <Reviews />
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
             <Route
                 path="/admin/coupons"
                 element={
-                    <ProtectedRoute adminOnly={true} loginPath="/admin/login" redirectPath="/admin">
-                        <MainLayout>
+                    <ProtectedRoute adminOnly={true}>
+                        <AdminLayout>
                             <Coupons />
-                        </MainLayout>
+                        </AdminLayout>
                     </ProtectedRoute>
                 }
             />
             <Route path="/admin/*" element={<Navigate to="/admin" replace />} />
-            <Route path="/*" element={<ShopApp />} />
         </Routes>
     );
 }

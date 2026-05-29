@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import LinkButton from '../components/LinkButton.jsx'
-import { isAdmin } from '../utils/auth.js'
 
 export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpdateProfile, route }) {
   const [mode, setMode] = useState(route.query.mode === 'register' ? 'register' : 'login')
@@ -61,7 +60,7 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
             })
           : await onLogin(formData.username.trim(), formData.password.trim())
 
-      onNavigate(isAdmin(loggedInAuth) ? '/admin' : redirectPath)
+      onNavigate(redirectPath)
 
     } catch (requestError) {
       setError(requestError.message)
