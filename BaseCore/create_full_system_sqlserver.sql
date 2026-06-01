@@ -81,6 +81,7 @@ BEGIN
         Contact NVARCHAR(255) NOT NULL CONSTRAINT DF_Users_Contact DEFAULT (N''),
         Email NVARCHAR(100) NOT NULL CONSTRAINT DF_Users_Email DEFAULT (N''),
         Phone NVARCHAR(20) NOT NULL CONSTRAINT DF_Users_Phone DEFAULT (N''),
+        Address NVARCHAR(500) NOT NULL CONSTRAINT DF_Users_Address DEFAULT (N''),
         Position NVARCHAR(100) NOT NULL CONSTRAINT DF_Users_Position DEFAULT (N''),
         Image NVARCHAR(500) NOT NULL CONSTRAINT DF_Users_Image DEFAULT (N''),
         IsActive BIT NOT NULL CONSTRAINT DF_Users_IsActive DEFAULT ((1)),
@@ -90,6 +91,14 @@ BEGIN
 
     CREATE UNIQUE INDEX IX_Users_UserName ON dbo.Users(UserName);
     CREATE INDEX IX_Users_UserType ON dbo.Users(UserType);
+END
+GO
+
+IF COL_LENGTH(N'dbo.Users', N'Address') IS NULL
+BEGIN
+    ALTER TABLE dbo.Users
+    ADD Address NVARCHAR(500) NOT NULL
+        CONSTRAINT DF_Users_Address DEFAULT (N'');
 END
 GO
 
@@ -653,11 +662,11 @@ GO
 
 IF NOT EXISTS (SELECT 1 FROM dbo.Users WHERE UserName = N'admin')
 BEGIN
-    INSERT INTO dbo.Users (Id, Name, UserName, Password, Salt, Contact, Email, Phone, Position, Image, IsActive, UserType, Created)
+    INSERT INTO dbo.Users (Id, Name, UserName, Password, Salt, Contact, Email, Phone, Address, Position, Image, IsActive, UserType, Created)
     VALUES
-        (N'user_admin', N'Administrator', N'admin', N'admin123', NULL, N'', N'admin@basecore.local', N'0123456789', N'System Administrator', N'', 1, 1, SYSUTCDATETIME()),
-        (N'user_demo', N'Demo User', N'demo', N'demo123', NULL, N'', N'demo@basecore.local', N'0900000001', N'Customer', N'', 1, 0, SYSUTCDATETIME()),
-        (N'user_manager', N'Demo Manager', N'manager', N'manager123', NULL, N'', N'manager@basecore.local', N'0900000002', N'Store Manager', N'', 1, 2, SYSUTCDATETIME());
+        (N'user_admin', N'Administrator', N'admin', N'admin123', NULL, N'', N'admin@basecore.local', N'0123456789', N'', N'System Administrator', N'', 1, 1, SYSUTCDATETIME()),
+        (N'user_demo', N'Demo User', N'demo', N'demo123', NULL, N'', N'demo@basecore.local', N'0900000001', N'', N'Customer', N'', 1, 0, SYSUTCDATETIME()),
+        (N'user_manager', N'Demo Manager', N'manager', N'manager123', NULL, N'', N'manager@basecore.local', N'0900000002', N'', N'Store Manager', N'', 1, 2, SYSUTCDATETIME());
 END
 GO
 

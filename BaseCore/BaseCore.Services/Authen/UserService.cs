@@ -85,6 +85,7 @@ namespace BaseCore.Services.Authen
             user.Name = user.Name?.Trim();
             user.Email = user.Email?.Trim();
             user.Phone = user.Phone?.Trim();
+            user.Address = user.Address?.Trim();
 
             if (string.IsNullOrWhiteSpace(user.UserName))
             {
@@ -107,6 +108,7 @@ namespace BaseCore.Services.Authen
             user.Contact ??= "";
             user.Email ??= "";
             user.Phone ??= "";
+            user.Address ??= "";
             user.Position ??= "";
             user.Image ??= "";
             // Hash password with salt
@@ -122,10 +124,12 @@ namespace BaseCore.Services.Authen
 
         public async Task Update(User user, string password = null)
         {
+            user.Address = user.Address?.Trim();
             user.Name ??= user.UserName ?? "";
             user.Contact ??= "";
             user.Email ??= "";
             user.Phone ??= "";
+            user.Address ??= "";
             user.Position ??= "";
             user.Image ??= "";
             if (!string.IsNullOrEmpty(password))

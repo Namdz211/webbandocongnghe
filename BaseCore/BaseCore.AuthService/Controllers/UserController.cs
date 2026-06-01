@@ -34,6 +34,7 @@ namespace BaseCore.AuthService.Controllers
                 Name = u.Name,
                 Email = u.Email,
                 Phone = u.Phone,
+                Address = u.Address,
                 Position = u.Position,
                 IsActive = u.IsActive,
                 UserType = u.UserType,
@@ -66,6 +67,7 @@ namespace BaseCore.AuthService.Controllers
                 Name = user.Name,
                 Email = user.Email,
                 Phone = user.Phone,
+                Address = user.Address,
                 Position = user.Position,
                 IsActive = user.IsActive,
                 UserType = user.UserType,
@@ -95,6 +97,7 @@ namespace BaseCore.AuthService.Controllers
                     Name = request.Name ?? request.Username,
                     Email = request.Email,
                     Phone = request.Phone,
+                    Address = request.Address ?? "",
                     Position = request.Position,
                     UserType = request.UserType
                 };
@@ -108,6 +111,7 @@ namespace BaseCore.AuthService.Controllers
                     Name = createdUser.Name,
                     Email = createdUser.Email,
                     Phone = createdUser.Phone,
+                    Address = createdUser.Address,
                     Position = createdUser.Position,
                     IsActive = createdUser.IsActive,
                     UserType = createdUser.UserType,
@@ -146,6 +150,7 @@ namespace BaseCore.AuthService.Controllers
             existingUser.Name = request.Name ?? existingUser.Name;
             existingUser.Email = request.Email ?? existingUser.Email;
             existingUser.Phone = request.Phone ?? existingUser.Phone;
+            existingUser.Address = request.Address ?? existingUser.Address;
 
             if (isAdmin)
             {
@@ -163,6 +168,7 @@ namespace BaseCore.AuthService.Controllers
                 Name = existingUser.Name,
                 Email = existingUser.Email,
                 Phone = existingUser.Phone,
+                Address = existingUser.Address,
                 Position = existingUser.Position,
                 IsActive = existingUser.IsActive,
                 UserType = existingUser.UserType,
@@ -192,6 +198,7 @@ namespace BaseCore.AuthService.Controllers
         public string Name { get; set; }
         public string Email { get; set; }
         public string Phone { get; set; }
+        public string Address { get; set; }
         public string Position { get; set; }
         public bool IsActive { get; set; }
         public int UserType { get; set; }
@@ -205,17 +212,19 @@ namespace BaseCore.AuthService.Controllers
         public string Name { get; set; }
         public string Email { get; set; }
         public string Phone { get; set; }
+        public string Address { get; set; }
         public string Position { get; set; }
         public int UserType { get; set; }
     }
 
     public class UpdateUserRequest
     {
-        public string Password { get; set; }
-        public string Name { get; set; }
-        public string Email { get; set; }
-        public string Phone { get; set; }
-        public string Position { get; set; }
+        public string? Password { get; set; }
+        public string? Name { get; set; }
+        public string? Email { get; set; }
+        public string? Phone { get; set; }
+        public string? Address { get; set; }
+        public string? Position { get; set; }
         public int? UserType { get; set; }
         public bool? IsActive { get; set; }
     }

@@ -103,6 +103,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MySqlDbContext>();
     db.Database.EnsureCreated();
+    EnsureUserAddressColumn(db);
     EnsureOrderPaymentColumns(db);
     EnsureOrderWorkflowColumns(db);
     EnsureProductManufacturerColumn(db);
@@ -296,6 +297,17 @@ static string GetProductImageUrl(string productName)
     return $"{imageBaseUrl}?{imageParams}&q={query}";
 }
 
+static void EnsureUserAddressColumn(MySqlDbContext db)
+{
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Users', N'Address') IS NULL
+BEGIN
+    ALTER TABLE dbo.Users
+    ADD Address NVARCHAR(500) NOT NULL
+        CONSTRAINT DF_Users_Address DEFAULT (N'');
+END;");
+}
+
 static void EnsureProductManufacturerColumn(MySqlDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
@@ -385,7 +397,7 @@ BEGIN
         DiscountValue DECIMAL(18, 2) NOT NULL,
         MaxDiscountAmount DECIMAL(18, 2) NOT NULL CONSTRAINT DF_Coupons_MaxDiscountAmount DEFAULT (0),
         MinOrderAmount DECIMAL(18, 2) NOT NULL CONSTRAINT DF_Coupons_MinOrderAmount DEFAULT (0),
-        UsageLimit INT NOT NULL CONSTRAINT DF_Coupons_UsageLimit DEFAULT (0),
+        UsageLimit INT NOT NULL CONSTRAINT DF_Coupons_UsageLimit DEFAULT (1),
         UsedCount INT NOT NULL CONSTRAINT DF_Coupons_UsedCount DEFAULT (0),
         StartDate DATETIME2 NOT NULL CONSTRAINT DF_Coupons_StartDate DEFAULT (SYSUTCDATETIME()),
         ExpiryDate DATETIME2 NOT NULL,

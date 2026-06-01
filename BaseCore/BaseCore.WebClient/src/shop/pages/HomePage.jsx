@@ -3,6 +3,7 @@ import LinkButton from '../components/LinkButton.jsx'
 import ProductCard from '../components/ProductCard.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
 import { formatCurrency } from '../utils/formatters.js'
+import { getCouponCode } from '../utils/coupons.js'
 import { getProductImage, handleProductImageError } from '../utils/productImages.js'
 
 const productIntroThemes = [
@@ -29,6 +30,95 @@ function getProductCategoryLabel(product) {
     product?.categoryName ||
     product?.manufacturer ||
     'Sản phẩm nổi bật'
+  )
+}
+
+function getCouponValue(coupon, camelKey, pascalKey) {
+  return coupon?.[camelKey] ?? coupon?.[pascalKey]
+}
+
+function getCouponDiscountText(coupon) {
+  const discountType = getCouponValue(coupon, 'discountType', 'DiscountType')
+  const discountValue = Number(getCouponValue(coupon, 'discountValue', 'DiscountValue') || 0)
+
+  if (discountType === 'percent') {
+    return `Giảm ${discountValue}%`
+  }
+
+  return `Giảm ${formatCurrency(discountValue)}`
+}
+
+function getCouponMeta(coupon) {
+  const minOrderAmount = Number(getCouponValue(coupon, 'minOrderAmount', 'MinOrderAmount') || 0)
+  const maxDiscountAmount = Number(getCouponValue(coupon, 'maxDiscountAmount', 'MaxDiscountAmount') || 0)
+  const expiryDate = getCouponValue(coupon, 'expiryDate', 'ExpiryDate')
+  const meta = []
+
+  if (minOrderAmount > 0) {
+    meta.push(`Đơn từ ${formatCurrency(minOrderAmount)}`)
+  }
+
+  if (maxDiscountAmount > 0) {
+    meta.push(`Tối đa ${formatCurrency(maxDiscountAmount)}`)
+  }
+
+  if (expiryDate) {
+    meta.push(`HSD ${new Date(expiryDate).toLocaleDateString('vi-VN')}`)
+  }
+
+  return meta.join(' • ')
+}
+
+function CouponShowcase({ coupons, loadError, savedCouponCodes, onSaveCoupon }) {
+  const visibleCoupons = (Array.isArray(coupons) ? coupons : [])
+    .filter((coupon) => Boolean(getCouponValue(coupon, 'code', 'Code')))
+    .slice(0, 3)
+  const savedCodeSet = new Set(Array.isArray(savedCouponCodes) ? savedCouponCodes : [])
+
+  return (
+    <div className="coupon-showcase" aria-label="Mã giảm giá đang áp dụng">
+      <div className="coupon-showcase-title">
+        <i className="fa fa-ticket" />
+        <span>Mã giảm giá đang áp dụng</span>
+      </div>
+
+      <div className="coupon-showcase-list">
+        {visibleCoupons.length === 0 && (
+          <div className="coupon-empty">
+            {loadError
+              ? 'Mã giảm giá đang được cập nhật.'
+              : 'Hiện chưa có mã giảm giá khả dụng.'}
+          </div>
+        )}
+
+        {visibleCoupons.map((coupon) => {
+          const code = getCouponValue(coupon, 'code', 'Code')
+          const description = getCouponValue(coupon, 'description', 'Description')
+          const meta = getCouponMeta(coupon)
+          const normalizedCode = getCouponCode(coupon)
+          const isSaved = savedCodeSet.has(normalizedCode)
+
+          return (
+            <div className="coupon-chip" key={getCouponValue(coupon, 'id', 'Id') || code}>
+              <div className="coupon-chip-main">
+                <strong>{code}</strong>
+                <span>{getCouponDiscountText(coupon)}</span>
+              </div>
+              {description && <p>{description}</p>}
+              {meta && <small>{meta}</small>}
+              <button
+                className="coupon-copy-btn"
+                type="button"
+                disabled={isSaved}
+                onClick={() => onSaveCoupon?.(coupon)}
+              >
+                {isSaved ? 'Đã lưu' : 'Lưu'}
+              </button>
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -183,10 +273,14 @@ function ProductIntroCarousel({ products, onNavigate }) {
 }
 
 export default function HomePage({
+  coupons,
+  couponLoadError,
+  savedCouponCodes,
   highlightedProducts,
   onNavigate,
   onAddToCart,
   onBuyNow,
+  onSaveCoupon,
 }) {
   const featuredProducts = highlightedProducts.slice(0, 8)
   const topSellingProducts = highlightedProducts.slice(0, 4)
@@ -198,9 +292,15 @@ export default function HomePage({
       <div className="section">
         <div className="container">
           <SectionHeader
-            title="Sản phẩm nổi bật"
+            title="Sản phẩm mới cập nhật"
             linkTo="/store"
             onNavigate={onNavigate}
+          />
+          <CouponShowcase
+            coupons={coupons}
+            loadError={couponLoadError}
+            savedCouponCodes={savedCouponCodes}
+            onSaveCoupon={onSaveCoupon}
           />
           <div className="row">
             {featuredProducts.map((product) => (
@@ -241,8 +341,8 @@ export default function HomePage({
                     </div>
                   </li>
                 </ul>
-                <h2 className="text-uppercase">Giao diện Electro + backend FW</h2>
-                <p>Storefront đã sẵn sàng cho luồng đặt hàng và tài khoản</p>
+                <h2 className="text-uppercase">hn mobile</h2>
+                <p>Giá cả phải chăng - Giao hàng miễn phí</p>
                 <LinkButton to="/checkout" className="primary-btn cta-btn" onNavigate={onNavigate}>
                   Đi đến thanh toán
                 </LinkButton>

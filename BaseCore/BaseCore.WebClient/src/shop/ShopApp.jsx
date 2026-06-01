@@ -18,6 +18,7 @@ import OrdersPage from './pages/OrdersPage.jsx'
 import AuthPage from './pages/AuthPage.jsx'
 import NotFoundPage from './pages/NotFoundPage.jsx'
 import { getAuthToken, getAuthUserId, isExpiredToken } from './utils/auth.js'
+import { getCouponCode, mergeSavedCoupons } from './utils/coupons.js'
 import { formatCurrency } from './utils/formatters.js'
 import { countActiveOrders } from './utils/orders.js'
 import { parseRoute } from './utils/routes.js'
@@ -27,7 +28,11 @@ function App() {
   const [route, setRoute] = useState(parseRoute)
   const [auth, setAuth] = useState(() => readStorage(STORAGE_KEYS.auth, null))
   const [cart, setCart] = useState(() => readStorage(STORAGE_KEYS.cart, []))
+  const [checkoutItems, setCheckoutItems] = useState(null)
+  const [savedCoupons, setSavedCoupons] = useState(() => readStorage(STORAGE_KEYS.savedCoupons, []))
   const [categories, setCategories] = useState([])
+  const [coupons, setCoupons] = useState([])
+  const [couponLoadError, setCouponLoadError] = useState(false)
   const [highlightedProducts, setHighlightedProducts] = useState([])
   const [loadingHomeData, setLoadingHomeData] = useState(true)
   const [notice, setNotice] = useState(null)
@@ -40,6 +45,10 @@ function App() {
   useEffect(() => {
     writeStorage(STORAGE_KEYS.cart, cart)
   }, [cart])
+
+  useEffect(() => {
+    writeStorage(STORAGE_KEYS.savedCoupons, savedCoupons)
+  }, [savedCoupons])
 
   useEffect(() => {
     if (auth) {
@@ -105,9 +114,10 @@ function App() {
       setLoadingHomeData(true)
 
       try {
-        const [categoryData, productData] = await Promise.all([
+        const [categoryData, productData, couponData] = await Promise.all([
           api.getCategories(),
           api.getProducts({ page: 1, pageSize: 12 }),
+          fetchPublicCoupons(),
         ])
 
         if (cancelled) {
@@ -115,10 +125,14 @@ function App() {
         }
 
         setCategories(Array.isArray(categoryData) ? categoryData : [])
+        setCouponLoadError(couponData.error)
+        setCoupons(Array.isArray(couponData.data) ? couponData.data : [])
         setHighlightedProducts(productData.items || [])
       } catch {
         if (!cancelled) {
           setCategories([])
+          setCouponLoadError(true)
+          setCoupons([])
           setHighlightedProducts([])
         }
       } finally {
@@ -135,21 +149,62 @@ function App() {
     }
   }, [])
 
+  async function fetchPublicCoupons() {
+    try {
+      const couponData = await api.getPublicCoupons()
+      return { data: couponData, error: false }
+    } catch {
+      return { data: [], error: true }
+    }
+  }
+
   async function refreshShellData() {
     try {
-      const [categoryData, productData] = await Promise.all([
+      const [categoryData, productData, couponData] = await Promise.all([
         api.getCategories(),
         api.getProducts({ page: 1, pageSize: 12 }),
+        fetchPublicCoupons(),
       ])
 
       setCategories(Array.isArray(categoryData) ? categoryData : [])
+      setCouponLoadError(couponData.error)
+      setCoupons(Array.isArray(couponData.data) ? couponData.data : [])
       setHighlightedProducts(productData.items || [])
     } catch (requestError) {
       openNotice('error', requestError.message)
     }
   }
 
-  function navigate(path) {
+  function saveCoupon(coupon) {
+    const code = getCouponCode(coupon)
+
+    if (!code) {
+      return
+    }
+
+    setSavedCoupons((current) => mergeSavedCoupons(current, coupon))
+    openNotice('success', `Đã lưu mã ${code}. Bạn có thể chọn mã này ở bước thanh toán.`)
+  }
+
+  function removeCouponAfterUse(code) {
+    if (!code) {
+      return
+    }
+
+    setSavedCoupons((current) =>
+      (Array.isArray(current) ? current : []).filter((coupon) => getCouponCode(coupon) !== code),
+    )
+    setCoupons((current) =>
+      (Array.isArray(current) ? current : []).filter((coupon) => getCouponCode(coupon) !== code),
+    )
+  }
+
+  function navigate(path, options = {}) {
+    const targetPathname = new URL(path, window.location.origin).pathname
+    if (targetPathname !== '/checkout' || !options.keepCheckoutItems) {
+      setCheckoutItems(null)
+    }
+
     if (`${window.location.pathname}${window.location.search}` === path) {
       return
     }
@@ -157,11 +212,34 @@ function App() {
     window.history.pushState({}, '', path)
 
     const currentPathname = window.location.pathname
-    const targetPathname = new URL(path, window.location.origin).pathname
     if (currentPathname !== targetPathname) {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
     startTransition(() => setRoute(parseRoute()))
+  }
+
+  function buildCartItem(product, quantity) {
+    if (!product) {
+      return null
+    }
+
+    const safeQuantity = Math.max(1, Number(quantity || 1))
+    const cartKey = product.cartKey || String(product.id)
+
+    return {
+      cartKey,
+      id: product.id,
+      name: product.name,
+      manufacturer: product.manufacturer || '',
+      price: product.price,
+      basePrice: product.basePrice ?? product.price,
+      quantity: Math.min(safeQuantity, Math.max(1, product.stock || safeQuantity)),
+      imageUrl: product.imageUrl,
+      stock: product.stock,
+      categoryId: product.categoryId,
+      selectedSpecifications: product.selectedSpecifications || [],
+      selectedSpecSummary: product.selectedSpecSummary || '',
+    }
   }
 
   function upsertCart(product, quantity) {
@@ -214,8 +292,14 @@ function App() {
   }
 
   function buyNow(product, quantity) {
-    upsertCart(product, quantity)
-    navigate('/checkout')
+    const checkoutItem = buildCartItem(product, quantity)
+
+    if (!checkoutItem) {
+      return
+    }
+
+    setCheckoutItems([checkoutItem])
+    navigate('/checkout', { keepCheckoutItems: true })
   }
 
   function removeCartItem(cartKey) {
@@ -237,6 +321,7 @@ function App() {
       name: payload.name?.trim() || '',
       email: payload.email?.trim() || '',
       phone: payload.phone?.trim() || '',
+      address: payload.address?.trim() || '',
     }
 
     await api.register(normalizedPayload)
@@ -254,15 +339,22 @@ function App() {
     }
 
     const updatedUser = await api.updateUser(userId, payload, authToken)
-    setAuth((current) => ({
-      ...current,
-      name: updatedUser.name || updatedUser.Name || payload.name || current?.name || current?.Name,
-      Name: updatedUser.name || updatedUser.Name || payload.name || current?.Name || current?.name,
-      email: updatedUser.email || updatedUser.Email || payload.email || current?.email || current?.Email,
-      Email: updatedUser.email || updatedUser.Email || payload.email || current?.Email || current?.email,
-      phone: updatedUser.phone || updatedUser.Phone || payload.phone || current?.phone || current?.Phone,
-      Phone: updatedUser.phone || updatedUser.Phone || payload.phone || current?.Phone || current?.phone,
-    }))
+    setAuth((current) => {
+      const nextAddress =
+        updatedUser.address ?? updatedUser.Address ?? payload.address ?? current?.address ?? current?.Address ?? ''
+
+      return {
+        ...current,
+        name: updatedUser.name || updatedUser.Name || payload.name || current?.name || current?.Name,
+        Name: updatedUser.name || updatedUser.Name || payload.name || current?.Name || current?.name,
+        email: updatedUser.email || updatedUser.Email || payload.email || current?.email || current?.Email,
+        Email: updatedUser.email || updatedUser.Email || payload.email || current?.Email || current?.email,
+        phone: updatedUser.phone || updatedUser.Phone || payload.phone || current?.phone || current?.Phone,
+        Phone: updatedUser.phone || updatedUser.Phone || payload.phone || current?.Phone || current?.phone,
+        address: nextAddress,
+        Address: nextAddress,
+      }
+    })
     openNotice('success', payload.password ? 'Đã đổi mật khẩu.' : 'Đã cập nhật thông tin tài khoản.')
   }
 
@@ -271,13 +363,16 @@ function App() {
     openNotice('success', 'Đã đăng xuất tài khoản.')
   }
 
-  async function placeOrder(shippingInfo, paymentMethod) {
+  async function placeOrder(shippingInfo, paymentMethod, selectedCoupon, orderItems) {
     const authToken = getAuthToken(auth)
     const activeAuthToken = authToken && !isExpiredToken(authToken) ? authToken : ''
     const customerName = shippingInfo?.customerName?.trim() || ''
     const customerEmail = shippingInfo?.customerEmail?.trim() || ''
     const customerPhone = shippingInfo?.customerPhone?.trim() || ''
     const shippingAddress = shippingInfo?.shippingAddress?.trim() || ''
+    const couponCode = getCouponCode(selectedCoupon)
+    const checkoutCart = Array.isArray(orderItems) ? orderItems : cart
+    const isDirectCheckout = Array.isArray(checkoutItems)
 
     if (authToken && !activeAuthToken) {
       setAuth(null)
@@ -298,13 +393,18 @@ function App() {
       return
     }
 
+    if (checkoutCart.length === 0) {
+      openNotice('error', 'Gi\u1ecf h\u00e0ng \u0111ang tr\u1ed1ng.')
+      return
+    }
+
     setPlacingOrder(true)
 
     try {
       const productChecks = await Promise.allSettled(
-        cart.map((item) => api.getProduct(item.id)),
+        checkoutCart.map((item) => api.getProduct(item.id)),
       )
-      const invalidItems = cart.filter((item, index) => {
+      const invalidItems = checkoutCart.filter((item, index) => {
         const result = productChecks[index]
 
         if (result.status !== 'fulfilled') {
@@ -322,9 +422,13 @@ function App() {
       if (invalidItems.length > 0) {
         const invalidKeys = new Set(invalidItems.map((item) => item.cartKey || String(item.id)))
 
-        setCart((current) =>
-          current.filter((item) => !invalidKeys.has(item.cartKey || String(item.id))),
-        )
+        if (isDirectCheckout) {
+          setCheckoutItems([])
+        } else {
+          setCart((current) =>
+            current.filter((item) => !invalidKeys.has(item.cartKey || String(item.id))),
+          )
+        }
         openNotice(
           'error',
           'Giỏ hàng có sản phẩm đã thay đổi hoặc không đủ tồn kho. Tôi đã xóa sản phẩm lỗi, vui lòng kiểm tra lại giỏ hàng.',
@@ -338,7 +442,8 @@ function App() {
         customerPhone,
         shippingAddress,
         paymentMethod,
-        items: cart.map((item) => ({
+        couponCode,
+        items: checkoutCart.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
           unitPrice: item.price,
@@ -346,7 +451,12 @@ function App() {
       }
 
       const createdOrder = await api.createOrder(payload, activeAuthToken)
-      setCart([])
+      if (isDirectCheckout) {
+        setCheckoutItems(null)
+      } else {
+        setCart([])
+      }
+      removeCouponAfterUse(couponCode)
       openNotice('success', createdOrder?.message || '\u0110\u1eb7t h\u00e0ng th\u00e0nh c\u00f4ng.')
       if (activeAuthToken) {
         setOrderBadgeRefreshKey((current) => current + 1)
@@ -403,10 +513,14 @@ function App() {
         content = (
           <HomePage
             categories={categories}
+            coupons={coupons}
+            couponLoadError={couponLoadError}
+            savedCouponCodes={savedCoupons.map(getCouponCode)}
             highlightedProducts={highlightedProducts}
             onNavigate={navigate}
             onAddToCart={upsertCart}
             onBuyNow={buyNow}
+            onSaveCoupon={saveCoupon}
           />
         )
         break
@@ -439,7 +553,8 @@ function App() {
         content = (
           <CheckoutPage
             auth={auth}
-            cart={cart}
+            cart={checkoutItems || cart}
+            savedCoupons={savedCoupons}
             onNavigate={navigate}
             onPlaceOrder={placeOrder}
             submitting={placingOrder}

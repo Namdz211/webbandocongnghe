@@ -102,6 +102,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<MySqlDbContext>();
     dbContext.Database.EnsureCreated();
+    EnsureUserAddressColumn(dbContext);
 
     if (!await dbContext.Users.AnyAsync(u => u.UserName == "admin"))
     {
@@ -117,6 +118,7 @@ using (var scope = app.Services.CreateScope())
             Name = "Administrator",
             Email = "admin@basecore.local",
             Phone = "0123456789",
+            Address = "",
             Position = "System Administrator",
             Contact = "",
             Image = "",
@@ -145,3 +147,14 @@ app.MapControllers();
 Console.WriteLine("BaseCore Auth Service running on port 5002");
 Console.WriteLine("Endpoints: /api/auth, /api/users, /api/roles");
 app.Run();
+
+static void EnsureUserAddressColumn(MySqlDbContext dbContext)
+{
+    dbContext.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Users', N'Address') IS NULL
+BEGIN
+    ALTER TABLE dbo.Users
+    ADD Address NVARCHAR(500) NOT NULL
+        CONSTRAINT DF_Users_Address DEFAULT (N'');
+END;");
+}

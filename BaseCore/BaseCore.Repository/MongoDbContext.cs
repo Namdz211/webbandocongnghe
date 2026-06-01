@@ -53,6 +53,7 @@ namespace BaseCore.Repository
                     Name = "Administrator",
                     Email = "admin@robotvibot.com",
                     Phone = "0123456789",
+                    Address = "",
                     Position = "System Administrator",
                     Contact = "",
                     Image = "",

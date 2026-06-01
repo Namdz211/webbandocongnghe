@@ -7,6 +7,14 @@ const apiClient = axios.create({
     },
 });
 
+const AUTH_STORAGE_KEYS = ['token', 'user', 'electro-store-auth'];
+
+function clearStoredAuth() {
+    AUTH_STORAGE_KEYS.forEach((key) => {
+        localStorage.removeItem(key);
+    });
+}
+
 apiClient.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token');
@@ -22,9 +30,11 @@ apiClient.interceptors.response.use(
     (response) => response,
     (error) => {
         if (error.response?.status === 401) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
-            window.location.href = '/admin/login';
+            clearStoredAuth();
+
+            if (window.location.pathname !== '/admin/login') {
+                window.location.replace('/admin/login');
+            }
         }
         return Promise.reject(error);
     },

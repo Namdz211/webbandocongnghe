@@ -141,9 +141,6 @@ namespace BaseCore.APIService.Controllers
             if (dto.Items.Any(item => item.ProductId <= 0 || item.Quantity <= 0))
                 return BadRequest(new { message = "Dữ liệu sản phẩm trong đơn hàng không hợp lệ" });
 
-            if (string.IsNullOrWhiteSpace(dto.ShippingAddress))
-                return BadRequest(new { message = "Vui lòng nhập địa chỉ giao hàng." });
-
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var isAuthenticatedOrder = !string.IsNullOrEmpty(userId);
             User? customer = null;
@@ -169,6 +166,10 @@ namespace BaseCore.APIService.Controllers
                 return BadRequest(new { message = "Không xác định được khách hàng của đơn hàng." });
 
             var orderUserId = userId;
+
+            if (string.IsNullOrWhiteSpace(dto.ShippingAddress) && string.IsNullOrWhiteSpace(customer?.Address))
+                return BadRequest(new { message = "Vui lòng nhập địa chỉ giao hàng." });
+
             var shippingAddress = BuildShippingAddress(dto, customer);
             if (shippingAddress.Length > 500)
                 return BadRequest(new { message = "Thông tin giao hàng tối đa 500 ký tự. Vui lòng rút gọn lại." });
@@ -212,19 +213,33 @@ namespace BaseCore.APIService.Controllers
                     await _productRepository.UpdateAsync(product);
                 }
 
-                var discount = isAuthenticatedOrder
+                var customerDiscount = isAuthenticatedOrder
                     ? await CalculateCustomerDiscountAsync(orderUserId, originalAmount)
                     : new CustomerDiscount();
+                var couponResult = await CalculateCouponDiscountAsync(dto.CouponCode, originalAmount);
+
+                if (couponResult.ErrorMessage != null)
+                    return BadRequest(new { message = couponResult.ErrorMessage });
+
+                var discountAmount = Math.Min(
+                    originalAmount,
+                    customerDiscount.Amount + couponResult.Discount.Amount);
+                var promotionNames = new[]
+                    {
+                        customerDiscount.PromotionName,
+                        couponResult.Discount.PromotionName
+                    }
+                    .Where(name => !string.IsNullOrWhiteSpace(name));
 
                 var order = new Order
                 {
                     UserId = orderUserId,
                     OrderDate = DateTime.Now,
                     OriginalAmount = originalAmount,
-                    DiscountPercent = discount.Percent,
-                    DiscountAmount = discount.Amount,
-                    PromotionName = discount.PromotionName,
-                    TotalAmount = originalAmount - discount.Amount,
+                    DiscountPercent = customerDiscount.Percent + couponResult.Discount.Percent,
+                    DiscountAmount = discountAmount,
+                    PromotionName = string.Join(" + ", promotionNames),
+                    TotalAmount = originalAmount - discountAmount,
                     Status = PendingStatus,
                     ShippingAddress = shippingAddress,
                     PaymentMethod = paymentMethod,
@@ -239,6 +254,16 @@ namespace BaseCore.APIService.Controllers
                 {
                     detail.OrderId = order.Id;
                     await _orderDetailRepository.AddAsync(detail);
+                }
+
+                if (couponResult.Coupon != null)
+                {
+                    var couponUsed = await MarkCouponAsUsedAsync(couponResult.Coupon.Id);
+                    if (!couponUsed)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest(new { message = "Mã giảm giá đã được sử dụng cho đơn hàng khác." });
+                    }
                 }
 
                 await transaction.CommitAsync();
@@ -530,6 +555,7 @@ namespace BaseCore.APIService.Controllers
                 Name = "Khách vãng lai",
                 Email = "",
                 Phone = "",
+                Address = "",
                 Position = "Customer",
                 Contact = "",
                 Image = "",
@@ -565,6 +591,9 @@ namespace BaseCore.APIService.Controllers
             var customerEmail = NormalizeText(dto.CustomerEmail);
             var customerPhone = NormalizeText(dto.CustomerPhone);
             var address = NormalizeText(dto.ShippingAddress);
+
+            if (string.IsNullOrWhiteSpace(address))
+                address = NormalizeText(customer?.Address);
 
             if (string.IsNullOrWhiteSpace(customerName))
                 customerName = NormalizeText(customer?.Name ?? customer?.UserName);
@@ -608,6 +637,87 @@ namespace BaseCore.APIService.Controllers
                 Amount = amount,
                 PromotionName = percent > 0 ? $"{segment} customer discount" : ""
             };
+        }
+
+        private async Task<CouponDiscountResult> CalculateCouponDiscountAsync(string? couponCode, decimal originalAmount)
+        {
+            var code = NormalizeText(couponCode).ToUpperInvariant();
+
+            if (string.IsNullOrWhiteSpace(code))
+                return new CouponDiscountResult();
+
+            var coupon = await _dbContext.Coupons
+                .FirstOrDefaultAsync(item => item.Code.ToUpper() == code);
+
+            if (coupon == null)
+                return CouponDiscountResult.Failed("Mã giảm giá không tồn tại");
+
+            if (!coupon.IsActive)
+                return CouponDiscountResult.Failed("Mã giảm giá đã bị vô hiệu hóa");
+
+            if (DateTime.UtcNow < coupon.StartDate)
+                return CouponDiscountResult.Failed("Mã giảm giá chưa đến thời gian sử dụng");
+
+            if (DateTime.UtcNow > coupon.ExpiryDate)
+                return CouponDiscountResult.Failed("Mã giảm giá đã hết hạn");
+
+            if (coupon.UsedCount > 0)
+                return CouponDiscountResult.Failed("Mã giảm giá đã được sử dụng");
+
+            if (coupon.UsageLimit > 0 && coupon.UsedCount >= coupon.UsageLimit)
+                return CouponDiscountResult.Failed("Mã giảm giá đã hết lượt sử dụng");
+
+            if (originalAmount < coupon.MinOrderAmount)
+                return CouponDiscountResult.Failed($"Đơn hàng tối thiểu {coupon.MinOrderAmount:N0}đ mới được dùng mã này");
+
+            decimal discountAmount;
+            var discountPercent = 0m;
+
+            if (coupon.DiscountType == "percent")
+            {
+                discountPercent = coupon.DiscountValue;
+                discountAmount = Math.Round(
+                    originalAmount * coupon.DiscountValue / 100,
+                    0,
+                    MidpointRounding.AwayFromZero);
+
+                if (coupon.MaxDiscountAmount > 0)
+                    discountAmount = Math.Min(discountAmount, coupon.MaxDiscountAmount);
+            }
+            else
+            {
+                discountAmount = coupon.DiscountValue;
+            }
+
+            discountAmount = Math.Min(Math.Max(discountAmount, 0), originalAmount);
+
+            return new CouponDiscountResult
+            {
+                Coupon = coupon,
+                Discount = new CustomerDiscount
+                {
+                    Percent = discountPercent,
+                    Amount = discountAmount,
+                    PromotionName = $"Coupon {coupon.Code}"
+                }
+            };
+        }
+
+        private async Task<bool> MarkCouponAsUsedAsync(int couponId)
+        {
+            var now = DateTime.UtcNow;
+            var updatedRows = await _dbContext.Coupons
+                .Where(coupon =>
+                    coupon.Id == couponId &&
+                    coupon.IsActive &&
+                    coupon.UsedCount == 0 &&
+                    coupon.StartDate <= now &&
+                    coupon.ExpiryDate >= now)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(coupon => coupon.UsedCount, coupon => coupon.UsedCount + 1)
+                    .SetProperty(coupon => coupon.IsActive, false));
+
+            return updatedRows == 1;
         }
 
         private static string CalculateCustomerSegment(int completedOrders, decimal totalSpent)
@@ -737,6 +847,7 @@ namespace BaseCore.APIService.Controllers
         public string? CustomerPhone { get; set; }
         public string? ShippingAddress { get; set; }
         public string? PaymentMethod { get; set; }
+        public string? CouponCode { get; set; }
     }
 
     public class OrderItemDto
@@ -767,5 +878,17 @@ namespace BaseCore.APIService.Controllers
         public decimal Percent { get; set; }
         public decimal Amount { get; set; }
         public string PromotionName { get; set; } = "";
+    }
+
+    public class CouponDiscountResult
+    {
+        public CustomerDiscount Discount { get; set; } = new();
+        public Coupon? Coupon { get; set; }
+        public string? ErrorMessage { get; set; }
+
+        public static CouponDiscountResult Failed(string message)
+        {
+            return new CouponDiscountResult { ErrorMessage = message };
+        }
     }
 }

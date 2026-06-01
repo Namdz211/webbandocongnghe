@@ -9,11 +9,13 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
     name: '',
     email: '',
     phone: '',
+    address: '',
   })
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
     phone: '',
+    address: '',
   })
   const [passwordData, setPasswordData] = useState({
     password: '',
@@ -38,6 +40,7 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
       name: auth.name || auth.Name || '',
       email: auth.email || auth.Email || '',
       phone: auth.phone || auth.Phone || '',
+      address: auth.address || auth.Address || '',
     })
   }, [auth])
 
@@ -57,6 +60,7 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
               name: formData.name.trim(),
               email: formData.email.trim(),
               phone: formData.phone.trim(),
+              address: formData.address.trim(),
             })
           : await onLogin(formData.username.trim(), formData.password.trim())
 
@@ -79,6 +83,7 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
         name: profileData.name.trim(),
         email: profileData.email.trim(),
         phone: profileData.phone.trim(),
+        address: profileData.address.trim(),
       })
     } catch (requestError) {
       setProfileError(requestError.message)
@@ -257,6 +262,23 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
                         }
                       />
                     </div>
+
+                    <div className="profile-row">
+                      <label>{'\u0110\u1ecba ch\u1ec9'}</label>
+                      <textarea
+                        className="input profile-input profile-address-input"
+                        placeholder={'\u0110\u1ecba ch\u1ec9'}
+                        rows="3"
+                        maxLength="220"
+                        value={profileData.address}
+                        onChange={(event) =>
+                          setProfileData((current) => ({
+                            ...current,
+                            address: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
                   </>
                 )}
 
@@ -358,6 +380,19 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
                         setFormData((current) => ({
                           ...current,
                           phone: event.target.value,
+                        }))
+                      }
+                    />
+                    <textarea
+                      className="input"
+                      placeholder={'\u0110\u1ecba ch\u1ec9'}
+                      rows="3"
+                      maxLength="220"
+                      value={formData.address}
+                      onChange={(event) =>
+                        setFormData((current) => ({
+                          ...current,
+                          address: event.target.value,
                         }))
                       }
                     />

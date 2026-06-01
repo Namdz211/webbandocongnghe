@@ -1,11 +1,20 @@
 import { useState } from 'react'
 import { PAYMENT_METHODS } from '../constants/orders.js'
 import LinkButton from '../components/LinkButton.jsx'
+import {
+  getCouponCode,
+  getCouponDiscountAmount,
+  getCouponDiscountText,
+  getCouponMeta,
+  isCouponExpired,
+  isCouponUsable,
+} from '../utils/coupons.js'
 import { formatCurrency } from '../utils/formatters.js'
 
 export default function CheckoutPage({
   auth,
   cart,
+  savedCoupons,
   onNavigate,
   onPlaceOrder,
   submitting,
@@ -14,14 +23,39 @@ export default function CheckoutPage({
     customerName: auth?.name || auth?.Name || auth?.username || auth?.Username || '',
     customerEmail: auth?.email || auth?.Email || '',
     customerPhone: auth?.phone || auth?.Phone || '',
-    shippingAddress: '',
+    shippingAddress: auth?.address || auth?.Address || '',
   }))
   const [paymentMethod, setPaymentMethod] = useState('cod')
+  const [selectedCouponCode, setSelectedCouponCode] = useState('')
 
-  const totalAmount = cart.reduce(
+  const subtotalAmount = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   )
+  const uniqueSavedCoupons = []
+  const savedCodeSet = new Set()
+
+  const normalizedSavedCoupons = Array.isArray(savedCoupons) ? savedCoupons : []
+
+  normalizedSavedCoupons.forEach((coupon) => {
+    const code = getCouponCode(coupon)
+
+    if (!code || savedCodeSet.has(code)) {
+      return
+    }
+
+    savedCodeSet.add(code)
+    uniqueSavedCoupons.push(coupon)
+  })
+
+  const selectedCoupon = uniqueSavedCoupons.find(
+    (coupon) => getCouponCode(coupon) === selectedCouponCode,
+  )
+  const selectedCouponUsable = isCouponUsable(selectedCoupon, subtotalAmount)
+  const couponDiscountAmount = selectedCouponUsable
+    ? getCouponDiscountAmount(selectedCoupon, subtotalAmount)
+    : 0
+  const totalAmount = Math.max(0, subtotalAmount - couponDiscountAmount)
 
   function updateShippingInfo(field, value) {
     setShippingInfo((current) => ({
@@ -169,12 +203,76 @@ export default function CheckoutPage({
                     </div>
                   ))}
                 </div>
+                <div className="checkout-coupon-box">
+                  <div className="checkout-coupon-title">
+                    <span>{'Mã giảm giá đã lưu'}</span>
+                    {selectedCouponCode && (
+                      <button type="button" onClick={() => setSelectedCouponCode('')}>
+                        {'Bỏ chọn'}
+                      </button>
+                    )}
+                  </div>
+
+                  {uniqueSavedCoupons.length === 0 ? (
+                    <div className="checkout-coupon-empty">
+                      {'Bạn chưa lưu mã giảm giá nào.'}
+                    </div>
+                  ) : (
+                    <div className="checkout-coupon-list">
+                      {uniqueSavedCoupons.map((coupon) => {
+                        const code = getCouponCode(coupon)
+                        const usable = isCouponUsable(coupon, subtotalAmount)
+                        const expired = isCouponExpired(coupon)
+                        const discountAmount = getCouponDiscountAmount(coupon, subtotalAmount)
+                        const meta = getCouponMeta(coupon)
+
+                        return (
+                          <label
+                            className={`checkout-coupon-card ${selectedCouponCode === code ? 'active' : ''} ${!usable ? 'disabled' : ''}`}
+                            key={code}
+                          >
+                            <input
+                              type="radio"
+                              name="savedCoupon"
+                              value={code}
+                              checked={selectedCouponCode === code}
+                              disabled={!usable}
+                              onChange={() => setSelectedCouponCode(code)}
+                            />
+                            <span>
+                              <strong>{code}</strong>
+                              <small>{getCouponDiscountText(coupon)}</small>
+                              {meta && <em>{meta}</em>}
+                              {!usable && (
+                                <em className="coupon-unavailable">
+                                  {expired ? 'Mã đã hết hạn' : 'Chưa đạt giá trị đơn tối thiểu'}
+                                </em>
+                              )}
+                            </span>
+                            {discountAmount > 0 && <b>-{formatCurrency(discountAmount)}</b>}
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
                 <div className="order-col">
                   <div>{'Ph\u00ed giao h\u00e0ng'}</div>
                   <div>
                     <strong>{'Mi\u1ec5n ph\u00ed'}</strong>
                   </div>
                 </div>
+                {couponDiscountAmount > 0 && (
+                  <div className="order-col checkout-discount-row">
+                    <div>
+                      {'Giảm giá'}
+                      <small>{selectedCouponCode}</small>
+                    </div>
+                    <div>
+                      <strong>-{formatCurrency(couponDiscountAmount)}</strong>
+                    </div>
+                  </div>
+                )}
                 <div className="order-col">
                   <div>
                     <strong>{'T\u1ed4NG C\u1ed8NG'}</strong>
@@ -189,7 +287,12 @@ export default function CheckoutPage({
                 className="primary-btn order-submit"
                 type="button"
                 disabled={submitting}
-                onClick={() => onPlaceOrder(shippingInfo, paymentMethod)}
+                onClick={() => onPlaceOrder(
+                  shippingInfo,
+                  paymentMethod,
+                  selectedCouponUsable ? selectedCoupon : null,
+                  cart,
+                )}
               >
                 {submitting ? '\u0110ang g\u1eedi \u0111\u01a1n...' : '\u0110\u1eb7t h\u00e0ng'}
               </button>
