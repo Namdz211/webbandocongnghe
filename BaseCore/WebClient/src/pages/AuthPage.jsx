@@ -9,11 +9,13 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
     name: '',
     email: '',
     phone: '',
+    address: '',
   })
   const [profileData, setProfileData] = useState({
     name: '',
     email: '',
     phone: '',
+    address: '',
   })
   const [passwordData, setPasswordData] = useState({
     password: '',
@@ -38,6 +40,7 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
       name: auth.name || auth.Name || '',
       email: auth.email || auth.Email || '',
       phone: auth.phone || auth.Phone || '',
+      address: auth.address || auth.Address || '',
     })
   }, [auth])
 
@@ -57,6 +60,7 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
               name: formData.name.trim(),
               email: formData.email.trim(),
               phone: formData.phone.trim(),
+              address: formData.address.trim(),
             })
           : await onLogin(formData.username.trim(), formData.password.trim())
 
@@ -79,6 +83,7 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
         name: profileData.name.trim(),
         email: profileData.email.trim(),
         phone: profileData.phone.trim(),
+        address: profileData.address.trim(),
       })
     } catch (requestError) {
       setProfileError(requestError.message)
@@ -257,6 +262,21 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
                         }
                       />
                     </div>
+                    <div className="profile-row">
+                      <label>Địa chỉ</label>
+                      <textarea
+                        className="input profile-input"
+                        placeholder="Địa chỉ giao hàng mặc định"
+                        rows="3"
+                        value={profileData.address}
+                        onChange={(event) =>
+                          setProfileData((current) => ({
+                            ...current,
+                            address: event.target.value,
+                          }))
+                        }
+                      />
+                    </div>
                   </>
                 )}
 
@@ -361,6 +381,18 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
                         }))
                       }
                     />
+                    <textarea
+                      className="input"
+                      placeholder="Địa chỉ giao hàng"
+                      rows="3"
+                      value={formData.address}
+                      onChange={(event) =>
+                        setFormData((current) => ({
+                          ...current,
+                          address: event.target.value,
+                        }))
+                      }
+                    />
                   </>
                 )}
 
@@ -404,8 +436,8 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
               <h4>Tích hợp FW</h4>
               <p>
                 Đăng nhập dùng endpoint `/api/auth/login`, đăng ký dùng
-                `/api/auth/register`, và sau khi đăng nhập token sẽ được dùng cho
-                `/api/orders`.
+                `/api/auth/register`; khách vẫn có thể đặt hàng nhanh, còn token
+                giúp xem lịch sử đơn và cập nhật tài khoản.
               </p>
             </div>
           </div>

@@ -70,5 +70,45 @@ namespace BaseCore.Repository
 
             return orderStats;
         }
+
+        public async Task<IEnumerable<ProductSalesDto>> GetTopSellingProductsAsync(DateTime? startDate, DateTime? endDate, int top)
+        {
+            var safeTop = Math.Clamp(top, 1, 50);
+            var query = from od in _context.OrderDetails
+                        join o in _context.Orders on od.OrderId equals o.Id
+                        join p in _context.Products on od.ProductId equals p.Id
+                        join c in _context.Categories on p.CategoryId equals c.Id into catGroup
+                        from c in catGroup.DefaultIfEmpty()
+                        where o.Status == "Completed"
+                        select new { od, o, p, c };
+
+            if (startDate.HasValue)
+                query = query.Where(item => item.o.OrderDate >= startDate.Value);
+
+            if (endDate.HasValue)
+                query = query.Where(item => item.o.OrderDate <= endDate.Value);
+
+            return await query
+                .GroupBy(item => new
+                {
+                    item.p.Id,
+                    item.p.Name,
+                    item.p.ImageUrl,
+                    CategoryName = item.c.Name ?? "Uncategorized"
+                })
+                .Select(group => new ProductSalesDto
+                {
+                    ProductId = group.Key.Id,
+                    ProductName = group.Key.Name,
+                    ImageUrl = group.Key.ImageUrl,
+                    CategoryName = group.Key.CategoryName,
+                    SoldQuantity = group.Sum(item => item.od.Quantity),
+                    Revenue = group.Sum(item => item.od.Quantity * item.od.UnitPrice)
+                })
+                .OrderByDescending(item => item.SoldQuantity)
+                .ThenByDescending(item => item.Revenue)
+                .Take(safeTop)
+                .ToListAsync();
+        }
     }
 }

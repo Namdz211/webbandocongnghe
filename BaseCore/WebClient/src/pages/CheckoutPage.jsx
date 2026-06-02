@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { api } from '../api/client.js'
 import { PAYMENT_METHODS } from '../constants/orders.js'
 import LinkButton from '../components/LinkButton.jsx'
 import { formatCurrency } from '../utils/formatters.js'
@@ -10,15 +11,55 @@ export default function CheckoutPage({
   onPlaceOrder,
   submitting,
 }) {
+  const [customerName, setCustomerName] = useState(auth?.name || auth?.Name || auth?.username || '')
+  const [customerEmail, setCustomerEmail] = useState(auth?.email || auth?.Email || '')
+  const [customerPhone, setCustomerPhone] = useState(auth?.phone || auth?.Phone || '')
   const [shippingAddress, setShippingAddress] = useState(
-    '227 Nguy\u1ec5n V\u0103n C\u1eeb, Qu\u1eadn 5, Th\u00e0nh ph\u1ed1 H\u1ed3 Ch\u00ed Minh',
+    auth?.address || auth?.Address || '227 Nguyễn Văn Cừ, Quận 5, Thành phố Hồ Chí Minh',
   )
   const [paymentMethod, setPaymentMethod] = useState('cod')
+  const [couponCode, setCouponCode] = useState('')
+  const [publicCoupons, setPublicCoupons] = useState([])
 
   const totalAmount = cart.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
   )
+  const selectedCoupon = publicCoupons.find(
+    (coupon) => coupon.code?.toUpperCase() === couponCode.trim().toUpperCase(),
+  )
+  const couponDiscount = calculateCouponDiscount(selectedCoupon, totalAmount)
+  const finalAmount = Math.max(0, totalAmount - couponDiscount)
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadCoupons() {
+      try {
+        const coupons = await api.getPublicCoupons()
+        if (!cancelled) {
+          setPublicCoupons(Array.isArray(coupons) ? coupons : [])
+        }
+      } catch {
+        if (!cancelled) {
+          setPublicCoupons([])
+        }
+      }
+    }
+
+    loadCoupons()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  useEffect(() => {
+    setCustomerName(auth?.name || auth?.Name || auth?.username || '')
+    setCustomerEmail(auth?.email || auth?.Email || '')
+    setCustomerPhone(auth?.phone || auth?.Phone || '')
+    setShippingAddress(auth?.address || auth?.Address || '227 Nguyễn Văn Cừ, Quận 5, Thành phố Hồ Chí Minh')
+  }, [auth])
 
   if (cart.length === 0) {
     return (
@@ -68,17 +109,25 @@ export default function CheckoutPage({
                 <div className="form-group">
                   <input
                     className="input"
-                    value={auth?.name || auth?.username || ''}
-                    disabled
+                    value={customerName}
+                    onChange={(event) => setCustomerName(event.target.value)}
                     placeholder={'T\u00ean kh\u00e1ch h\u00e0ng'}
                   />
                 </div>
                 <div className="form-group">
                   <input
                     className="input"
-                    value={auth?.email || ''}
-                    disabled
+                    value={customerEmail}
+                    onChange={(event) => setCustomerEmail(event.target.value)}
                     placeholder="Email"
+                  />
+                </div>
+                <div className="form-group">
+                  <input
+                    className="input"
+                    value={customerPhone}
+                    onChange={(event) => setCustomerPhone(event.target.value)}
+                    placeholder="Số điện thoại"
                   />
                 </div>
                 <div className="form-group">
@@ -91,8 +140,8 @@ export default function CheckoutPage({
                   />
                 </div>
                 {!auth && (
-                  <div className="order-note danger-note">
-                    {'B\u1ea1n c\u1ea7n \u0111\u0103ng nh\u1eadp \u0111\u1ec3 t\u1ea1o \u0111\u01a1n h\u00e0ng. H\u1ec7 th\u1ed1ng FW y\u00eau c\u1ea7u JWT token cho endpoint `/api/orders`.'}
+                  <div className="order-note">
+                    {'Bạn có thể đặt hàng không cần đăng nhập. Hãy nhập đúng số điện thoại để shop xác nhận đơn.'}
                     <div className="empty-actions">
                       <LinkButton
                         to="/login?redirect=/checkout"
@@ -101,6 +150,41 @@ export default function CheckoutPage({
                       >
                         {'\u0110\u0103ng nh\u1eadp ngay'}
                       </LinkButton>
+                    </div>
+                  </div>
+                )}
+                {publicCoupons.length > 0 && (
+                  <div className="coupon-panel">
+                    <div className="section-title payment-section-title">
+                      <h3 className="title">Mã giảm giá</h3>
+                    </div>
+                    <div className="form-group coupon-input-row">
+                      <input
+                        className="input"
+                        value={couponCode}
+                        onChange={(event) => setCouponCode(event.target.value)}
+                        placeholder="Nhập mã giảm giá"
+                      />
+                      <button
+                        className="primary-btn"
+                        type="button"
+                        onClick={() => setCouponCode(publicCoupons[0]?.code || '')}
+                      >
+                        Gợi ý
+                      </button>
+                    </div>
+                    <div className="coupon-chip-list">
+                      {publicCoupons.slice(0, 4).map((coupon) => (
+                        <button
+                          className={`coupon-chip ${couponCode.toUpperCase() === coupon.code?.toUpperCase() ? 'active' : ''}`}
+                          key={coupon.id || coupon.code}
+                          type="button"
+                          onClick={() => setCouponCode(coupon.code || '')}
+                        >
+                          <strong>{coupon.code}</strong>
+                          <span>{formatCouponLabel(coupon)}</span>
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
@@ -165,12 +249,20 @@ export default function CheckoutPage({
                     <strong>{'Mi\u1ec5n ph\u00ed'}</strong>
                   </div>
                 </div>
+                {couponDiscount > 0 && (
+                  <div className="order-col">
+                    <div>{`Mã ${selectedCoupon?.code}`}</div>
+                    <div>
+                      <strong>-{formatCurrency(couponDiscount)}</strong>
+                    </div>
+                  </div>
+                )}
                 <div className="order-col">
                   <div>
                     <strong>{'T\u1ed4NG C\u1ed8NG'}</strong>
                   </div>
                   <div>
-                    <strong className="order-total">{formatCurrency(totalAmount)}</strong>
+                    <strong className="order-total">{formatCurrency(finalAmount)}</strong>
                   </div>
                 </div>
               </div>
@@ -178,8 +270,15 @@ export default function CheckoutPage({
               <button
                 className="primary-btn order-submit"
                 type="button"
-                disabled={!auth || submitting}
-                onClick={() => onPlaceOrder(shippingAddress, paymentMethod)}
+                disabled={submitting}
+                onClick={() => onPlaceOrder({
+                  customerName,
+                  customerEmail,
+                  customerPhone,
+                  shippingAddress,
+                  paymentMethod,
+                  couponCode,
+                })}
               >
                 {submitting ? '\u0110ang g\u1eedi \u0111\u01a1n...' : '\u0110\u1eb7t h\u00e0ng'}
               </button>
@@ -189,4 +288,29 @@ export default function CheckoutPage({
       </div>
     </>
   )
+}
+
+function calculateCouponDiscount(coupon, orderAmount) {
+  if (!coupon || orderAmount < Number(coupon.minOrderAmount || 0)) {
+    return 0
+  }
+
+  if (coupon.discountType === 'percent') {
+    const percentDiscount = Math.round(orderAmount * Number(coupon.discountValue || 0) / 100)
+    const maxDiscount = Number(coupon.maxDiscountAmount || 0)
+    return maxDiscount > 0 ? Math.min(percentDiscount, maxDiscount) : percentDiscount
+  }
+
+  return Math.min(Number(coupon.discountValue || 0), orderAmount)
+}
+
+function formatCouponLabel(coupon) {
+  if (coupon.discountType === 'percent') {
+    const maxText = Number(coupon.maxDiscountAmount || 0) > 0
+      ? `, tối đa ${formatCurrency(coupon.maxDiscountAmount)}`
+      : ''
+    return `Giảm ${coupon.discountValue}%${maxText}`
+  }
+
+  return `Giảm ${formatCurrency(coupon.discountValue)}`
 }

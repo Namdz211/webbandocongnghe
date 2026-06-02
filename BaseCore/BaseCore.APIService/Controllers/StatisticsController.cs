@@ -56,5 +56,25 @@ namespace BaseCore.APIService.Controllers
             var stats = await _statisticsService.GetInventoryByCategoryAsync();
             return Ok(stats);
         }
+
+        [HttpGet("top-selling-products")]
+        public async Task<IActionResult> GetTopSellingProducts(
+            [FromQuery] DateTime? startDate = null,
+            [FromQuery] DateTime? endDate = null,
+            [FromQuery] int top = 5)
+        {
+            if (startDate.HasValue && endDate.HasValue && startDate.Value > endDate.Value)
+            {
+                return BadRequest("Start date cannot be after end date.");
+            }
+
+            if (endDate.HasValue && endDate.Value.TimeOfDay == TimeSpan.Zero)
+            {
+                endDate = endDate.Value.AddDays(1).AddTicks(-1);
+            }
+
+            var stats = await _statisticsService.GetTopSellingProductsAsync(startDate, endDate, top);
+            return Ok(stats);
+        }
     }
 }

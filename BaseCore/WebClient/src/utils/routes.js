@@ -46,6 +46,7 @@ export function parseRoute() {
   const url = new URL(window.location.href)
   const pathname = url.pathname.replace(/\/+$/, '') || '/'
   const query = Object.fromEntries(url.searchParams.entries())
+  const hash = url.hash
 
   if (pathname === '/' || pathname === '') {
     return { name: 'home', pathname: '/', query }
@@ -60,6 +61,7 @@ export function parseRoute() {
       name: 'product',
       pathname,
       query,
+      hash,
       params: { id: pathname.split('/').pop() },
     }
   }
@@ -70,6 +72,26 @@ export function parseRoute() {
 
   if (pathname === '/orders') {
     return { name: 'orders', pathname, query }
+  }
+
+  if (pathname === '/admin' || pathname === '/admin/login') {
+    return { name: pathname === '/admin/login' ? 'adminLogin' : 'adminDashboard', pathname, query }
+  }
+
+  if (pathname === '/admin/products') {
+    return { name: 'adminProducts', pathname, query }
+  }
+
+  if (pathname === '/admin/categories') {
+    return { name: 'adminCategories', pathname, query }
+  }
+
+  if (pathname === '/admin/users') {
+    return { name: 'adminUsers', pathname, query }
+  }
+
+  if (pathname === '/admin/orders') {
+    return { name: 'adminOrders', pathname, query }
   }
 
   if (pathname === '/account') {

@@ -244,6 +244,7 @@ const Products = () => {
                                                 <th>Manufacturer</th>
                                                 <th>Price</th>
                                                 <th>Stock</th>
+                                                <th>Đã bán</th>
                                                 <th className="text-center">Đánh giá</th>
                                                 {isAdmin() && <th>Actions</th>}
                                             </tr>
@@ -251,7 +252,7 @@ const Products = () => {
                                         <tbody>
                                             {products.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={isAdmin() ? 8 : 7} className="text-center">
+                                                    <td colSpan={isAdmin() ? 9 : 8} className="text-center">
                                                         No products found
                                                     </td>
                                                 </tr>
@@ -268,6 +269,11 @@ const Products = () => {
                                                         </td>
                                                         <td>{product.price?.toLocaleString()} VND</td>
                                                         <td>{product.stock}</td>
+                                                        <td>
+                                                            <span className="badge badge-success">
+                                                                {product.soldQuantity ?? product.SoldQuantity ?? 0}
+                                                            </span>
+                                                        </td>
                                                         <td className="text-center">
                                                             {product.averageRating > 0 ? (
                                                                 <div>

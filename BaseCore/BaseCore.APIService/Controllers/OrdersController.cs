@@ -24,6 +24,8 @@ namespace BaseCore.APIService.Controllers
         private const string CompletedStatus = "Completed";
         private const string CancelledStatus = "Cancelled";
         private const string DeliveryMessage = "Đơn hàng đang trên đường giao đến bạn, vui lòng chú ý điện thoại.";
+        private const string GuestCustomerId = "guest_checkout";
+        private const string GuestCustomerUserName = "guest_checkout";
 
         private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -75,13 +77,14 @@ namespace BaseCore.APIService.Controllers
                 return Unauthorized();
 
             var orders = await _orderRepository.GetByUserAsync(userId);
-            return Ok(orders.Select(ToOrderResponse));
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == userId);
+            return Ok(orders.Select(order => ToOrderResponse(order, customer)));
         }
 
         /// <summary>
         /// Get all orders (Admin only)
         /// </summary>
-[HttpGet("all")]
+        [HttpGet("all")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAllOrders(
             [FromQuery] DateTime? fromDate = null,
@@ -89,17 +92,16 @@ namespace BaseCore.APIService.Controllers
             [FromQuery] string? keyword = null,
             [FromQuery] string? status = null)
         {
-            // Thêm Include(o => o.User) để lấy thông tin khách hàng
             var query = _dbContext.Orders
                 .Include(o => o.User)
                 .AsNoTracking()
                 .AsQueryable();
             if (fromDate.HasValue) query = query.Where(o => o.OrderDate >= fromDate.Value.Date);
-            if (toDate.HasValue) query = query.Where(o => o.OrderDate <= toDate.Value.Date.AddDays(1));
+            if (toDate.HasValue) query = query.Where(o => o.OrderDate < toDate.Value.Date.AddDays(1));
             if (!string.IsNullOrEmpty(keyword)) query = query.Where(o => o.Id.ToString().Contains(keyword));
             if (!string.IsNullOrEmpty(status)) query = query.Where(o => o.Status == status);
             var orders = await query.OrderByDescending(o => o.OrderDate).ToListAsync();
-            return Ok(orders.Select(ToOrderResponse));
+            return Ok(orders.Select(order => ToOrderResponse(order)));
         }
 
         /// <summary>
@@ -112,7 +114,7 @@ namespace BaseCore.APIService.Controllers
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
             if (!CanAccessOrder(order)) return Forbid();
 
-            // Sử dụng DbContext để Include(Product) đảm bảo có dữ liệu sản phẩm
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
             var details = await _dbContext.OrderDetails
                 .Include(d => d.Product)
                 .Where(d => d.OrderId == id)
@@ -120,7 +122,7 @@ namespace BaseCore.APIService.Controllers
 
             return Ok(new
             {
-                order = ToOrderResponse(order),
+                order = ToOrderResponse(order, customer),
                 details = details.Select(ToOrderDetailResponse)
             });
         }
@@ -129,21 +131,50 @@ namespace BaseCore.APIService.Controllers
         /// Create new order
         /// </summary>
         [HttpPost]
+        [AllowAnonymous]
         public async Task<IActionResult> Create([FromBody] CreateOrderDto dto)
         {
-            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized();
-
-            var userExists = await _dbContext.Users.AnyAsync(user => user.Id == userId);
-            if (!userExists)
-                return Unauthorized(new { message = "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại." });
+            if (dto == null)
+                return BadRequest(new { message = "Dữ liệu đơn hàng không hợp lệ" });
 
             if (dto.Items == null || dto.Items.Count == 0)
                 return BadRequest(new { message = "Giỏ hàng đang trống" });
 
             if (dto.Items.Any(item => item.ProductId <= 0 || item.Quantity <= 0))
                 return BadRequest(new { message = "Dữ liệu sản phẩm trong đơn hàng không hợp lệ" });
+
+            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var isAuthenticatedOrder = !string.IsNullOrEmpty(userId);
+            User? customer = null;
+
+            if (isAuthenticatedOrder)
+            {
+                customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == userId);
+                if (customer == null)
+                    return Unauthorized(new { message = "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại." });
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(dto.CustomerName))
+                    return BadRequest(new { message = "Vui lòng nhập tên người nhận." });
+
+                if (string.IsNullOrWhiteSpace(dto.CustomerPhone))
+                    return BadRequest(new { message = "Vui lòng nhập số điện thoại người nhận." });
+
+                userId = await EnsureGuestCustomerAsync();
+            }
+
+            if (string.IsNullOrEmpty(userId))
+                return BadRequest(new { message = "Không xác định được khách hàng của đơn hàng." });
+
+            var orderUserId = userId;
+
+            if (string.IsNullOrWhiteSpace(dto.ShippingAddress) && string.IsNullOrWhiteSpace(customer?.Address))
+                return BadRequest(new { message = "Vui lòng nhập địa chỉ giao hàng." });
+
+            var shippingAddress = BuildShippingAddress(dto, customer);
+            if (shippingAddress.Length > 500)
+                return BadRequest(new { message = "Thông tin giao hàng tối đa 500 ký tự. Vui lòng rút gọn lại." });
 
             var paymentMethod = string.IsNullOrWhiteSpace(dto.PaymentMethod)
                 ? "cod"
@@ -168,31 +199,51 @@ namespace BaseCore.APIService.Controllers
                     if (product.Stock < item.Quantity)
                         return BadRequest(new { message = $"Sản phẩm {product.Name} không đủ tồn kho" });
 
-                    originalAmount += product.Price * item.Quantity;
+                    var unitPrice = item.UnitPrice.HasValue && item.UnitPrice.Value > product.Price
+                        ? item.UnitPrice.Value
+                        : product.Price;
+
+                    originalAmount += unitPrice * item.Quantity;
                     orderDetails.Add(new OrderDetail
                     {
                         ProductId = item.ProductId,
                         Quantity = item.Quantity,
-                        UnitPrice = product.Price
+                        UnitPrice = unitPrice
                     });
 
                     product.Stock -= item.Quantity;
                     await _productRepository.UpdateAsync(product);
                 }
 
-                var discount = await CalculateCustomerDiscountAsync(userId, originalAmount);
+                var customerDiscount = isAuthenticatedOrder
+                    ? await CalculateCustomerDiscountAsync(orderUserId, originalAmount)
+                    : new CustomerDiscount();
+                var couponResult = await CalculateCouponDiscountAsync(dto.CouponCode, originalAmount);
+
+                if (couponResult.ErrorMessage != null)
+                    return BadRequest(new { message = couponResult.ErrorMessage });
+
+                var discountAmount = Math.Min(
+                    originalAmount,
+                    customerDiscount.Amount + couponResult.Discount.Amount);
+                var promotionNames = new[]
+                    {
+                        customerDiscount.PromotionName,
+                        couponResult.Discount.PromotionName
+                    }
+                    .Where(name => !string.IsNullOrWhiteSpace(name));
 
                 var order = new Order
                 {
-                    UserId = userId,
+                    UserId = orderUserId,
                     OrderDate = DateTime.Now,
                     OriginalAmount = originalAmount,
-                    DiscountPercent = discount.Percent,
-                    DiscountAmount = discount.Amount,
-                    PromotionName = discount.PromotionName,
-                    TotalAmount = originalAmount - discount.Amount,
+                    DiscountPercent = customerDiscount.Percent + couponResult.Discount.Percent,
+                    DiscountAmount = discountAmount,
+                    PromotionName = string.Join(" + ", promotionNames),
+                    TotalAmount = originalAmount - discountAmount,
                     Status = PendingStatus,
-                    ShippingAddress = dto.ShippingAddress ?? "",
+                    ShippingAddress = shippingAddress,
                     PaymentMethod = paymentMethod,
                     PaymentStatus = paymentOption.Status,
                     PaymentCode = GeneratePaymentCode(paymentOption.CodePrefix),
@@ -207,6 +258,16 @@ namespace BaseCore.APIService.Controllers
                     await _orderDetailRepository.AddAsync(detail);
                 }
 
+                if (couponResult.Coupon != null)
+                {
+                    var couponUsed = await MarkCouponAsUsedAsync(couponResult.Coupon.Id);
+                    if (!couponUsed)
+                    {
+                        await transaction.RollbackAsync();
+                        return BadRequest(new { message = "Mã giảm giá đã được sử dụng cho đơn hàng khác." });
+                    }
+                }
+
                 await transaction.CommitAsync();
 
                 var successMessage = IsPaidPayment(order.PaymentStatus)
@@ -216,7 +277,7 @@ namespace BaseCore.APIService.Controllers
                 return CreatedAtAction(nameof(GetById), new { id = order.Id }, new
                 {
                     message = successMessage,
-                    order = ToOrderResponse(order),
+                    order = ToOrderResponse(order, customer),
                     details = orderDetails.Select(ToOrderDetailResponse)
                 });
             }
@@ -249,7 +310,8 @@ namespace BaseCore.APIService.Controllers
             order.Status = nextStatus;
             await _orderRepository.UpdateAsync(order);
 
-            return Ok(ToOrderResponse(order));
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+            return Ok(ToOrderResponse(order, customer));
         }
 
         /// <summary>
@@ -267,11 +329,12 @@ namespace BaseCore.APIService.Controllers
 
             order.Status = ConfirmedStatus;
             await _orderRepository.UpdateAsync(order);
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
 
             return Ok(new
             {
                 message = "Admin đã xác nhận đơn hàng.",
-                order = ToOrderResponse(order)
+                order = ToOrderResponse(order, customer)
             });
         }
 
@@ -290,11 +353,12 @@ namespace BaseCore.APIService.Controllers
 
             order.Status = ShippingStatus;
             await _orderRepository.UpdateAsync(order);
+            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
 
             return Ok(new
             {
                 message = DeliveryMessage,
-                order = ToOrderResponse(order)
+                order = ToOrderResponse(order, customer)
             });
         }
 
@@ -342,25 +406,46 @@ namespace BaseCore.APIService.Controllers
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
             if (!CanAccessOrder(order)) return Forbid();
 
-            if (string.Equals(order.Status, CompletedStatus, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(order.Status, ShippingStatus, StringComparison.OrdinalIgnoreCase))
-                return BadRequest(new { message = "Không thể hủy đơn hàng đã hoàn thành hoặc đang giao" });
+            if (!string.Equals(order.Status, PendingStatus, StringComparison.OrdinalIgnoreCase))
+                return BadRequest(new { message = "Chỉ có thể hủy đơn hàng đang chờ admin xác nhận" });
 
-            var details = await _orderDetailRepository.GetByOrderAsync(id);
-            foreach (var detail in details)
+            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+
+            try
             {
-                var product = await _productRepository.GetByIdAsync(detail.ProductId);
-                if (product != null)
+                var updatedRows = await _dbContext.Orders
+                    .Where(currentOrder => currentOrder.Id == id && currentOrder.Status == PendingStatus)
+                    .ExecuteUpdateAsync(setters => setters.SetProperty(
+                        currentOrder => currentOrder.Status,
+                        CancelledStatus));
+
+                if (updatedRows == 0)
                 {
-                    product.Stock += detail.Quantity;
-                    await _productRepository.UpdateAsync(product);
+                    await transaction.RollbackAsync();
+                    return BadRequest(new { message = "Chỉ có thể hủy đơn hàng đang chờ admin xác nhận" });
                 }
+
+                var details = await _orderDetailRepository.GetByOrderAsync(id);
+                foreach (var detail in details)
+                {
+                    var product = await _productRepository.GetByIdAsync(detail.ProductId);
+                    if (product != null)
+                    {
+                        product.Stock += detail.Quantity;
+                        await _productRepository.UpdateAsync(product);
+                    }
+                }
+
+                await transaction.CommitAsync();
+
+                order.Status = CancelledStatus;
+                return Ok(new { message = "Đã hủy đơn hàng", order = ToOrderResponse(order) });
             }
-
-            order.Status = CancelledStatus;
-            await _orderRepository.UpdateAsync(order);
-
-            return Ok(new { message = "Đã hủy đơn hàng", order = ToOrderResponse(order) });
+            catch (DbUpdateException)
+            {
+                await transaction.RollbackAsync();
+                return BadRequest(new { message = "Không hủy được đơn hàng. Vui lòng thử lại." });
+            }
         }
 
         /// <summary>
@@ -374,7 +459,11 @@ namespace BaseCore.APIService.Controllers
             {
                 await _orderService.AssignTransportAsync(id, dto.TransportUnit, dto.TrackingCode);
                 var order = await _orderRepository.GetByIdAsync(id);
-                return Ok(new { message = "Đã giao cho đơn vị vận chuyển", order = ToOrderResponse(order) });
+                var customer = order == null
+                    ? null
+                    : await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+
+                return Ok(new { message = "Đã giao cho đơn vị vận chuyển", order = order == null ? null : ToOrderResponse(order, customer) });
             }
             catch (Exception ex)
             {
@@ -393,7 +482,11 @@ namespace BaseCore.APIService.Controllers
             {
                 await _orderService.UpdateDeliveryStatusAsync(id, dto.DeliveryStatus, dto.DeliveryDate);
                 var order = await _orderRepository.GetByIdAsync(id);
-                return Ok(new { message = "Đã cập nhật trạng thái giao hàng", order = ToOrderResponse(order) });
+                var customer = order == null
+                    ? null
+                    : await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+
+                return Ok(new { message = "Đã cập nhật trạng thái giao hàng", order = order == null ? null : ToOrderResponse(order, customer) });
             }
             catch (Exception ex)
             {
@@ -406,13 +499,19 @@ namespace BaseCore.APIService.Controllers
             return ex.InnerException?.Message ?? ex.Message;
         }
 
-        private static object ToOrderResponse(Order order)
+        private static object ToOrderResponse(Order order, User? customer = null)
         {
+            var resolvedCustomer = customer ?? order.User;
+
             return new
             {
                 order.Id,
                 order.UserId,
-                user = order.User == null ? null : new { name = order.User.Name },
+                user = resolvedCustomer == null ? null : new { name = resolvedCustomer.Name },
+                CustomerName = resolvedCustomer?.Name,
+                CustomerUserName = resolvedCustomer?.UserName,
+                CustomerEmail = resolvedCustomer?.Email,
+                CustomerPhone = resolvedCustomer?.Phone,
                 order.OrderDate,
                 order.OriginalAmount,
                 order.DiscountAmount,
@@ -433,13 +532,94 @@ namespace BaseCore.APIService.Controllers
                 order.DeliveryDate,
                 order.TransportTrackingCode,
                 DeliveryMessage = IsShippingStatus(order.Status) ? DeliveryMessage : null,
-                CanCustomerConfirmReceived = IsShippingStatus(order.Status)
+                CanCustomerConfirmReceived = IsShippingStatus(order.Status),
+                CanCustomerCancel = IsPendingStatus(order.Status)
             };
         }
 
         private static bool IsPaidPayment(string paymentStatus)
         {
             return string.Equals(paymentStatus, "Paid", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private async Task<string> EnsureGuestCustomerAsync()
+        {
+            var guestUser = await _dbContext.Users
+                .FirstOrDefaultAsync(user => user.Id == GuestCustomerId || user.UserName == GuestCustomerUserName);
+
+            if (guestUser != null)
+                return guestUser.Id;
+
+            guestUser = new User
+            {
+                Id = GuestCustomerId,
+                UserName = GuestCustomerUserName,
+                Password = "",
+                Salt = Array.Empty<byte>(),
+                Name = "Khách vãng lai",
+                Email = "",
+                Phone = "",
+                Address = "",
+                Position = "Customer",
+                Contact = "",
+                Image = "",
+                IsActive = false,
+                UserType = 0,
+                Created = DateTime.Now
+            };
+
+            await _dbContext.Users.AddAsync(guestUser);
+
+            try
+            {
+                await _dbContext.SaveChangesAsync();
+                return guestUser.Id;
+            }
+            catch (DbUpdateException)
+            {
+                _dbContext.Entry(guestUser).State = EntityState.Detached;
+                var existingGuest = await _dbContext.Users
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(user => user.Id == GuestCustomerId || user.UserName == GuestCustomerUserName);
+
+                if (existingGuest != null)
+                    return existingGuest.Id;
+
+                throw;
+            }
+        }
+
+        private static string BuildShippingAddress(CreateOrderDto dto, User? customer)
+        {
+            var customerName = NormalizeText(dto.CustomerName);
+            var customerEmail = NormalizeText(dto.CustomerEmail);
+            var customerPhone = NormalizeText(dto.CustomerPhone);
+            var address = NormalizeText(dto.ShippingAddress);
+
+            if (string.IsNullOrWhiteSpace(address))
+                address = NormalizeText(customer?.Address);
+
+            if (string.IsNullOrWhiteSpace(customerName))
+                customerName = NormalizeText(customer?.Name ?? customer?.UserName);
+
+            if (string.IsNullOrWhiteSpace(customerEmail))
+                customerEmail = NormalizeText(customer?.Email);
+
+            if (string.IsNullOrWhiteSpace(customerPhone))
+                customerPhone = NormalizeText(customer?.Phone);
+
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(customerName)) parts.Add($"Người nhận: {customerName}");
+            if (!string.IsNullOrWhiteSpace(customerPhone)) parts.Add($"SĐT: {customerPhone}");
+            if (!string.IsNullOrWhiteSpace(customerEmail)) parts.Add($"Email: {customerEmail}");
+            if (!string.IsNullOrWhiteSpace(address)) parts.Add($"Địa chỉ: {address}");
+
+            return string.Join(" | ", parts);
+        }
+
+        private static string NormalizeText(string? value)
+        {
+            return value?.Trim() ?? "";
         }
 
         private async Task<CustomerDiscount> CalculateCustomerDiscountAsync(string userId, decimal originalAmount)
@@ -461,6 +641,87 @@ namespace BaseCore.APIService.Controllers
                 Amount = amount,
                 PromotionName = percent > 0 ? $"{segment} customer discount" : ""
             };
+        }
+
+        private async Task<CouponDiscountResult> CalculateCouponDiscountAsync(string? couponCode, decimal originalAmount)
+        {
+            var code = NormalizeText(couponCode).ToUpperInvariant();
+
+            if (string.IsNullOrWhiteSpace(code))
+                return new CouponDiscountResult();
+
+            var coupon = await _dbContext.Coupons
+                .FirstOrDefaultAsync(item => item.Code.ToUpper() == code);
+
+            if (coupon == null)
+                return CouponDiscountResult.Failed("Mã giảm giá không tồn tại");
+
+            if (!coupon.IsActive)
+                return CouponDiscountResult.Failed("Mã giảm giá đã bị vô hiệu hóa");
+
+            if (DateTime.UtcNow < coupon.StartDate)
+                return CouponDiscountResult.Failed("Mã giảm giá chưa đến thời gian sử dụng");
+
+            if (DateTime.UtcNow > coupon.ExpiryDate)
+                return CouponDiscountResult.Failed("Mã giảm giá đã hết hạn");
+
+            if (coupon.UsedCount > 0)
+                return CouponDiscountResult.Failed("Mã giảm giá đã được sử dụng");
+
+            if (coupon.UsageLimit > 0 && coupon.UsedCount >= coupon.UsageLimit)
+                return CouponDiscountResult.Failed("Mã giảm giá đã hết lượt sử dụng");
+
+            if (originalAmount < coupon.MinOrderAmount)
+                return CouponDiscountResult.Failed($"Đơn hàng tối thiểu {coupon.MinOrderAmount:N0}đ mới được dùng mã này");
+
+            decimal discountAmount;
+            var discountPercent = 0m;
+
+            if (coupon.DiscountType == "percent")
+            {
+                discountPercent = coupon.DiscountValue;
+                discountAmount = Math.Round(
+                    originalAmount * coupon.DiscountValue / 100,
+                    0,
+                    MidpointRounding.AwayFromZero);
+
+                if (coupon.MaxDiscountAmount > 0)
+                    discountAmount = Math.Min(discountAmount, coupon.MaxDiscountAmount);
+            }
+            else
+            {
+                discountAmount = coupon.DiscountValue;
+            }
+
+            discountAmount = Math.Min(Math.Max(discountAmount, 0), originalAmount);
+
+            return new CouponDiscountResult
+            {
+                Coupon = coupon,
+                Discount = new CustomerDiscount
+                {
+                    Percent = discountPercent,
+                    Amount = discountAmount,
+                    PromotionName = $"Coupon {coupon.Code}"
+                }
+            };
+        }
+
+        private async Task<bool> MarkCouponAsUsedAsync(int couponId)
+        {
+            var now = DateTime.UtcNow;
+            var updatedRows = await _dbContext.Coupons
+                .Where(coupon =>
+                    coupon.Id == couponId &&
+                    coupon.IsActive &&
+                    coupon.UsedCount == 0 &&
+                    coupon.StartDate <= now &&
+                    coupon.ExpiryDate >= now)
+                .ExecuteUpdateAsync(setters => setters
+                    .SetProperty(coupon => coupon.UsedCount, coupon => coupon.UsedCount + 1)
+                    .SetProperty(coupon => coupon.IsActive, false));
+
+            return updatedRows == 1;
         }
 
         private static string CalculateCustomerSegment(int completedOrders, decimal totalSpent)
@@ -487,6 +748,11 @@ namespace BaseCore.APIService.Controllers
         private static bool IsShippingStatus(string status)
         {
             return string.Equals(status, ShippingStatus, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsPendingStatus(string status)
+        {
+            return string.Equals(status, PendingStatus, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string GetPaymentMethodLabel(string paymentMethod)
@@ -579,14 +845,19 @@ namespace BaseCore.APIService.Controllers
     public class CreateOrderDto
     {
         public List<OrderItemDto> Items { get; set; } = new();
+        public string? CustomerName { get; set; }
+        public string? CustomerEmail { get; set; }
+        public string? CustomerPhone { get; set; }
         public string? ShippingAddress { get; set; }
         public string? PaymentMethod { get; set; }
+        public string? CouponCode { get; set; }
     }
 
     public class OrderItemDto
     {
         public int ProductId { get; set; }
         public int Quantity { get; set; }
+        public decimal? UnitPrice { get; set; }
     }
 
     public class UpdateStatusDto
@@ -611,5 +882,17 @@ namespace BaseCore.APIService.Controllers
         public decimal Percent { get; set; }
         public decimal Amount { get; set; }
         public string PromotionName { get; set; } = "";
+    }
+
+    public class CouponDiscountResult
+    {
+        public CustomerDiscount Discount { get; set; } = new();
+        public Coupon? Coupon { get; set; }
+        public string? ErrorMessage { get; set; }
+
+        public static CouponDiscountResult Failed(string message)
+        {
+            return new CouponDiscountResult { ErrorMessage = message };
+        }
     }
 }

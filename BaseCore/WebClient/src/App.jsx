@@ -222,6 +222,7 @@ function App() {
       name: payload.name?.trim() || '',
       email: payload.email?.trim() || '',
       phone: payload.phone?.trim() || '',
+      address: payload.address?.trim() || '',
     }
 
     await api.register(normalizedPayload)
@@ -247,6 +248,8 @@ function App() {
       Email: updatedUser.email || updatedUser.Email || payload.email || current?.Email || current?.email,
       phone: updatedUser.phone || updatedUser.Phone || payload.phone || current?.phone || current?.Phone,
       Phone: updatedUser.phone || updatedUser.Phone || payload.phone || current?.Phone || current?.phone,
+      address: updatedUser.address || updatedUser.Address || payload.address || current?.address || current?.Address,
+      Address: updatedUser.address || updatedUser.Address || payload.address || current?.Address || current?.address,
     }))
     openNotice('success', payload.password ? 'Đã đổi mật khẩu.' : 'Đã cập nhật thông tin tài khoản.')
   }
@@ -257,22 +260,27 @@ function App() {
     openNotice('success', 'Đã đăng xuất tài khoản.')
   }
 
-  async function placeOrder(shippingAddress, paymentMethod) {
+  async function placeOrder(orderInput) {
     const authToken = getAuthToken(auth)
 
-    if (!authToken) {
-      navigate('/login?redirect=/checkout')
-      return
-    }
-
-    if (isExpiredToken(authToken)) {
+    if (authToken && isExpiredToken(authToken)) {
       openNotice('error', 'Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại trước khi đặt hàng.')
       navigate('/login?redirect=/checkout')
       return
     }
 
-    if (!shippingAddress.trim()) {
+    if (!orderInput.shippingAddress.trim()) {
       openNotice('error', 'Vui lòng nhập địa chỉ giao hàng.')
+      return
+    }
+
+    if (!authToken && !orderInput.customerName.trim()) {
+      openNotice('error', 'Vui lòng nhập tên người nhận.')
+      return
+    }
+
+    if (!authToken && !orderInput.customerPhone.trim()) {
+      openNotice('error', 'Vui lòng nhập số điện thoại người nhận.')
       return
     }
 
@@ -311,8 +319,12 @@ function App() {
       }
 
       const payload = {
-        shippingAddress,
-        paymentMethod,
+        customerName: orderInput.customerName,
+        customerEmail: orderInput.customerEmail,
+        customerPhone: orderInput.customerPhone,
+        shippingAddress: orderInput.shippingAddress,
+        paymentMethod: orderInput.paymentMethod,
+        couponCode: orderInput.couponCode,
         items: cart.map((item) => ({
           productId: item.id,
           quantity: item.quantity,
@@ -324,7 +336,7 @@ function App() {
       setCart([])
       setOrderBadgeRefreshKey((current) => current + 1)
       openNotice('success', createdOrder?.message || 'Đặt hàng thành công.')
-      navigate('/orders')
+      navigate(authToken ? '/orders' : '/')
     } catch (requestError) {
       openNotice('error', requestError.message)
     } finally {
@@ -338,7 +350,7 @@ function App() {
   }
 
   let content = null
-  const needsAuthFirst = !auth && route.name !== 'login'
+  const needsAuthFirst = !auth && ['orders', 'account'].includes(route.name)
 
   if (needsAuthFirst) {
     content = (
@@ -395,11 +407,13 @@ function App() {
         content = (
           <ProductPage
             productId={route.params.id}
+            reviewTarget={route.hash}
             categories={categories}
             onNavigate={navigate}
             onAddToCart={upsertCart}
             onBuyNow={buyNow}
             auth={auth}
+            onNotify={openNotice}
           />
         )
         break

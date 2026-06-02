@@ -79,7 +79,8 @@ namespace BaseCore.Repository.Authen
                     u.UserName.ToLower().Contains(keywordLower) ||
                     u.Name.ToLower().Contains(keywordLower) ||
                     u.Email.ToLower().Contains(keywordLower) ||
-                    u.Phone.ToLower().Contains(keywordLower));
+                    u.Phone.ToLower().Contains(keywordLower) ||
+                    u.Address.ToLower().Contains(keywordLower));
             }
 
             var totalCount = await query.CountAsync();

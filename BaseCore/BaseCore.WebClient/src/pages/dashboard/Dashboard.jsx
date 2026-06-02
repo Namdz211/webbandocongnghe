@@ -35,6 +35,7 @@ const Dashboard = () => {
     
     const [revenueData, setRevenueData] = useState({ totalRevenue: 0, orderCount: 0 });
     const [inventoryData, setInventoryData] = useState([]);
+    const [topSellingProducts, setTopSellingProducts] = useState([]);
     const [statsError, setStatsError] = useState('');
     
     const [loading, setLoading] = useState(true);
@@ -90,9 +91,10 @@ const Dashboard = () => {
         setStatsLoading(true);
         setStatsError('');
         try {
-            const [revenueResult, inventoryResult] = await Promise.allSettled([
+            const [revenueResult, inventoryResult, topSellingResult] = await Promise.allSettled([
                 statisticsApi.getRevenue(startDate, endDate),
                 statisticsApi.getInventoryByCategory(),
+                statisticsApi.getTopSellingProducts({ startDate, endDate, top: 5 }),
             ]);
 
             if (revenueResult.status === 'fulfilled') {
@@ -111,16 +113,24 @@ const Dashboard = () => {
                 setInventoryData([]);
             }
 
-            if (revenueResult.status === 'rejected' || inventoryResult.status === 'rejected') {
+            if (topSellingResult.status === 'fulfilled') {
+                setTopSellingProducts(topSellingResult.value.data || []);
+            } else {
+                setTopSellingProducts([]);
+            }
+
+            if (revenueResult.status === 'rejected' || inventoryResult.status === 'rejected' || topSellingResult.status === 'rejected') {
                 setStatsError('Không tải được đầy đủ dữ liệu thống kê. Vui lòng kiểm tra API doanh thu/đơn hàng.');
             }
 
             console.log('Revenue API result:', revenueResult);
             console.log('Inventory API result:', inventoryResult);
+            console.log('Top selling API result:', topSellingResult);
         } catch (error) {
             setStatsError('Không tải được dữ liệu thống kê.');
             setRevenueData({ totalRevenue: 0, orderCount: 0 });
             setInventoryData([]);
+            setTopSellingProducts([]);
             console.error('Failed to load advanced stats:', error);
         } finally {
             setStatsLoading(false);
@@ -337,6 +347,74 @@ const Dashboard = () => {
                                     ) : (
                                         <div className="text-center py-5 text-muted">
                                             Không có dữ liệu tồn kho.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="row mt-4">
+                        <div className="col-lg-12">
+                            <div className="card shadow-sm border-0" style={{ borderRadius: '10px' }}>
+                                <div className="card-header bg-white border-0 pb-0 d-flex justify-content-between align-items-center">
+                                    <h3 className="card-title font-weight-bold text-danger">
+                                        <i className="fas fa-fire mr-2"></i> Sản phẩm bán chạy
+                                    </h3>
+                                    <span className="text-muted small">Theo đơn hàng đã giao trong khoảng ngày đã chọn</span>
+                                </div>
+                                <div className="card-body">
+                                    {statsLoading ? (
+                                        <div className="text-center py-4">
+                                            <div className="spinner-border text-danger" role="status">
+                                                <span className="sr-only">Đang tải...</span>
+                                            </div>
+                                        </div>
+                                    ) : topSellingProducts.length > 0 ? (
+                                        <div className="table-responsive">
+                                            <table className="table table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ width: '60px' }}>#</th>
+                                                        <th>Sản phẩm</th>
+                                                        <th>Danh mục</th>
+                                                        <th className="text-right">Đã bán</th>
+                                                        <th className="text-right">Doanh thu</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {topSellingProducts.map((product, index) => (
+                                                        <tr key={product.productId || product.ProductId}>
+                                                            <td>
+                                                                <span className="badge badge-danger">{index + 1}</span>
+                                                            </td>
+                                                            <td>
+                                                                <div className="d-flex align-items-center">
+                                                                    {(product.imageUrl || product.ImageUrl) && (
+                                                                        <img
+                                                                            alt={product.productName || product.ProductName}
+                                                                            src={product.imageUrl || product.ImageUrl}
+                                                                            style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 6, marginRight: 10 }}
+                                                                        />
+                                                                    )}
+                                                                    <strong>{product.productName || product.ProductName}</strong>
+                                                                </div>
+                                                            </td>
+                                                            <td>{product.categoryName || product.CategoryName || 'Không phân loại'}</td>
+                                                            <td className="text-right font-weight-bold">
+                                                                {product.soldQuantity ?? product.SoldQuantity ?? 0}
+                                                            </td>
+                                                            <td className="text-right text-success font-weight-bold">
+                                                                {formatCurrency(product.revenue ?? product.Revenue ?? 0)}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4 text-muted">
+                                            Chưa có sản phẩm bán chạy trong khoảng thời gian này.
                                         </div>
                                     )}
                                 </div>

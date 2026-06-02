@@ -11,5 +11,6 @@ namespace BaseCore.Repository
         Task<IEnumerable<InventoryDto>> GetInventoryAsync();
         Task<IEnumerable<OrderByCategoryDto>> GetOrderStatsByCategoryAsync();
         Task<IEnumerable<InventoryDto>> GetInventoryByCategoryAsync();
+        Task<IEnumerable<ProductSalesDto>> GetTopSellingProductsAsync(DateTime? startDate, DateTime? endDate, int top);
     }
 }

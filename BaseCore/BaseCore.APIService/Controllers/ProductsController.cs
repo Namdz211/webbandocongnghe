@@ -74,6 +74,21 @@ namespace BaseCore.APIService.Controllers
                     ReviewsCount = g.Count()
                 })
                 .ToDictionaryAsync(x => x.ProductId, x => x);
+            var soldStats = await _dbContext.OrderDetails
+                .Join(_dbContext.Orders,
+                    detail => detail.OrderId,
+                    order => order.Id,
+                    (detail, order) => new { detail, order })
+                .Where(item =>
+                    productIds.Contains(item.detail.ProductId) &&
+                    item.order.Status == "Completed")
+                .GroupBy(item => item.detail.ProductId)
+                .Select(group => new
+                {
+                    ProductId = group.Key,
+                    SoldQuantity = group.Sum(item => item.detail.Quantity)
+                })
+                .ToDictionaryAsync(item => item.ProductId, item => item.SoldQuantity);
 
             var items = products.Select(p => new
             {
@@ -88,7 +103,8 @@ namespace BaseCore.APIService.Controllers
                 p.Category,
                 p.Manufacturer,
                 AverageRating = reviewStats.ContainsKey(p.Id) ? Math.Round(reviewStats[p.Id].AverageRating, 1) : 0.0,
-                ReviewsCount = reviewStats.ContainsKey(p.Id) ? reviewStats[p.Id].ReviewsCount : 0
+                ReviewsCount = reviewStats.ContainsKey(p.Id) ? reviewStats[p.Id].ReviewsCount : 0,
+                SoldQuantity = soldStats.TryGetValue(p.Id, out var soldQuantity) ? soldQuantity : 0
             }).ToList();
 
             return Ok(new
@@ -120,6 +136,15 @@ namespace BaseCore.APIService.Controllers
                     ReviewsCount = g.Count()
                 })
                 .FirstOrDefaultAsync();
+            var soldQuantity = await _dbContext.OrderDetails
+                .Join(_dbContext.Orders,
+                    detail => detail.OrderId,
+                    order => order.Id,
+                    (detail, order) => new { detail, order })
+                .Where(item =>
+                    item.detail.ProductId == id &&
+                    item.order.Status == "Completed")
+                .SumAsync(item => (int?)item.detail.Quantity) ?? 0;
 
             return Ok(new
             {
@@ -134,7 +159,8 @@ namespace BaseCore.APIService.Controllers
                 product.Category,
                 product.Manufacturer,
                 AverageRating = stats != null ? Math.Round(stats.AverageRating, 1) : 0.0,
-                ReviewsCount = stats != null ? stats.ReviewsCount : 0
+                ReviewsCount = stats != null ? stats.ReviewsCount : 0,
+                SoldQuantity = soldQuantity
             });
         }
 

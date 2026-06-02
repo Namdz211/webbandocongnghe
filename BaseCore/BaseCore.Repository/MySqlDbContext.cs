@@ -39,6 +39,7 @@ namespace BaseCore.Repository
                 entity.Property(e => e.Name).HasMaxLength(100);
                 entity.Property(e => e.Email).HasMaxLength(100);
                 entity.Property(e => e.Phone).HasMaxLength(20);
+                entity.Property(e => e.Address).HasMaxLength(500).HasDefaultValue("");
                 entity.HasIndex(e => e.UserName).IsUnique();
             });
 
@@ -129,8 +130,10 @@ namespace BaseCore.Repository
                 entity.Property(e => e.Description).HasMaxLength(200).HasDefaultValue("");
                 entity.Property(e => e.DiscountType).HasMaxLength(10).HasDefaultValue("percent");
                 entity.Property(e => e.DiscountValue).HasPrecision(18, 2);
-                entity.Property(e => e.MaxDiscountAmount).HasPrecision(18, 2).HasDefaultValue(0);
-                entity.Property(e => e.MinOrderAmount).HasPrecision(18, 2).HasDefaultValue(0);
+                entity.Property(e => e.MaxDiscountAmount).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.MinOrderAmount).HasPrecision(18, 2).HasDefaultValue(0m);
+                entity.Property(e => e.UsageLimit).HasDefaultValue(1);
+                entity.Property(e => e.UsedCount).HasDefaultValue(0);
             });
 
             // Seed initial data

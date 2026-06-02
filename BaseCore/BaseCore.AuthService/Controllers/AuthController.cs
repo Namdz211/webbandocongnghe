@@ -51,6 +51,7 @@ namespace BaseCore.AuthService.Controllers
                 Name = user.Name,
                 Email = user.Email,
                 Phone = user.Phone,
+                Address = user.Address,
                 Role = user.UserType == 1 ? "Admin" : "User",
                 ExpiresIn = TokenExpirationMinutes * 60
             });
@@ -69,6 +70,7 @@ namespace BaseCore.AuthService.Controllers
             request.Name = request.Name?.Trim();
             request.Email = request.Email?.Trim();
             request.Phone = request.Phone?.Trim();
+            request.Address = request.Address?.Trim();
 
             if (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password))
             {
@@ -88,6 +90,7 @@ namespace BaseCore.AuthService.Controllers
                     Name = request.Name ?? request.Username,
                     Email = request.Email,
                     Phone = request.Phone,
+                    Address = request.Address ?? "",
                     UserType = 0 // Default to regular user
                 };
 
@@ -133,6 +136,7 @@ namespace BaseCore.AuthService.Controllers
         public string Name { get; set; }
         public string Email { get; set; }
         public string Phone { get; set; }
+        public string Address { get; set; }
         public string Role { get; set; }
         public int ExpiresIn { get; set; }
     }
@@ -144,5 +148,6 @@ namespace BaseCore.AuthService.Controllers
         public string Name { get; set; }
         public string Email { get; set; }
         public string Phone { get; set; }
+        public string Address { get; set; }
     }
 }

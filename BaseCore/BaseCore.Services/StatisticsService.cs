@@ -34,5 +34,10 @@ namespace BaseCore.Services
         {
             return await _repository.GetInventoryByCategoryAsync();
         }
+
+        public async Task<IEnumerable<ProductSalesDto>> GetTopSellingProductsAsync(DateTime? startDate, DateTime? endDate, int top)
+        {
+            return await _repository.GetTopSellingProductsAsync(startDate, endDate, top);
+        }
     }
 }

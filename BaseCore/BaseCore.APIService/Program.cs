@@ -108,6 +108,7 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<MySqlDbContext>();
     db.Database.EnsureCreated();
+    EnsureUserAddressColumn(db);
     EnsureProductManufacturerColumns(db);
     EnsureOrderPaymentColumns(db);
     EnsureOrderWorkflowColumns(db);
@@ -130,6 +131,17 @@ app.MapControllers();
 Console.WriteLine("BaseCore API Service running on port 5001");
 Console.WriteLine("Endpoints: /api/products, /api/categories, /api/orders");
 app.Run();
+
+static void EnsureUserAddressColumn(MySqlDbContext db)
+{
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Users', N'Address') IS NULL
+BEGIN
+    ALTER TABLE dbo.Users
+    ADD Address NVARCHAR(500) NOT NULL
+        CONSTRAINT DF_Users_Address DEFAULT (N'');
+END;");
+}
 
 static void SeedProductCatalog(MySqlDbContext db)
 {

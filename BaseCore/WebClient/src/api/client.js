@@ -60,6 +60,7 @@ export const api = {
   getProducts: (params = {}) =>
     request(`/products?${toQueryString(params)}`),
   getProduct: (id) => request(`/products/${id}`),
+  getPublicCoupons: () => request('/coupons/public'),
   createProduct: (payload, token) =>
     request('/products', {
       method: 'POST',

@@ -1700,3 +1700,357 @@ textarea {
     flex: 1;
   }
 }
+.coupon-panel {
+  margin: 22px 0;
+}
+
+.coupon-input-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px;
+}
+
+.coupon-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.coupon-chip {
+  border: 1px solid #e4e7ec;
+  background: #fff;
+  color: #2b2f36;
+  cursor: pointer;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 150px;
+  padding: 10px 12px;
+  text-align: left;
+}
+
+.coupon-chip strong {
+  color: #d10024;
+  font-size: 13px;
+}
+
+.coupon-chip span {
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.coupon-chip.active {
+  border-color: #d10024;
+  box-shadow: 0 0 0 1px #d10024 inset;
+}
+
+.store-modern-breadcrumb {
+  padding: 14px 0;
+  border-bottom: 1px solid #dfe3eb;
+  background: #f3f3f4;
+}
+
+.store-modern-breadcrumb .container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #111827;
+  font-size: 15px;
+}
+
+.store-modern-breadcrumb button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #111827;
+  font-weight: 600;
+}
+
+.store-modern-breadcrumb button:hover,
+.store-modern-breadcrumb button:focus {
+  color: #d10024;
+  outline: none;
+}
+
+.store-modern-breadcrumb strong {
+  font-weight: 700;
+}
+
+.store-modern-page {
+  padding-top: 26px;
+}
+
+.store-modern-page .store-filter-panel {
+  margin-bottom: 16px;
+  padding: 28px 30px;
+  border-radius: 8px;
+  background: #f6f6f7;
+}
+
+.store-modern-page .store-brand-carousel {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) 38px;
+  align-items: center;
+}
+
+.store-modern-page .store-brand-scroller {
+  gap: 28px;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.store-modern-page .store-brand-scroller::-webkit-scrollbar {
+  display: none;
+}
+
+.store-modern-page .store-brand-arrow {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #111827;
+  font-size: 22px;
+  box-shadow: 0 10px 24px rgba(21, 31, 48, 0.12);
+}
+
+.store-modern-page .store-brand-arrow:hover,
+.store-modern-page .store-brand-arrow:focus {
+  background: #d10024;
+  color: #fff;
+  outline: none;
+}
+
+.store-modern-page .store-brand-card {
+  width: 120px;
+  min-width: 120px;
+  min-height: 156px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 12px;
+  border-radius: 8px;
+  box-shadow: 0 8px 18px rgba(21, 31, 48, 0.08);
+}
+
+.store-modern-page .store-brand-card:hover,
+.store-modern-page .store-brand-card:focus,
+.store-modern-page .store-brand-card.active {
+  color: #d10024;
+  outline: none;
+}
+
+.store-products-full {
+  width: 100%;
+}
+
+.product-card-clickable {
+  cursor: pointer;
+}
+
+.product-card-clickable .product-name {
+  font-weight: 700;
+}
+
+.product-card-clickable:hover .product-name,
+.product-card-clickable:focus-visible .product-name {
+  color: #d10024;
+}
+
+.product-card-clickable:focus-visible {
+  outline: 3px solid rgba(209, 0, 36, 0.35);
+  outline-offset: 3px;
+}
+
+.product-card-rating {
+  align-items: center;
+  display: flex;
+  gap: 4px;
+  justify-content: center;
+  min-height: 22px;
+}
+
+.product-card-rating span,
+.product-rating-summary span {
+  color: #8d99ae;
+  font-size: 12px;
+  font-weight: 700;
+  margin-left: 4px;
+}
+
+.product-rating-summary {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.product-review-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid #e4e7ed;
+}
+
+.product-review-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.product-review-header h3,
+.review-form-title {
+  margin: 0;
+  color: #2b2d42;
+  font-size: 20px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.product-review-header p {
+  margin: 6px 0 0;
+  color: #8d99ae;
+}
+
+.product-review-score {
+  min-width: 132px;
+  text-align: right;
+}
+
+.product-review-score strong {
+  display: block;
+  color: #d10024;
+  font-size: 32px;
+  line-height: 1;
+}
+
+.product-review-score span,
+.review-star-input button.active,
+.review-star-input button:hover {
+  color: #ef233c;
+}
+
+.product-review-form,
+.review-note {
+  margin-bottom: 16px;
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.review-form-title {
+  margin-bottom: 10px;
+  font-size: 14px;
+}
+
+.review-star-input {
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.review-star-input button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  background: #fff;
+  color: #c8ccd6;
+  font-size: 18px;
+}
+
+.review-star-input button.active,
+.review-star-input button:hover {
+  border-color: rgba(209, 0, 36, 0.35);
+}
+
+.product-review-form textarea {
+  width: 100%;
+  min-height: 110px;
+  padding: 12px;
+  border: 1px solid #e4e7ed;
+  border-radius: 6px;
+  resize: vertical;
+}
+
+.product-review-form textarea:focus {
+  border-color: #d10024;
+  outline: none;
+}
+
+.review-form-actions,
+.review-login-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.review-form-actions {
+  margin-top: 10px;
+}
+
+.review-form-actions small {
+  color: #8d99ae;
+}
+
+.product-review-list {
+  display: grid;
+  gap: 12px;
+}
+
+.product-review-item {
+  padding: 16px;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.review-item-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.review-item-header strong,
+.review-item-header span {
+  display: block;
+}
+
+.review-item-header span {
+  margin-top: 3px;
+  color: #8d99ae;
+  font-size: 12px;
+}
+
+.product-review-item p {
+  margin: 0;
+  color: #4b5260;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .coupon-input-row {
+    grid-template-columns: 1fr;
+  }
+
+  .coupon-chip {
+    width: 100%;
+  }
+
+  .product-review-header,
+  .review-login-note {
+    display: grid;
+  }
+
+  .product-review-score {
+    text-align: left;
+  }
+}
