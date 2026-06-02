@@ -36,7 +36,7 @@ export const AuthProvider = ({ children }) => {
 
             return { success: true };
         } catch (error) {
-            const message = error.response?.data?.message || 'Login failed';
+            const message = error.response?.data?.message || 'Đăng nhập thất bại';
             return { success: false, message };
         }
     };

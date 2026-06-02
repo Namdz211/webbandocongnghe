@@ -72,24 +72,24 @@ const Categories = () => {
             closeModal();
             loadCategories();
         } catch (error) {
-            setError(error.response?.data?.message || 'Operation failed');
+            setError(error.response?.data?.message || 'Thao tác thất bại');
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this category?')) return;
+        if (!window.confirm('Bạn có chắc chắn muốn xóa danh mục này không?')) return;
 
         try {
             await categoryApi.delete(id);
             loadCategories();
         } catch (error) {
-            alert('Failed to delete category. It may have associated products.');
+            alert('Xóa danh mục thất bại. Danh mục này có thể đang chứa sản phẩm.');
         }
     };
 
     return (
         <div className="content-wrapper">
-            <PageHeader title="Categories Management" />
+            <PageHeader title="Quản lý danh mục" />
 
             <section className="content">
                 <div className="container-fluid">
@@ -97,12 +97,12 @@ const Categories = () => {
                         <div className="card-header">
                             <div className="row">
                                 <div className="col-md-6">
-                                    <h3 className="card-title">All Categories</h3>
+                                    <h3 className="card-title">Tất cả danh mục</h3>
                                 </div>
                                 <div className="col-md-6 text-right">
                                     {isAdmin() && (
                                         <button className="btn btn-success" onClick={() => openModal()}>
-                                            <i className="fas fa-plus"></i> Add Category
+                                            <i className="fas fa-plus"></i> Thêm danh mục
                                         </button>
                                     )}
                                 </div>
@@ -116,16 +116,16 @@ const Categories = () => {
                                     <thead>
                                         <tr>
                                             <th style={{ width: '80px' }}>ID</th>
-                                            <th>Name</th>
-                                            <th>Description</th>
-                                            {isAdmin() && <th style={{ width: '150px' }}>Actions</th>}
+                                            <th>Tên</th>
+                                            <th>Mô tả</th>
+                                            {isAdmin() && <th style={{ width: '150px' }}>Thao tác</th>}
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {categories.length === 0 ? (
                                             <tr>
                                                 <td colSpan={isAdmin() ? 4 : 3} className="text-center">
-                                                    No categories found
+                                                    Không tìm thấy danh mục
                                                 </td>
                                             </tr>
                                         ) : (
@@ -168,7 +168,7 @@ const Categories = () => {
                         <div className="modal-content">
                             <div className="modal-header">
                                 <h5 className="modal-title">
-                                    {editingCategory ? 'Edit Category' : 'Add Category'}
+                                    {editingCategory ? 'Chỉnh sửa danh mục' : 'Thêm danh mục'}
                                 </h5>
                                 <button type="button" className="close" onClick={closeModal}>
                                     <span>&times;</span>
@@ -178,7 +178,7 @@ const Categories = () => {
                                 <div className="modal-body">
                                     <AlertMessage>{error}</AlertMessage>
                                     <div className="form-group">
-                                        <label>Name</label>
+                                        <label>Tên</label>
                                         <input
                                             type="text"
                                             className="form-control"
@@ -188,7 +188,7 @@ const Categories = () => {
                                         />
                                     </div>
                                     <div className="form-group">
-                                        <label>Description</label>
+                                        <label>Mô tả</label>
                                         <textarea
                                             className="form-control"
                                             value={formData.description}
@@ -199,10 +199,10 @@ const Categories = () => {
                                 </div>
                                 <div className="modal-footer">
                                     <button type="button" className="btn btn-secondary" onClick={closeModal}>
-                                        Cancel
+                                        Hủy
                                     </button>
                                     <button type="submit" className="btn btn-primary">
-                                        {editingCategory ? 'Update' : 'Create'}
+                                        {editingCategory ? 'Cập nhật' : 'Tạo mới'}
                                     </button>
                                 </div>
                             </form>

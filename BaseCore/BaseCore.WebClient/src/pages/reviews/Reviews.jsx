@@ -240,7 +240,7 @@ const Reviews = () => {
                                             <i className="fas fa-search mr-1"></i> Tìm
                                         </button>
                                         <button type="button" className="btn btn-secondary btn-sm flex-fill" onClick={handleResetFilters}>
-                                            <i className="fas fa-undo mr-1"></i> Reset
+                                            <i className="fas fa-undo mr-1"></i> Đặt lại
                                         </button>
                                     </div>
                                 </div>
@@ -339,7 +339,7 @@ const Reviews = () => {
                                     <div className="text-muted small">
                                         Hiển thị trang {page} / {totalPages} (Tổng cộng {totalCount} đánh giá)
                                     </div>
-                                    <nav aria-label="Page navigation">
+                                    <nav aria-label="Điều hướng phân trang">
                                         <ul className="pagination pagination-sm mb-0">
                                             <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
                                                 <button 

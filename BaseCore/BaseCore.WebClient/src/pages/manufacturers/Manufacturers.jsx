@@ -65,7 +65,7 @@ const Manufacturers = () => {
 
         const payload = { name: formData.name.trim() };
         if (!payload.name) {
-            setError('Manufacturer name is required');
+            setError('Vui lòng nhập tên nhà sản xuất');
             return;
         }
 
@@ -79,12 +79,12 @@ const Manufacturers = () => {
             closeModal();
             loadManufacturers();
         } catch (error) {
-            setError(error.response?.data?.message || 'Operation failed');
+            setError(error.response?.data?.message || 'Thao tác thất bại');
         }
     };
 
     const handleDelete = async (manufacturer) => {
-        if (!window.confirm(`Delete manufacturer "${manufacturer.name}"?`)) {
+        if (!window.confirm(`Bạn có chắc chắn muốn xóa nhà sản xuất "${manufacturer.name}" không?`)) {
             return;
         }
 
@@ -92,13 +92,13 @@ const Manufacturers = () => {
             await manufacturerApi.delete(manufacturer.id);
             loadManufacturers();
         } catch (error) {
-            alert(error.response?.data?.message || 'Failed to delete manufacturer');
+            alert(error.response?.data?.message || 'Xóa nhà sản xuất thất bại');
         }
     };
 
     return (
         <div className="content-wrapper">
-            <PageHeader title="Manufacturers Management" />
+            <PageHeader title="Quản lý nhà sản xuất" />
 
             <section className="content">
                 <div className="container-fluid">
@@ -110,7 +110,7 @@ const Manufacturers = () => {
                                         <input
                                             type="text"
                                             className="form-control mr-2"
-                                            placeholder="Search manufacturer..."
+                                            placeholder="Tìm nhà sản xuất..."
                                             value={keyword}
                                             onChange={(event) => setKeyword(event.target.value)}
                                         />
@@ -119,7 +119,7 @@ const Manufacturers = () => {
                                 <div className="col-md-6 text-right">
                                     {isAdmin() && (
                                         <button className="btn btn-success" onClick={() => openModal()}>
-                                            <i className="fas fa-plus"></i> Add Manufacturer
+                                            <i className="fas fa-plus"></i> Thêm nhà sản xuất
                                         </button>
                                     )}
                                 </div>
@@ -135,15 +135,15 @@ const Manufacturers = () => {
                                             <thead>
                                                 <tr>
                                                     <th style={{ width: '90px' }}>ID</th>
-                                                    <th>Name</th>
-                                                    {isAdmin() && <th style={{ width: '150px' }}>Actions</th>}
+                                                    <th>Tên</th>
+                                                    {isAdmin() && <th style={{ width: '150px' }}>Thao tác</th>}
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {filteredManufacturers.length === 0 ? (
                                                     <tr>
                                                         <td colSpan={isAdmin() ? 3 : 2} className="text-center">
-                                                            No manufacturers found
+                                                            Không tìm thấy nhà sản xuất
                                                         </td>
                                                     </tr>
                                                 ) : (
@@ -174,7 +174,7 @@ const Manufacturers = () => {
                                         </table>
                                     </div>
                                     <div className="text-muted">
-                                        Total: {filteredManufacturers.length} manufacturers
+                                        Tổng: {filteredManufacturers.length} nhà sản xuất
                                     </div>
                                 </>
                             )}
@@ -189,7 +189,7 @@ const Manufacturers = () => {
                         <div className="modal-content">
                             <div className="modal-header">
                                 <h5 className="modal-title">
-                                    {editingManufacturer ? 'Edit Manufacturer' : 'Add Manufacturer'}
+                                    {editingManufacturer ? 'Chỉnh sửa nhà sản xuất' : 'Thêm nhà sản xuất'}
                                 </h5>
                                 <button type="button" className="close" onClick={closeModal}>
                                     <span>&times;</span>
@@ -199,7 +199,7 @@ const Manufacturers = () => {
                                 <div className="modal-body">
                                     <AlertMessage>{error}</AlertMessage>
                                     <div className="form-group">
-                                        <label>Name</label>
+                                        <label>Tên</label>
                                         <input
                                             type="text"
                                             className="form-control"
@@ -212,10 +212,10 @@ const Manufacturers = () => {
                                 </div>
                                 <div className="modal-footer">
                                     <button type="button" className="btn btn-secondary" onClick={closeModal}>
-                                        Cancel
+                                        Hủy
                                     </button>
                                     <button type="submit" className="btn btn-primary">
-                                        {editingManufacturer ? 'Update' : 'Create'}
+                                        {editingManufacturer ? 'Cập nhật' : 'Tạo mới'}
                                     </button>
                                 </div>
                             </form>

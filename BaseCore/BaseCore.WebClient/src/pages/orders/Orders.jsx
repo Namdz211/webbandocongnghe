@@ -43,7 +43,7 @@ const Orders = () => {
             console.log('Orders data:', response.data);
             setOrders(response.data || []);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load orders');
+            setError(err.response?.data?.message || 'Không tải được danh sách đơn hàng');
         } finally {
             setLoading(false);
         }
@@ -58,7 +58,7 @@ const Orders = () => {
             setOrderDetails(response.data.details || []);
             setShowModal(true);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to load order details');
+            setError(err.response?.data?.message || 'Không tải được chi tiết đơn hàng');
         }
     };
 
@@ -71,7 +71,7 @@ const Orders = () => {
                 setSelectedOrder({ ...selectedOrder, status: newStatus });
             }
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to update order status');
+            setError(err.response?.data?.message || 'Cập nhật trạng thái đơn hàng thất bại');
         }
     };
 
@@ -86,7 +86,7 @@ const Orders = () => {
             await loadOrders();
             setShowModal(false);
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to cancel order');
+            setError(err.response?.data?.message || 'Hủy đơn hàng thất bại');
         }
     };
 
@@ -108,7 +108,7 @@ const Orders = () => {
             setShowAssignModal(false);
             setAssignData({ transportUnit: 'GHN', trackingCode: '' });
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to assign transport');
+            setError(err.response?.data?.message || 'Giao đơn cho đơn vị vận chuyển thất bại');
         }
     };
 
@@ -124,7 +124,7 @@ const Orders = () => {
             setShowDeliveryModal(false);
             setDeliveryData({ deliveryStatus: 'Chờ lấy hàng', deliveryDate: '' });
         } catch (err) {
-            setError(err.response?.data?.message || 'Failed to update delivery status');
+            setError(err.response?.data?.message || 'Cập nhật trạng thái giao hàng thất bại');
         }
     };
 
@@ -170,7 +170,7 @@ const Orders = () => {
             'Giao thất bại': 'danger'
         };
         const color = colors[status] || 'dark';
-        return <span className={`badge badge-${color}`}>{status || 'N/A'}</span>;
+        return <span className={`badge badge-${color}`}>{status || 'Chưa có'}</span>;
     };
 
     // Get payment badge
@@ -222,8 +222,8 @@ const Orders = () => {
                         </div>
                         <div className="col-sm-6">
                             <ol className="breadcrumb float-sm-right">
-                                <li className="breadcrumb-item"><a href="/">Home</a></li>
-                                <li className="breadcrumb-item active">Orders</li>
+                                <li className="breadcrumb-item"><a href="/">Trang chủ</a></li>
+                                <li className="breadcrumb-item active">Đơn hàng</li>
                             </ol>
                         </div>
                     </div>
@@ -324,7 +324,7 @@ const Orders = () => {
                             {loading ? (
                                 <div className="text-center">
                                     <div className="spinner-border text-primary" role="status">
-                                        <span className="sr-only">Loading...</span>
+                                        <span className="sr-only">Đang tải...</span>
                                     </div>
                                 </div>
                             ) : (
@@ -340,7 +340,7 @@ const Orders = () => {
                                                 <th>Thanh toán</th>
                                                 <th>Vận chuyển</th>
                                                 <th>Giao hàng</th>
-                                                <th>Actions</th>
+                                                <th>Thao tác</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -352,7 +352,7 @@ const Orders = () => {
                                                 orders.map((order) => (
                                                     <tr key={order.id}>
                                                         <td>#{order.id}</td>
-                                                        <td>{order.user?.name || 'Unknown'}</td>
+                                                        <td>{order.user?.name || 'Chưa rõ'}</td>
                                                         <td>{formatDate(order.orderDate)}</td>
                                                         <td>{formatCurrency(order.totalAmount)}</td>
                                                         <td>{getStatusBadge(order.status)}</td>
@@ -420,7 +420,7 @@ const Orders = () => {
                                                                         href={`https://ghn.vn/tracking?code=${order.transportTrackingCode}`}
                                                                         target="_blank"
                                                                         className="btn btn-sm btn-secondary ml-1"
-                                                                        title="Tracking"
+                                                                        title="Theo dõi vận chuyển"
                                                                     >
                                                                         <i className="fas fa-map-marker-alt"></i>
                                                                     </a>
@@ -460,7 +460,7 @@ const Orders = () => {
                                             <tr><td><strong>Tạm tính:</strong></td><td>{formatCurrency(selectedOrder.originalAmount || selectedOrder.totalAmount)}</td></tr>
                                             {(selectedOrder.discountAmount || 0) > 0 && (
                                                 <>
-                                                    <tr><td><strong>Ưu đãi:</strong></td><td>{selectedOrder.promotionName || `${selectedOrder.discountPercent}% discount`}</td></tr>
+                                                    <tr><td><strong>Ưu đãi:</strong></td><td>{selectedOrder.promotionName || `Giảm ${selectedOrder.discountPercent}%`}</td></tr>
                                                     <tr><td><strong>Giảm giá:</strong></td><td>-{formatCurrency(selectedOrder.discountAmount)}</td></tr>
                                                 </>
                                             )}
@@ -474,7 +474,7 @@ const Orders = () => {
                                     <div className="col-md-6">
                                         <h5>Thông tin giao hàng</h5>
                                         <table className="table table-sm">
-                                            <tr><td><strong>Địa chỉ:</strong></td><td>{selectedOrder.shippingAddress || 'N/A'}</td></tr>
+                                            <tr><td><strong>Địa chỉ:</strong></td><td>{selectedOrder.shippingAddress || 'Chưa có'}</td></tr>
                                             {selectedOrder.transportUnit && <tr><td><strong>Vận chuyển:</strong></td><td>{selectedOrder.transportUnit}</td></tr>}
                                             {selectedOrder.transportTrackingCode && (
                                                 <tr>
@@ -514,7 +514,7 @@ const Orders = () => {
                                             {orderDetails.map((detail) => (
                                                 <tr key={detail.id}>
                                                     <td>
-                                                        <strong>{detail.product?.name || 'Unknown Product'}</strong>
+                                                        <strong>{detail.product?.name || 'Sản phẩm chưa rõ'}</strong>
                                                         {detail.product?.description && (
                                                             <small className="text-muted d-block">{detail.product.description}</small>
                                                         )}

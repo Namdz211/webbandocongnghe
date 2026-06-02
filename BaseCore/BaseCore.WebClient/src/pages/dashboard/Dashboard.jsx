@@ -169,7 +169,7 @@ const Dashboard = () => {
                     {loading ? (
                         <div className="text-center py-5">
                             <div className="spinner-border text-primary" role="status">
-                                <span className="sr-only">Loading...</span>
+                                <span className="sr-only">Đang tải...</span>
                             </div>
                         </div>
                     ) : (
