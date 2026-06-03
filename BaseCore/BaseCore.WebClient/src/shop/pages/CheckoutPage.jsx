@@ -11,10 +11,70 @@ import {
 } from '../utils/coupons.js'
 import { formatCurrency } from '../utils/formatters.js'
 
+const CUSTOMER_DISCOUNT_LABELS = {
+  VIP: 'Kh\u00e1ch VIP',
+  Loyal: 'Kh\u00e1ch th\u00e2n thi\u1ebft',
+  Potential: 'Kh\u00e1ch ti\u1ec1m n\u0103ng',
+  New: 'Kh\u00e1ch m\u1edbi',
+}
+
+function getOrderValue(order, camelKey, pascalKey) {
+  return order?.[camelKey] ?? order?.[pascalKey]
+}
+
+function getCustomerSegment(completedOrders, totalSpent) {
+  if (completedOrders >= 5 || totalSpent >= 50000000) return 'VIP'
+  if (completedOrders >= 3 || totalSpent >= 20000000) return 'Loyal'
+  if (completedOrders >= 2 || totalSpent >= 10000000) return 'Potential'
+  if (completedOrders === 1) return 'New'
+  return 'NoOrders'
+}
+
+function getCustomerDiscountPercent(segment) {
+  switch (segment) {
+    case 'VIP':
+      return 10
+    case 'Loyal':
+      return 7
+    case 'Potential':
+      return 5
+    case 'New':
+      return 3
+    default:
+      return 0
+  }
+}
+
+function getCustomerDiscountPreview(customerOrders, subtotalAmount, enabled) {
+  if (!enabled) {
+    return { amount: 0, percent: 0, segment: 'NoOrders', label: '' }
+  }
+
+  const completedOrders = (Array.isArray(customerOrders) ? customerOrders : [])
+    .filter((order) => String(getOrderValue(order, 'status', 'Status') || '').toLowerCase() === 'completed')
+  const totalSpent = completedOrders.reduce(
+    (sum, order) => sum + Number(getOrderValue(order, 'totalAmount', 'TotalAmount') || 0),
+    0,
+  )
+  const segment = getCustomerSegment(completedOrders.length, totalSpent)
+  const percent = getCustomerDiscountPercent(segment)
+  const amount = percent > 0
+    ? Math.round((Number(subtotalAmount || 0) * percent) / 100)
+    : 0
+
+  return {
+    amount,
+    percent,
+    segment,
+    label: CUSTOMER_DISCOUNT_LABELS[segment] || '',
+  }
+}
+
 export default function CheckoutPage({
   auth,
   cart,
   savedCoupons,
+  customerOrders,
   onNavigate,
   onPlaceOrder,
   submitting,
@@ -52,10 +112,18 @@ export default function CheckoutPage({
     (coupon) => getCouponCode(coupon) === selectedCouponCode,
   )
   const selectedCouponUsable = isCouponUsable(selectedCoupon, subtotalAmount)
-  const couponDiscountAmount = selectedCouponUsable
+  const customerDiscount = getCustomerDiscountPreview(customerOrders, subtotalAmount, Boolean(auth))
+  const rawCustomerDiscountAmount = customerDiscount.amount
+  const rawCouponDiscountAmount = selectedCouponUsable
     ? getCouponDiscountAmount(selectedCoupon, subtotalAmount)
     : 0
-  const totalAmount = Math.max(0, subtotalAmount - couponDiscountAmount)
+  const totalDiscountAmount = Math.min(subtotalAmount, rawCustomerDiscountAmount + rawCouponDiscountAmount)
+  const customerDiscountAmount = Math.min(rawCustomerDiscountAmount, totalDiscountAmount)
+  const couponDiscountAmount = Math.min(
+    rawCouponDiscountAmount,
+    Math.max(0, totalDiscountAmount - customerDiscountAmount),
+  )
+  const totalAmount = Math.max(0, subtotalAmount - totalDiscountAmount)
 
   function updateShippingInfo(field, value) {
     setShippingInfo((current) => ({
@@ -262,6 +330,17 @@ export default function CheckoutPage({
                     <strong>{'Mi\u1ec5n ph\u00ed'}</strong>
                   </div>
                 </div>
+                {customerDiscountAmount > 0 && (
+                  <div className="order-col checkout-discount-row">
+                    <div>
+                      {'\u01afu \u0111\u00e3i kh\u00e1ch h\u00e0ng'}
+                      <small>{`${customerDiscount.label} -${customerDiscount.percent}%`}</small>
+                    </div>
+                    <div>
+                      <strong>-{formatCurrency(customerDiscountAmount)}</strong>
+                    </div>
+                  </div>
+                )}
                 {couponDiscountAmount > 0 && (
                   <div className="order-col checkout-discount-row">
                     <div>

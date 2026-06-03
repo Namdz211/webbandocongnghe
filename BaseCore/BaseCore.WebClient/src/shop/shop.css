@@ -704,6 +704,36 @@ textarea {
   color: #2b2d42;
 }
 
+.footer-columns {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.footer-columns::before,
+.footer-columns::after {
+  display: none;
+}
+
+.footer-columns > [class*='col-'] {
+  display: flex;
+}
+
+.footer-columns .footer {
+  width: 100%;
+}
+
+.footer-links li .footer-link-text {
+  color: #b9babc;
+  line-height: 1.7;
+}
+
+@media only screen and (min-width: 768px) {
+  .footer-columns .footer-links a,
+  .footer-columns .footer-links .footer-link-text {
+    white-space: nowrap;
+  }
+}
+
 .footer-note {
   color: #b9bfd3;
   line-height: 1.9;
@@ -1848,6 +1878,30 @@ textarea {
   color: #d10024;
 }
 
+.export-invoice-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 34px;
+  padding: 8px 14px;
+  border: 1px solid rgba(209, 0, 36, 0.24);
+  border-radius: 999px;
+  background: #fff;
+  color: #d10024;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.export-invoice-btn:hover,
+.export-invoice-btn:focus {
+  background: #d10024;
+  color: #fff;
+  outline: none;
+}
+
 .shopee-order-items {
   display: flex;
   flex-direction: column;
@@ -2473,6 +2527,467 @@ textarea {
 .floating-cart strong {
   font-size: 12px;
   letter-spacing: 0.04em;
+}
+
+.bill-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  overflow: auto;
+  padding: 24px;
+  background: rgba(21, 31, 48, 0.62);
+}
+
+.bill-modal {
+  width: min(960px, 100%);
+  margin: 0 auto;
+  padding: 16px;
+  border-radius: 8px;
+  background: #f5f6fa;
+  box-shadow: 0 24px 60px rgba(21, 31, 48, 0.24);
+}
+
+.bill-modal-actions {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 10px;
+  background: #f5f6fa;
+}
+
+.bill-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border: 0;
+  border-radius: 50%;
+  background: #e9edf5;
+  color: #151f30;
+}
+
+.bill-close-btn:hover,
+.bill-close-btn:focus {
+  background: #d10024;
+  color: #fff;
+  outline: none;
+}
+
+.sales-bill {
+  width: 100%;
+  max-width: 820px;
+  margin: 0 auto;
+  overflow-x: auto;
+  padding: 28px;
+  border: 1px solid #111;
+  background: #fff;
+  color: #111;
+  font-family: "Times New Roman", Times, serif;
+}
+
+.sales-bill + .sales-bill {
+  margin-top: 18px;
+}
+
+.sales-bill-page-number {
+  margin-top: 12px;
+  color: #111;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  text-align: right;
+}
+
+.sales-bill-heading {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 24px;
+  align-items: start;
+  margin-bottom: 24px;
+}
+
+.sales-bill-store h2,
+.sales-bill-title h1 {
+  margin: 0 0 10px;
+  color: #111;
+  font-family: inherit;
+  font-weight: 700;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.sales-bill-store h2 {
+  font-size: 20px;
+}
+
+.sales-bill-title h1 {
+  font-size: 22px;
+}
+
+.sales-bill-store p,
+.sales-bill-title p,
+.sales-bill-title small,
+.sales-bill-customer p {
+  margin: 4px 0;
+  color: #111;
+  font-size: 16px;
+}
+
+.sales-bill-store p {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px dotted #111;
+}
+
+.sales-bill-store p span {
+  flex: 1;
+}
+
+.sales-bill-title {
+  text-align: center;
+}
+
+.sales-bill-title p {
+  font-weight: 700;
+}
+
+.sales-bill-payment {
+  margin-top: 6px;
+}
+
+.sales-bill-payment small {
+  display: block;
+  margin: 3px 0;
+  color: #111;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.sales-bill-payment span {
+  margin-right: 4px;
+}
+
+.sales-bill-payment strong {
+  font-weight: 700;
+}
+
+.sales-bill-customer {
+  margin-bottom: 8px;
+}
+
+.sales-bill-customer p {
+  display: flex;
+  gap: 6px;
+  border-bottom: 1px dotted #111;
+}
+
+.sales-bill-customer span {
+  flex: 0 0 auto;
+}
+
+.sales-bill-customer strong {
+  flex: 1;
+  min-width: 0;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.sales-bill-table {
+  width: 100%;
+  min-width: 620px;
+  border-collapse: collapse;
+  table-layout: fixed;
+  color: #111;
+}
+
+.sales-bill-table th,
+.sales-bill-table td {
+  height: 28px;
+  border: 1px solid #111;
+  padding: 4px 6px;
+  color: #111;
+  font-size: 16px;
+  line-height: 1.2;
+  vertical-align: middle;
+}
+
+.sales-bill-table th {
+  text-align: center;
+  font-weight: 700;
+}
+
+.sales-bill-table th:nth-child(1),
+.sales-bill-table td:nth-child(1) {
+  width: 48px;
+  text-align: center;
+}
+
+.sales-bill-table th:nth-child(3),
+.sales-bill-table td:nth-child(3) {
+  width: 92px;
+  text-align: center;
+}
+
+.sales-bill-table th:nth-child(4),
+.sales-bill-table td:nth-child(4),
+.sales-bill-table th:nth-child(5),
+.sales-bill-table td:nth-child(5) {
+  width: 138px;
+  text-align: right;
+}
+
+.sales-bill-table th:nth-child(2),
+.sales-bill-table td:nth-child(2) {
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.sales-bill-sum-row td {
+  font-weight: 700;
+}
+
+.sales-bill-sum-row td:first-child {
+  text-align: center;
+}
+
+.sales-bill-discount,
+.sales-bill-total-line {
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  border-bottom: 1px dotted #111;
+  color: #111;
+  font-size: 16px;
+}
+
+.sales-bill-discount {
+  justify-content: flex-end;
+}
+
+.sales-bill-total-line strong {
+  flex: 1;
+  text-align: right;
+}
+
+.sales-bill-date {
+  margin-bottom: 14px;
+  text-align: center;
+  color: #111;
+  font-size: 16px;
+}
+
+.sales-bill-signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 80px;
+  min-height: 150px;
+  margin-top: 18px;
+  color: #111;
+  font-size: 16px;
+  text-align: center;
+}
+
+.sales-bill-signature-cell {
+  min-height: 140px;
+  position: relative;
+  text-align: center;
+}
+
+.sales-bill-signature-cell > strong {
+  display: block;
+}
+
+.sales-bill-signature-cell.seller {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
+.sales-bill-stamp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 174px;
+  min-height: 58px;
+  margin-top: 16px;
+  padding: 8px 12px;
+  border: 2px solid #d10024;
+  border-radius: 50%;
+  color: #d10024;
+  font-family: Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  text-transform: uppercase;
+  transform: rotate(-8deg);
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  forced-color-adjust: none;
+}
+
+.sales-bill-stamp span {
+  max-width: 140px;
+  color: #d10024;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  forced-color-adjust: none;
+}
+
+@media only screen and (max-width: 767px) {
+  .bill-modal-backdrop {
+    padding: 12px;
+  }
+
+  .bill-modal {
+    padding: 10px;
+  }
+
+  .bill-modal-actions {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .sales-bill {
+    padding: 18px;
+  }
+
+  .sales-bill-heading {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .sales-bill-signatures {
+    gap: 24px;
+  }
+
+  .sales-bill-stamp {
+    width: 150px;
+    font-size: 11px;
+  }
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  html,
+  body {
+    width: 210mm !important;
+    min-width: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body > *,
+  #root {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  .app-shell {
+    display: block !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .app-shell > :not(.bill-modal-backdrop) {
+    display: none !important;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .bill-modal-backdrop,
+  .bill-modal-backdrop * {
+    visibility: visible !important;
+  }
+
+  .bill-modal-backdrop {
+    position: static !important;
+    inset: auto !important;
+    display: block !important;
+    width: 100% !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #fff !important;
+  }
+
+  .bill-modal {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border-radius: 0;
+    background: #fff !important;
+    box-shadow: none !important;
+  }
+
+  .bill-modal-actions,
+  .no-print,
+  .floating-cart,
+  .status-banner {
+    display: none !important;
+  }
+
+  .sales-bill {
+    box-sizing: border-box;
+    width: 190mm !important;
+    max-width: 190mm !important;
+    min-width: 0 !important;
+    margin: 10mm auto 0 !important;
+    overflow: visible !important;
+    padding: 8mm !important;
+    border: 1px solid #111 !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .sales-bill + .sales-bill {
+    margin-top: 10mm !important;
+  }
+
+  .sales-bill:not(:last-child) {
+    break-after: page;
+    page-break-after: always;
+  }
+
+  .sales-bill-page-number {
+    color: #111 !important;
+    visibility: visible !important;
+  }
+
+  .sales-bill-table {
+    min-width: 0 !important;
+  }
+
+  .sales-bill-stamp,
+  .sales-bill-stamp span,
+  .sales-bill-stamp * {
+    border-color: #d10024 !important;
+    color: #d10024 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    forced-color-adjust: none !important;
+  }
 }
 
 @media only screen and (max-width: 991px) {

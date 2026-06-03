@@ -7,7 +7,7 @@ import { getProductImage } from '../utils/productImages.js'
 import { getAuthToken } from '../utils/auth.js'
 import { toOrderStatusLabel } from '../utils/orders.js'
 
-export default function OrdersPage({ auth, onNavigate, onNotify, onOrdersChanged }) {
+export default function OrdersPage({ auth, onNavigate, onNotify, onExportInvoice, onOrdersChanged }) {
   const [loading, setLoading] = useState(Boolean(auth))
   const [error, setError] = useState('')
   const [orders, setOrders] = useState([])
@@ -211,6 +211,7 @@ export default function OrdersPage({ auth, onNavigate, onNotify, onOrdersChanged
                     const orderStatus = (order.status || '').toLowerCase()
                     const canCancelOrder = order.canCustomerCancel || orderStatus === 'pending' || orderStatus === 'confirmed'
                     const canReorder = orderStatus === 'completed'
+                    const canExportInvoice = orderStatus === 'completed'
                     const reviewProductId = details
                       .map((detail) => detail.product?.id || detail.productId)
                       .find((productId) => Number(productId) > 0)
@@ -227,6 +228,15 @@ export default function OrdersPage({ auth, onNavigate, onNotify, onOrdersChanged
                             <span className={`order-status ${order.status?.toLowerCase() || 'pending'}`}>
                               {toOrderStatusLabel(order.status)}
                             </span>
+                            {canExportInvoice && (
+                              <button
+                                className="export-invoice-btn"
+                                type="button"
+                                onClick={() => onExportInvoice?.(order)}
+                              >
+                                {'Xu\u1ea5t h\u00f3a \u0111\u01a1n'}
+                              </button>
+                            )}
                           </div>
                         </div>
 

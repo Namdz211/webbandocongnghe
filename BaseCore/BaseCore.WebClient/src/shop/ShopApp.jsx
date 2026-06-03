@@ -10,6 +10,7 @@ import { ORDER_REFRESH_INTERVAL_MS } from './constants/orders.js'
 import { STORAGE_KEYS } from './constants/storage.js'
 import Header from './components/Header.jsx'
 import Footer from './components/Footer.jsx'
+import OrderBillModal from './components/OrderBillModal.jsx'
 import HomePage from './pages/HomePage.jsx'
 import StorePage from './pages/StorePage.jsx'
 import ProductPage from './pages/ProductPage.jsx'
@@ -24,6 +25,94 @@ import { countActiveOrders } from './utils/orders.js'
 import { parseRoute } from './utils/routes.js'
 import { readStorage, writeStorage } from './utils/storage.js'
 
+function readOrderValue(order, ...keys) {
+  for (const key of keys) {
+    if (order?.[key] !== undefined && order?.[key] !== null) {
+      return order[key]
+    }
+  }
+
+  return undefined
+}
+
+function getPaymentMethodLabel(paymentMethod) {
+  switch (String(paymentMethod || '').trim().toLowerCase()) {
+    case 'cod':
+    case 'counter':
+      return 'Thanh toán khi nhận hàng'
+    case 'bank_transfer':
+      return 'Chuyển khoản qua ngân hàng'
+    case 'e_wallet':
+    case 'momo':
+    case 'zalopay':
+      return 'Ví điện tử'
+    default:
+      return 'Chưa xác định'
+  }
+}
+
+function getPaymentStatusLabel(paymentStatus, paymentMethod) {
+  const normalizedStatus = String(paymentStatus || '').trim().toLowerCase()
+
+  if (normalizedStatus === 'paid') {
+    return 'Đã thanh toán'
+  }
+
+  if (normalizedStatus === 'unpaid' || normalizedStatus === 'pending') {
+    return 'Chưa thanh toán'
+  }
+
+  return String(paymentMethod || '').trim().toLowerCase() === 'cod'
+    ? 'Chưa thanh toán'
+    : 'Đã thanh toán'
+}
+
+function buildOrderBillFromOrder(order) {
+  const details = Array.isArray(order?.details) ? order.details : []
+  const items = details.map((detail) => {
+    const product = detail.product || detail.Product || {}
+    const quantity = Number(readOrderValue(detail, 'quantity', 'Quantity') || 0)
+    const unitPrice = Number(readOrderValue(detail, 'unitPrice', 'UnitPrice') || 0)
+    const productId = readOrderValue(detail, 'productId', 'ProductId')
+    const productName = readOrderValue(product, 'name', 'Name') || `Sản phẩm #${productId}`
+
+    return {
+      id: readOrderValue(detail, 'id', 'Id') || productId,
+      name: productName,
+      quantity,
+      unitPrice,
+      amount: quantity * unitPrice,
+    }
+  })
+  const itemSubtotalAmount = items.reduce((sum, item) => sum + item.amount, 0)
+  const subtotalFromOrder = readOrderValue(order, 'originalAmount', 'OriginalAmount')
+  const subtotalAmount = subtotalFromOrder !== undefined
+    ? Number(subtotalFromOrder)
+    : itemSubtotalAmount
+  const discountAmount = Number(readOrderValue(order, 'discountAmount', 'DiscountAmount') || 0)
+  const totalFromOrder = readOrderValue(order, 'totalAmount', 'TotalAmount')
+  const paymentMethod = readOrderValue(order, 'paymentMethod', 'PaymentMethod') || ''
+  const paymentStatus = readOrderValue(order, 'paymentStatus', 'PaymentStatus') || ''
+
+  return {
+    orderId: readOrderValue(order, 'id', 'Id'),
+    orderDate: readOrderValue(order, 'orderDate', 'OrderDate') || new Date().toISOString(),
+    customerName: readOrderValue(order, 'customerName', 'CustomerName', 'customerUserName', 'CustomerUserName') || '',
+    customerPhone: readOrderValue(order, 'customerPhone', 'CustomerPhone') || '',
+    customerEmail: readOrderValue(order, 'customerEmail', 'CustomerEmail') || '',
+    customerAddress: readOrderValue(order, 'shippingAddress', 'ShippingAddress') || '',
+    items,
+    subtotalAmount,
+    discountAmount,
+    promotionName: readOrderValue(order, 'promotionName', 'PromotionName') || '',
+    paymentMethod,
+    paymentMethodLabel: readOrderValue(order, 'paymentMethodLabel', 'PaymentMethodLabel') || getPaymentMethodLabel(paymentMethod),
+    paymentStatus,
+    paymentStatusLabel: readOrderValue(order, 'paymentStatusLabel', 'PaymentStatusLabel') || getPaymentStatusLabel(paymentStatus, paymentMethod),
+    totalAmount: totalFromOrder !== undefined ? Number(totalFromOrder) : Math.max(0, subtotalAmount - discountAmount),
+  }
+}
+
 function App() {
   const [route, setRoute] = useState(parseRoute)
   const [auth, setAuth] = useState(() => readStorage(STORAGE_KEYS.auth, null))
@@ -37,7 +126,9 @@ function App() {
   const [loadingHomeData, setLoadingHomeData] = useState(true)
   const [notice, setNotice] = useState(null)
   const [placingOrder, setPlacingOrder] = useState(false)
+  const [orderBill, setOrderBill] = useState(null)
   const [orderBadgeCount, setOrderBadgeCount] = useState(0)
+  const [customerOrders, setCustomerOrders] = useState([])
   const [orderBadgeRefreshKey, setOrderBadgeRefreshKey] = useState(0)
   const noticeTimeoutRef = useRef(null)
   const authToken = getAuthToken(auth)
@@ -61,6 +152,7 @@ function App() {
   useEffect(() => {
     if (!authToken || isExpiredToken(authToken)) {
       setOrderBadgeCount(0)
+      setCustomerOrders([])
       return undefined
     }
 
@@ -70,10 +162,13 @@ function App() {
       try {
         const response = await api.getOrders(authToken)
         if (!cancelled) {
-          setOrderBadgeCount(countActiveOrders(Array.isArray(response) ? response : []))
+          const orderList = Array.isArray(response) ? response : []
+          setCustomerOrders(orderList)
+          setOrderBadgeCount(countActiveOrders(orderList))
         }
       } catch {
         if (!cancelled) {
+          setCustomerOrders([])
           setOrderBadgeCount(0)
         }
       }
@@ -471,6 +566,23 @@ function App() {
     }
   }
 
+  function closeOrderBill() {
+    setOrderBill(null)
+  }
+
+  function goAfterOrderBill() {
+    const redirectPath = orderBill?.redirectPath || '/store'
+    setOrderBill(null)
+    navigate(redirectPath)
+  }
+
+  function exportOrderBill(order) {
+    setOrderBill({
+      ...buildOrderBillFromOrder(order),
+      redirectPath: '/orders',
+    })
+  }
+
   const cartSummary = {
     count: cart.reduce((sum, item) => sum + item.quantity, 0),
     total: cart.reduce((sum, item) => sum + item.price * item.quantity, 0),
@@ -555,6 +667,7 @@ function App() {
             auth={auth}
             cart={checkoutItems || cart}
             savedCoupons={savedCoupons}
+            customerOrders={customerOrders}
             onNavigate={navigate}
             onPlaceOrder={placeOrder}
             submitting={placingOrder}
@@ -567,6 +680,7 @@ function App() {
             auth={auth}
             onNavigate={navigate}
             onNotify={openNotice}
+            onExportInvoice={exportOrderBill}
             onOrdersChanged={() => setOrderBadgeRefreshKey((current) => current + 1)}
           />
         )
@@ -623,6 +737,15 @@ function App() {
       )}
 
       {content}
+
+      {orderBill && (
+        <OrderBillModal
+          bill={orderBill}
+          onClose={closeOrderBill}
+          onGoNext={goAfterOrderBill}
+          goNextLabel={auth ? 'Xem \u0111\u01a1n h\u00e0ng' : 'Ti\u1ebfp t\u1ee5c mua'}
+        />
+      )}
 
       <Footer />
 
