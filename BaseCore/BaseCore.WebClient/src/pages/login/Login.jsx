@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import AdminAssets from '../../components/AdminAssets';
 
 const Login = () => {
     const [username, setUsername] = useState('');
@@ -28,13 +29,14 @@ const Login = () => {
 
     return (
         <div className="login-page" style={{ minHeight: '100vh' }}>
+            <AdminAssets />
             <div className="login-box">
                 <div className="login-logo">
                     <a href="/admin">BaseCore Sales</a>
                 </div>
                 <div className="card">
                     <div className="card-body login-card-body">
-                        <p className="login-box-msg">Sign in to start your session</p>
+                        <p className="login-box-msg">Đăng nhập để bắt đầu phiên làm việc</p>
 
                         {error && (
                             <div className="alert alert-danger alert-dismissible">
@@ -50,7 +52,7 @@ const Login = () => {
                                 <input
                                     type="text"
                                     className="form-control"
-                                    placeholder="Username"
+                                    placeholder="Tên đăng nhập"
                                     value={username}
                                     onChange={(e) => setUsername(e.target.value)}
                                     required
@@ -65,7 +67,7 @@ const Login = () => {
                                 <input
                                     type="password"
                                     className="form-control"
-                                    placeholder="Password"
+                                    placeholder="Mật khẩu"
                                     value={password}
                                     onChange={(e) => setPassword(e.target.value)}
                                     required
@@ -80,7 +82,7 @@ const Login = () => {
                                 <div className="col-8">
                                     <div className="icheck-primary">
                                         <input type="checkbox" id="remember" />
-                                        <label htmlFor="remember">Remember Me</label>
+                                        <label htmlFor="remember">Ghi nhớ đăng nhập</label>
                                     </div>
                                 </div>
                                 <div className="col-4">
@@ -91,7 +93,7 @@ const Login = () => {
                                     >
                                         {loading ? (
                                             <span className="spinner-border spinner-border-sm"></span>
-                                        ) : 'Sign In'}
+                                        ) : 'Đăng nhập'}
                                     </button>
                                 </div>
                             </div>

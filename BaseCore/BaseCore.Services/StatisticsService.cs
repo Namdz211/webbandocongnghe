@@ -24,5 +24,20 @@ namespace BaseCore.Services
         {
             return await _repository.GetInventoryAsync();
         }
+
+        public async Task<IEnumerable<OrderByCategoryDto>> GetOrderStatsByCategoryAsync()
+        {
+            return await _repository.GetOrderStatsByCategoryAsync();
+        }
+
+        public async Task<IEnumerable<InventoryDto>> GetInventoryByCategoryAsync()
+        {
+            return await _repository.GetInventoryByCategoryAsync();
+        }
+
+        public async Task<IEnumerable<ProductSalesDto>> GetTopSellingProductsAsync(DateTime? startDate, DateTime? endDate, int top)
+        {
+            return await _repository.GetTopSellingProductsAsync(startDate, endDate, top);
+        }
     }
 }

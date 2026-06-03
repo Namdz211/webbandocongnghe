@@ -10,6 +10,11 @@ const SORT_OPTIONS = [
     icon: 'fa-clock-o',
   },
   {
+    value: 'bestSelling',
+    label: 'Bán chạy',
+    icon: 'fa-fire',
+  },
+  {
     value: 'priceAsc',
     label: 'Giá bán tăng dần',
     icon: 'fa-sort-amount-asc',

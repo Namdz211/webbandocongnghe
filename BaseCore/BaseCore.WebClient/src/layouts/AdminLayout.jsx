@@ -18,7 +18,6 @@ const AdminLayout = ({ children }) => {
     return (
         <div className="wrapper">
             <AdminAssets />
-            {/* Navbar */}
             <nav className="main-header navbar navbar-expand navbar-white navbar-light">
                 <ul className="navbar-nav">
                     <li className="nav-item">
@@ -27,7 +26,7 @@ const AdminLayout = ({ children }) => {
                         </a>
                     </li>
                     <li className="nav-item d-none d-sm-inline-block">
-                        <Link to="/" className="nav-link">Shop</Link>
+                        <Link to="/" className="nav-link">Trang chủ</Link>
                     </li>
                 </ul>
 
@@ -42,18 +41,17 @@ const AdminLayout = ({ children }) => {
                             </span>
                             <div className="dropdown-divider"></div>
                             <button className="dropdown-item" onClick={handleLogout}>
-                                <i className="fas fa-sign-out-alt mr-2"></i> Logout
+                                <i className="fas fa-sign-out-alt mr-2"></i> Đăng xuất
                             </button>
                         </div>
                     </li>
                 </ul>
             </nav>
 
-            {/* Sidebar */}
             <aside className="main-sidebar sidebar-dark-primary elevation-4">
                 <Link to="/admin" className="brand-link">
                     <span className="brand-text font-weight-light ml-3">
-                        <b>Store</b> Sales
+                        <b>Quản trị</b> bán hàng
                     </span>
                 </Link>
 
@@ -72,25 +70,25 @@ const AdminLayout = ({ children }) => {
                             <li className="nav-item">
                                 <Link to="/admin" className={`nav-link ${isActive('/admin')}`}>
                                     <i className="nav-icon fas fa-tachometer-alt text-warning"></i>
-                                    <p>Dashboard</p>
+                                    <p>Bảng điều khiển</p>
                                 </Link>
                             </li>
                             <li className="nav-item">
                                 <Link to="/admin/products" className={`nav-link ${isActive('/admin/products')}`}>
                                     <i className="nav-icon fas fa-box text-warning"></i>
-                                    <p>Products</p>
+                                    <p>Sản phẩm</p>
                                 </Link>
                             </li>
                             <li className="nav-item">
                                 <Link to="/admin/categories" className={`nav-link ${isActive('/admin/categories')}`}>
                                     <i className="nav-icon fas fa-tags text-warning"></i>
-                                    <p>Categories</p>
+                                    <p>Danh mục</p>
                                 </Link>
                             </li>
                             <li className="nav-item">
                                 <Link to="/admin/manufacturers" className={`nav-link ${isActive('/admin/manufacturers')}`}>
                                     <i className="nav-icon fas fa-industry text-warning"></i>
-                                    <p>Manufacturers</p>
+                                    <p>Nhà sản xuất</p>
                                 </Link>
                             </li>
                             {isAdmin() && (
@@ -98,31 +96,31 @@ const AdminLayout = ({ children }) => {
                                     <li className="nav-item">
                                         <Link to="/admin/orders" className={`nav-link ${isActive('/admin/orders')}`}>
                                             <i className="nav-icon fas fa-shopping-cart text-warning"></i>
-                                            <p>Orders</p>
+                                            <p>Đơn hàng</p>
                                         </Link>
                                     </li>
                                     <li className="nav-item">
                                         <Link to="/admin/customers" className={`nav-link ${isActive('/admin/customers')}`}>
                                             <i className="nav-icon fas fa-address-book text-warning"></i>
-                                            <p>Customers</p>
+                                            <p>Khách hàng</p>
                                         </Link>
                                     </li>
                                     <li className="nav-item">
                                         <Link to="/admin/users" className={`nav-link ${isActive('/admin/users')}`}>
                                             <i className="nav-icon fas fa-users text-warning"></i>
-                                            <p>Users</p>
+                                            <p>Người dùng</p>
                                         </Link>
                                     </li>
                                     <li className="nav-item">
                                         <Link to="/admin/reviews" className={`nav-link ${isActive('/admin/reviews')}`}>
                                             <i className="nav-icon fas fa-star text-warning"></i>
-                                            <p>Reviews</p>
+                                            <p>Đánh giá</p>
                                         </Link>
                                     </li>
                                     <li className="nav-item">
                                         <Link to="/admin/coupons" className={`nav-link ${isActive('/admin/coupons')}`}>
                                             <i className="nav-icon fas fa-ticket-alt text-warning"></i>
-                                            <p>Mã Giảm Giá</p>
+                                            <p>Mã giảm giá</p>
                                         </Link>
                                     </li>
                                 </>
@@ -132,14 +130,12 @@ const AdminLayout = ({ children }) => {
                 </div>
             </aside>
 
-            {/* Content */}
             {children}
 
-            {/* Footer */}
             <footer className="main-footer">
                 <strong>Copyright &copy; 2024 <a href="#">BaseCore Sales</a>.</strong>
                 <div className="float-right d-none d-sm-inline-block">
-                    <b>Version</b> 1.0.0
+                    <b>Phiên bản</b> 1.0.0
                 </div>
             </footer>
         </div>

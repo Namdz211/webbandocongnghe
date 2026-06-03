@@ -46,6 +46,8 @@ namespace BaseCore.Entities
 
         public string WaterResistance { get; set; } = "";
 
+        public int? ManufacturerId { get; set; }
+
         [BsonIgnore]
         public Category Category { get; set; }
     }

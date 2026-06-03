@@ -2063,6 +2063,14 @@ textarea {
   max-width: none;
 }
 
+.product-sold-note {
+  display: inline-block;
+  margin-top: 4px;
+  color: #8d99ae;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .auth-layout {
   display: grid;
   grid-template-columns: minmax(0, 420px) minmax(0, 1fr);

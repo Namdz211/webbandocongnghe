@@ -11,7 +11,7 @@ export default function PageHeader({ title, activeLabel }) {
                     {activeLabel && (
                         <div className="col-sm-6">
                             <ol className="breadcrumb float-sm-right">
-                                <li className="breadcrumb-item"><a href="/">Home</a></li>
+                                <li className="breadcrumb-item"><a href="/">Trang chủ</a></li>
                                 <li className="breadcrumb-item active">{activeLabel}</li>
                             </ol>
                         </div>

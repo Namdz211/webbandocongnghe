@@ -74,7 +74,7 @@ const Customers = () => {
 
     return (
         <div className="content-wrapper">
-            <PageHeader title="Quản lý khách hàng" activeLabel="Customers" />
+            <PageHeader title="Quản lý khách hàng" activeLabel="Khách hàng" />
             {/*
             <div className="content-header">
                 <div className="container-fluid">
@@ -84,8 +84,8 @@ const Customers = () => {
                         </div>
                         <div className="col-sm-6">
                             <ol className="breadcrumb float-sm-right">
-                                <li className="breadcrumb-item"><a href="/admin">Home</a></li>
-                                <li className="breadcrumb-item active">Customers</li>
+                                <li className="breadcrumb-item"><a href="/">Trang chủ</a></li>
+                                <li className="breadcrumb-item active">Khách hàng</li>
                             </ol>
                         </div>
                     </div>
@@ -171,7 +171,7 @@ const Customers = () => {
                                                 <th>Lần mua gần nhất</th>
                                                 <th>Phân loại</th>
                                                 <th>Ưu đãi gợi ý</th>
-                                                <th>Actions</th>
+                                                <th>Thao tác</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -183,7 +183,7 @@ const Customers = () => {
                                                 customers.map((customer) => (
                                                     <tr key={customer.userId}>
                                                         <td>
-                                                            <strong>{customer.name || customer.userName || 'Unknown'}</strong>
+                                                            <strong>{customer.name || customer.userName || 'Chưa rõ'}</strong>
                                                             <small className="d-block text-muted">{customer.userName}</small>
                                                         </td>
                                                         <td>
@@ -239,10 +239,10 @@ const CustomerModal = ({ customer, orders, onClose }) => (
                         <div className="col-md-6">
                             <table className="table table-sm">
                                 <tbody>
-                                    <tr><td><strong>Tên:</strong></td><td>{customer.name || 'N/A'}</td></tr>
-                                    <tr><td><strong>Tài khoản:</strong></td><td>{customer.userName || 'N/A'}</td></tr>
-                                    <tr><td><strong>Email:</strong></td><td>{customer.email || 'N/A'}</td></tr>
-                                    <tr><td><strong>Số điện thoại:</strong></td><td>{customer.phone || 'N/A'}</td></tr>
+                                    <tr><td><strong>Tên:</strong></td><td>{customer.name || 'Chưa có'}</td></tr>
+                                    <tr><td><strong>Tài khoản:</strong></td><td>{customer.userName || 'Chưa có'}</td></tr>
+                                    <tr><td><strong>Email:</strong></td><td>{customer.email || 'Chưa có'}</td></tr>
+                                    <tr><td><strong>Số điện thoại:</strong></td><td>{customer.phone || 'Chưa có'}</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -305,7 +305,7 @@ const CustomerModal = ({ customer, orders, onClose }) => (
 );
 
 const getSegmentBadge = (segment) => {
-    const config = SEGMENT_CONFIG[segment] || { label: segment || 'N/A', color: 'secondary' };
+    const config = SEGMENT_CONFIG[segment] || { label: segment || 'Chưa có', color: 'secondary' };
     return <span className={`badge badge-${config.color}`}>{config.label}</span>;
 };
 
@@ -316,7 +316,13 @@ const getStatusBadge = (status) => {
         Completed: 'success',
         Cancelled: 'danger',
     };
-    return <span className={`badge badge-${colors[status] || 'secondary'}`}>{status || 'N/A'}</span>;
+    const labels = {
+        Pending: 'Chờ xử lý',
+        Processing: 'Đang xử lý',
+        Completed: 'Hoàn thành',
+        Cancelled: 'Đã hủy',
+    };
+    return <span className={`badge badge-${colors[status] || 'secondary'}`}>{labels[status] || status || 'Chưa có'}</span>;
 };
 
 const getPaymentBadge = (status) => {
@@ -325,7 +331,12 @@ const getPaymentBadge = (status) => {
         Pending: 'warning',
         PayAtCounter: 'info',
     };
-    return <span className={`badge badge-${colors[status] || 'secondary'}`}>{status || 'N/A'}</span>;
+    const labels = {
+        Paid: 'Đã thanh toán',
+        Pending: 'Chưa thanh toán',
+        PayAtCounter: 'Thanh toán tại quầy',
+    };
+    return <span className={`badge badge-${colors[status] || 'secondary'}`}>{labels[status] || status || 'Chưa có'}</span>;
 };
 
 const formatCurrency = (value) => new Intl.NumberFormat('vi-VN', {

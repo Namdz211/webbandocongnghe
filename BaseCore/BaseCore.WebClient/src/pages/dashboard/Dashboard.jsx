@@ -12,40 +12,32 @@ const Dashboard = () => {
         customers: 0,
         users: 0,
     });
-    
-    // Revenue & Inventory stats
+
     const today = new Date();
     const firstDayOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    
-    // Ensure format YYYY-MM-DD
-    const formatDate = (date) => {
+
+    const formatDateValue = (date) => {
         const d = new Date(date);
-        let month = '' + (d.getMonth() + 1);
-        let day = '' + d.getDate();
-        const year = d.getFullYear();
-
-        if (month.length < 2) month = '0' + month;
-        if (day.length < 2) day = '0' + day;
-
-        return [year, month, day].join('-');
+        const month = `${d.getMonth() + 1}`.padStart(2, '0');
+        const day = `${d.getDate()}`.padStart(2, '0');
+        return [d.getFullYear(), month, day].join('-');
     };
 
-    const [startDate, setStartDate] = useState(formatDate(firstDayOfMonth));
-    const [endDate, setEndDate] = useState(formatDate(today));
-    
+    const [startDate, setStartDate] = useState(formatDateValue(firstDayOfMonth));
+    const [endDate, setEndDate] = useState(formatDateValue(today));
     const [revenueData, setRevenueData] = useState({ totalRevenue: 0, orderCount: 0 });
     const [inventoryData, setInventoryData] = useState([]);
+    const [topSellingProducts, setTopSellingProducts] = useState([]);
     const [statsError, setStatsError] = useState('');
-    
     const [loading, setLoading] = useState(true);
     const [statsLoading, setStatsLoading] = useState(false);
-    
+
     const { isAdmin } = useAuth();
 
     useEffect(() => {
         loadStats();
         loadAdvancedStats();
-        // eslint-disable-next-line
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const loadStats = async () => {
@@ -57,18 +49,19 @@ const Dashboard = () => {
 
             let usersCount = 0;
             let customersCount = 0;
+
             if (isAdmin()) {
                 try {
                     const usersRes = await userApi.getAll({ page: 1, pageSize: 1 });
                     usersCount = usersRes.data.totalCount || 0;
-                } catch (e) {
+                } catch {
                     console.log('Cannot fetch users count');
                 }
 
                 try {
                     const customersRes = await customerApi.getAll();
                     customersCount = Array.isArray(customersRes.data) ? customersRes.data.length : 0;
-                } catch (e) {
+                } catch {
                     console.log('Cannot fetch customers count');
                 }
             }
@@ -89,10 +82,12 @@ const Dashboard = () => {
     const loadAdvancedStats = async () => {
         setStatsLoading(true);
         setStatsError('');
+
         try {
-            const [revenueResult, inventoryResult] = await Promise.allSettled([
+            const [revenueResult, inventoryResult, topSellingResult] = await Promise.allSettled([
                 statisticsApi.getRevenue(startDate, endDate),
                 statisticsApi.getInventoryByCategory(),
+                statisticsApi.getTopSellingProducts({ startDate, endDate, top: 5 }),
             ]);
 
             if (revenueResult.status === 'fulfilled') {
@@ -104,23 +99,31 @@ const Dashboard = () => {
             if (inventoryResult.status === 'fulfilled') {
                 const mappedInventory = (inventoryResult.value.data || []).map(item => ({
                     name: item.categoryName,
-                    value: item.quantityInStock
+                    value: item.quantityInStock,
                 }));
                 setInventoryData(mappedInventory);
             } else {
                 setInventoryData([]);
             }
 
-            if (revenueResult.status === 'rejected' || inventoryResult.status === 'rejected') {
-                setStatsError('Không tải được đầy đủ dữ liệu thống kê. Vui lòng kiểm tra API doanh thu/đơn hàng.');
+            if (topSellingResult.status === 'fulfilled') {
+                setTopSellingProducts(topSellingResult.value.data || []);
+            } else {
+                setTopSellingProducts([]);
             }
 
-            console.log('Revenue API result:', revenueResult);
-            console.log('Inventory API result:', inventoryResult);
+            if (
+                revenueResult.status === 'rejected' ||
+                inventoryResult.status === 'rejected' ||
+                topSellingResult.status === 'rejected'
+            ) {
+                setStatsError('Không tải được đầy đủ dữ liệu thống kê. Vui lòng kiểm tra API doanh thu/đơn hàng.');
+            }
         } catch (error) {
             setStatsError('Không tải được dữ liệu thống kê.');
             setRevenueData({ totalRevenue: 0, orderCount: 0 });
             setInventoryData([]);
+            setTopSellingProducts([]);
             console.error('Failed to load advanced stats:', error);
         } finally {
             setStatsLoading(false);
@@ -133,7 +136,7 @@ const Dashboard = () => {
     };
 
     const formatCurrency = (value) => {
-        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
+        return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value || 0);
     };
 
     return (
@@ -155,11 +158,11 @@ const Dashboard = () => {
                             {statsError}
                         </div>
                     )}
-                    {/* Basic Stats Row */}
+
                     {loading ? (
                         <div className="text-center py-5">
                             <div className="spinner-border text-primary" role="status">
-                                <span className="sr-only">Loading...</span>
+                                <span className="sr-only">Đang tải...</span>
                             </div>
                         </div>
                     ) : (
@@ -227,13 +230,12 @@ const Dashboard = () => {
                         </div>
                     )}
 
-                    {/* Advanced Stats Row */}
                     <div className="row">
                         <div className="col-lg-6">
                             <div className="card shadow-sm border-0 h-100" style={{ borderRadius: '10px' }}>
                                 <div className="card-header bg-white border-0 pb-0">
                                     <h3 className="card-title font-weight-bold text-primary">
-                                        <i className="fas fa-chart-line mr-2"></i> Báo cáo Doanh thu
+                                        <i className="fas fa-chart-line mr-2"></i> Báo cáo doanh thu
                                     </h3>
                                 </div>
                                 <div className="card-body">
@@ -242,22 +244,22 @@ const Dashboard = () => {
                                             <div className="col-md-4">
                                                 <div className="form-group mb-0">
                                                     <label className="text-muted small">Từ ngày</label>
-                                                    <input 
-                                                        type="date" 
-                                                        className="form-control form-control-sm" 
-                                                        value={startDate} 
-                                                        onChange={(e) => setStartDate(e.target.value)} 
+                                                    <input
+                                                        type="date"
+                                                        className="form-control form-control-sm"
+                                                        value={startDate}
+                                                        onChange={(e) => setStartDate(e.target.value)}
                                                     />
                                                 </div>
                                             </div>
                                             <div className="col-md-4">
                                                 <div className="form-group mb-0">
                                                     <label className="text-muted small">Đến ngày</label>
-                                                    <input 
-                                                        type="date" 
-                                                        className="form-control form-control-sm" 
-                                                        value={endDate} 
-                                                        onChange={(e) => setEndDate(e.target.value)} 
+                                                    <input
+                                                        type="date"
+                                                        className="form-control form-control-sm"
+                                                        value={endDate}
+                                                        onChange={(e) => setEndDate(e.target.value)}
                                                     />
                                                 </div>
                                             </div>
@@ -284,7 +286,7 @@ const Dashboard = () => {
                                                 </h2>
                                             </div>
                                             <div className="mt-2">
-                                                <h5 className="text-muted mb-1 font-weight-normal">Số lượng đơn hàng (Đã giao)</h5>
+                                                <h5 className="text-muted mb-1 font-weight-normal">Số lượng đơn hàng đã giao</h5>
                                                 <h3 className="text-success font-weight-bold mb-0">
                                                     {revenueData.orderCount} đơn
                                                 </h3>
@@ -299,7 +301,7 @@ const Dashboard = () => {
                             <div className="card shadow-sm border-0 h-100" style={{ borderRadius: '10px' }}>
                                 <div className="card-header bg-white border-0 pb-0">
                                     <h3 className="card-title font-weight-bold text-success">
-                                        <i className="fas fa-pie-chart mr-2"></i> Tồn kho theo Danh mục
+                                        <i className="fas fa-pie-chart mr-2"></i> Tồn kho theo danh mục
                                     </h3>
                                 </div>
                                 <div className="card-body d-flex flex-column justify-content-center">
@@ -330,13 +332,81 @@ const Dashboard = () => {
                                                         ))}
                                                     </Pie>
                                                     <RechartsTooltip formatter={(value) => [`${value} sản phẩm`, 'Tồn kho']} />
-                                                    <Legend verticalAlign="bottom" height={36}/>
+                                                    <Legend verticalAlign="bottom" height={36} />
                                                 </PieChart>
                                             </ResponsiveContainer>
                                         </div>
                                     ) : (
                                         <div className="text-center py-5 text-muted">
                                             Không có dữ liệu tồn kho.
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="row mt-4">
+                        <div className="col-lg-12">
+                            <div className="card shadow-sm border-0" style={{ borderRadius: '10px' }}>
+                                <div className="card-header bg-white border-0 pb-0 d-flex justify-content-between align-items-center">
+                                    <h3 className="card-title font-weight-bold text-danger">
+                                        <i className="fas fa-fire mr-2"></i> Sản phẩm bán chạy
+                                    </h3>
+                                    <span className="text-muted small">Theo đơn hàng đã giao trong khoảng ngày đã chọn</span>
+                                </div>
+                                <div className="card-body">
+                                    {statsLoading ? (
+                                        <div className="text-center py-4">
+                                            <div className="spinner-border text-danger" role="status">
+                                                <span className="sr-only">Đang tải...</span>
+                                            </div>
+                                        </div>
+                                    ) : topSellingProducts.length > 0 ? (
+                                        <div className="table-responsive">
+                                            <table className="table table-hover mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ width: '60px' }}>#</th>
+                                                        <th>Sản phẩm</th>
+                                                        <th>Danh mục</th>
+                                                        <th className="text-right">Đã bán</th>
+                                                        <th className="text-right">Doanh thu</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {topSellingProducts.map((product, index) => (
+                                                        <tr key={product.productId || product.ProductId}>
+                                                            <td>
+                                                                <span className="badge badge-danger">{index + 1}</span>
+                                                            </td>
+                                                            <td>
+                                                                <div className="d-flex align-items-center">
+                                                                    {(product.imageUrl || product.ImageUrl) && (
+                                                                        <img
+                                                                            alt={product.productName || product.ProductName}
+                                                                            src={product.imageUrl || product.ImageUrl}
+                                                                            style={{ width: 42, height: 42, objectFit: 'cover', borderRadius: 6, marginRight: 10 }}
+                                                                        />
+                                                                    )}
+                                                                    <strong>{product.productName || product.ProductName}</strong>
+                                                                </div>
+                                                            </td>
+                                                            <td>{product.categoryName || product.CategoryName || 'Không phân loại'}</td>
+                                                            <td className="text-right font-weight-bold">
+                                                                {product.soldQuantity ?? product.SoldQuantity ?? 0}
+                                                            </td>
+                                                            <td className="text-right text-success font-weight-bold">
+                                                                {formatCurrency(product.revenue ?? product.Revenue ?? 0)}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-4 text-muted">
+                                            Chưa có sản phẩm bán chạy trong khoảng thời gian này.
                                         </div>
                                     )}
                                 </div>

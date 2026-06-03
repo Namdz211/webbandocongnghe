@@ -5,7 +5,7 @@ namespace BaseCore.Repository
 {
     /// <summary>
     /// Entity Framework Core DbContext for MySQL
-    /// Used for teaching EF Core concepts (Bài 10)
+    /// Used for teaching EF Core concepts (Bai 10)
     /// </summary>
     public class MySqlDbContext : DbContext
     {
@@ -16,10 +16,12 @@ namespace BaseCore.Repository
         // DbSet for each entity
         public DbSet<User> Users { get; set; }
         public DbSet<Product> Products { get; set; }
+        public DbSet<Manufacturer> Manufacturers { get; set; }
         public DbSet<Category> Categories { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderDetail> OrderDetails { get; set; }
         public DbSet<ProductReview> ProductReviews { get; set; }
+        public virtual DbSet<Review> Reviews { get; set; }
         public DbSet<Coupon> Coupons { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -48,12 +50,19 @@ namespace BaseCore.Repository
                 entity.Property(e => e.Description).HasMaxLength(500);
             });
 
+            modelBuilder.Entity<Manufacturer>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.Name).HasMaxLength(255).IsRequired();
+            });
+
             // Configure Product entity
             modelBuilder.Entity<Product>(entity =>
             {
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.Name).HasMaxLength(200).IsRequired();
                 entity.Property(e => e.Manufacturer).HasMaxLength(100).HasDefaultValue("");
+                entity.Property(e => e.ManufacturerId);
                 entity.Property(e => e.Price).HasPrecision(18, 2);
                 entity.Property(e => e.Description).HasMaxLength(1000);
                 entity.Property(e => e.ImageUrl).HasMaxLength(500);
@@ -70,11 +79,15 @@ namespace BaseCore.Repository
                 entity.Property(e => e.Sensors).HasMaxLength(250).HasDefaultValue("");
                 entity.Property(e => e.WaterResistance).HasMaxLength(100).HasDefaultValue("");
 
-                // Relationship with Category
                 entity.HasOne(e => e.Category)
                       .WithMany()
                       .HasForeignKey(e => e.CategoryId)
                       .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne<Manufacturer>()
+                      .WithMany()
+                      .HasForeignKey(e => e.ManufacturerId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Configure Order entity
@@ -108,7 +121,6 @@ namespace BaseCore.Repository
                 entity.HasKey(e => e.Id);
                 entity.Property(e => e.UnitPrice).HasPrecision(18, 2);
 
-                // Relationships
                 entity.HasOne(e => e.Order)
                       .WithMany(o => o.OrderDetails)
                       .HasForeignKey(e => e.OrderId)
@@ -147,6 +159,22 @@ namespace BaseCore.Repository
                       .OnDelete(DeleteBehavior.Restrict);
             });
 
+            // Configure Review entity used by admin review pages
+            modelBuilder.Entity<Review>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+                entity.Property(e => e.UserId).HasMaxLength(50).IsRequired();
+                entity.Property(e => e.Rating).IsRequired();
+                entity.Property(e => e.Comment).HasMaxLength(1000).HasDefaultValue("");
+                entity.Property(e => e.CreatedDate).HasDefaultValueSql("SYSUTCDATETIME()");
+                entity.HasIndex(e => e.ProductId);
+
+                entity.HasOne(e => e.User)
+                      .WithMany()
+                      .HasForeignKey(e => e.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
             // Configure Coupon entity
             modelBuilder.Entity<Coupon>(entity =>
             {
@@ -168,7 +196,6 @@ namespace BaseCore.Repository
 
         private void SeedData(ModelBuilder modelBuilder)
         {
-            // Seed Categories
             modelBuilder.Entity<Category>().HasData(
                 new Category { Id = 1, Name = "Điện thoại", Description = "Điện thoại thông minh chính hãng, cấu hình mạnh và camera chất lượng." },
                 new Category { Id = 2, Name = "Laptop", Description = "Laptop phục vụ học tập, văn phòng, đồ họa và gaming." },
@@ -176,7 +203,6 @@ namespace BaseCore.Repository
                 new Category { Id = 4, Name = "Tablet", Description = "Máy tính bảng cho học tập, giải trí, ghi chú và làm việc di động." }
             );
 
-            // Seed Products
             modelBuilder.Entity<Product>().HasData(
                 new Product { Id = 1, Name = "iPhone 15 Pro", Manufacturer = "Apple", Price = 28000000, Stock = 15, CategoryId = 1, Description = "Điện thoại cao cấp với chip A17 Pro, camera tốt và hiệu năng mạnh.", ImageUrl = "/electro/img/product02.png" },
                 new Product { Id = 2, Name = "Samsung Galaxy S24 Ultra", Manufacturer = "Samsung", Price = 26500000, Stock = 12, CategoryId = 1, Description = "Flagship Android với bút S Pen, màn hình lớn và camera zoom sắc nét.", ImageUrl = "/electro/img/product03.png" },
@@ -192,6 +218,3 @@ namespace BaseCore.Repository
         }
     }
 }
-
-
-

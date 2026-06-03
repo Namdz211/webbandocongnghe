@@ -123,6 +123,7 @@ function App() {
   const [coupons, setCoupons] = useState([])
   const [couponLoadError, setCouponLoadError] = useState(false)
   const [highlightedProducts, setHighlightedProducts] = useState([])
+  const [topSellingProducts, setTopSellingProducts] = useState([])
   const [loadingHomeData, setLoadingHomeData] = useState(true)
   const [notice, setNotice] = useState(null)
   const [placingOrder, setPlacingOrder] = useState(false)
@@ -209,9 +210,10 @@ function App() {
       setLoadingHomeData(true)
 
       try {
-        const [categoryData, productData, couponData] = await Promise.all([
+        const [categoryData, productData, topSellingProductData, couponData] = await Promise.all([
           api.getCategories(),
           api.getProducts({ page: 1, pageSize: 12 }),
+          api.getProducts({ sortBy: 'bestSelling', page: 1, pageSize: 12 }),
           fetchPublicCoupons(),
         ])
 
@@ -223,12 +225,16 @@ function App() {
         setCouponLoadError(couponData.error)
         setCoupons(Array.isArray(couponData.data) ? couponData.data : [])
         setHighlightedProducts(productData.items || [])
+        setTopSellingProducts((topSellingProductData.items || [])
+          .filter((product) => Number(product.soldQuantity ?? product.SoldQuantity ?? 0) > 0)
+          .slice(0, 4))
       } catch {
         if (!cancelled) {
           setCategories([])
           setCouponLoadError(true)
           setCoupons([])
           setHighlightedProducts([])
+          setTopSellingProducts([])
         }
       } finally {
         if (!cancelled) {
@@ -255,9 +261,10 @@ function App() {
 
   async function refreshShellData() {
     try {
-      const [categoryData, productData, couponData] = await Promise.all([
+      const [categoryData, productData, topSellingProductData, couponData] = await Promise.all([
         api.getCategories(),
         api.getProducts({ page: 1, pageSize: 12 }),
+        api.getProducts({ sortBy: 'bestSelling', page: 1, pageSize: 12 }),
         fetchPublicCoupons(),
       ])
 
@@ -265,6 +272,9 @@ function App() {
       setCouponLoadError(couponData.error)
       setCoupons(Array.isArray(couponData.data) ? couponData.data : [])
       setHighlightedProducts(productData.items || [])
+      setTopSellingProducts((topSellingProductData.items || [])
+        .filter((product) => Number(product.soldQuantity ?? product.SoldQuantity ?? 0) > 0)
+        .slice(0, 4))
     } catch (requestError) {
       openNotice('error', requestError.message)
     }
@@ -629,6 +639,7 @@ function App() {
             couponLoadError={couponLoadError}
             savedCouponCodes={savedCoupons.map(getCouponCode)}
             highlightedProducts={highlightedProducts}
+            topSellingProducts={topSellingProducts}
             onNavigate={navigate}
             onAddToCart={upsertCart}
             onBuyNow={buyNow}

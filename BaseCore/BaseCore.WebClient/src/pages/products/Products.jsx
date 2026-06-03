@@ -135,18 +135,18 @@ const Products = () => {
             closeModal();
             loadProducts();
         } catch (error) {
-            setError(error.response?.data?.message || 'Operation failed');
+            setError(error.response?.data?.message || 'Thao tác thất bại');
         }
     };
 
     const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this product?')) return;
+        if (!window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này không?')) return;
 
         try {
             await productApi.delete(id);
             loadProducts();
         } catch (error) {
-            alert('Failed to delete product');
+            alert('Xóa sản phẩm thất bại');
         }
     };
 
@@ -178,13 +178,23 @@ const Products = () => {
         return stars;
     };
 
+    const getManufacturerName = (product) => {
+        if (typeof product.manufacturer === 'string' && product.manufacturer.trim()) {
+            return product.manufacturer;
+        }
+
+        return product.manufacturer?.name ||
+            manufacturers.find(item => item.id === product.manufacturerId)?.name ||
+            'Chưa chọn';
+    };
+
     return (
         <div className="content-wrapper">
             <div className="content-header">
                 <div className="container-fluid">
                     <div className="row mb-2">
                         <div className="col-sm-6">
-                            <h1 className="m-0">Products Management</h1>
+                            <h1 className="m-0">Quản lý sản phẩm</h1>
                         </div>
                     </div>
                 </div>
@@ -200,7 +210,7 @@ const Products = () => {
                                         <input
                                             type="text"
                                             className="form-control mr-2"
-                                            placeholder="Search..."
+                                            placeholder="Tìm kiếm..."
                                             value={keyword}
                                             onChange={(e) => setKeyword(e.target.value)}
                                         />
@@ -209,20 +219,20 @@ const Products = () => {
                                             value={categoryId}
                                             onChange={(e) => setCategoryId(e.target.value)}
                                         >
-                                            <option value="">All Categories</option>
+                                            <option value="">Tất cả danh mục</option>
                                             {categories.map(cat => (
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                                             ))}
                                         </select>
                                         <button type="submit" className="btn btn-primary">
-                                            <i className="fas fa-search"></i> Search
+                                            <i className="fas fa-search"></i> Tìm kiếm
                                         </button>
                                     </form>
                                 </div>
                                 <div className="col-md-6 text-right">
                                     {isAdmin() && (
                                         <button className="btn btn-success" onClick={() => openModal()}>
-                                            <i className="fas fa-plus"></i> Add Product
+                                            <i className="fas fa-plus"></i> Thêm sản phẩm
                                         </button>
                                     )}
                                 </div>
@@ -239,20 +249,21 @@ const Products = () => {
                                         <thead>
                                             <tr>
                                                 <th>ID</th>
-                                                <th>Name</th>
-                                                <th>Category</th>
-                                                <th>Manufacturer</th>
-                                                <th>Price</th>
-                                                <th>Stock</th>
+                                                <th>Tên</th>
+                                                <th>Danh mục</th>
+                                                <th>Nhà sản xuất</th>
+                                                <th>Giá</th>
+                                                <th>Tồn kho</th>
+                                                <th>Đã bán</th>
                                                 <th className="text-center">Đánh giá</th>
-                                                {isAdmin() && <th>Actions</th>}
+                                                {isAdmin() && <th>Thao tác</th>}
                                             </tr>
                                         </thead>
                                         <tbody>
                                             {products.length === 0 ? (
                                                 <tr>
-                                                    <td colSpan={isAdmin() ? 8 : 7} className="text-center">
-                                                        No products found
+                                                    <td colSpan={isAdmin() ? 9 : 8} className="text-center">
+                                                        Không tìm thấy sản phẩm
                                                     </td>
                                                 </tr>
                                             ) : (
@@ -261,13 +272,14 @@ const Products = () => {
                                                         <td>{product.id}</td>
                                                         <td>{product.name}</td>
                                                         <td>{product.category?.name}</td>
-                                                        <td>
-                                                            {product.manufacturer?.name ||
-                                                                manufacturers.find(item => item.id === product.manufacturerId)?.name ||
-                                                                'Chưa chọn'}
-                                                        </td>
+                                                        <td>{getManufacturerName(product)}</td>
                                                         <td>{product.price?.toLocaleString()} VND</td>
                                                         <td>{product.stock}</td>
+                                                        <td>
+                                                            <span className="badge badge-success">
+                                                                {product.soldQuantity ?? product.SoldQuantity ?? 0}
+                                                            </span>
+                                                        </td>
                                                         <td className="text-center">
                                                             {product.averageRating > 0 ? (
                                                                 <div>
@@ -307,18 +319,18 @@ const Products = () => {
                                     </table>
 
                                     <div className="d-flex justify-content-between align-items-center">
-                                        <span>Total: {totalCount} products</span>
+                                        <span>Tổng: {totalCount} sản phẩm</span>
                                         <nav>
                                             <ul className="pagination mb-0">
                                                 <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
                                                     <button className="page-link" onClick={() => setPage(page - 1)}>
-                                                        Previous
+                                                        Trước
                                                     </button>
                                                 </li>
                                                 {renderPagination()}
                                                 <li className={`page-item ${page === totalPages ? 'disabled' : ''}`}>
                                                     <button className="page-link" onClick={() => setPage(page + 1)}>
-                                                        Next
+                                                        Sau
                                                     </button>
                                                 </li>
                                             </ul>
@@ -338,7 +350,7 @@ const Products = () => {
                         <div className="modal-content">
                             <div className="modal-header">
                                 <h5 className="modal-title">
-                                    {editingProduct ? 'Edit Product' : 'Add Product'}
+                                    {editingProduct ? 'Chỉnh sửa sản phẩm' : 'Thêm sản phẩm'}
                                 </h5>
                                 <button type="button" className="close" onClick={closeModal}>
                                     <span>&times;</span>
@@ -348,7 +360,7 @@ const Products = () => {
                                 <div className="modal-body">
                                     {error && <div className="alert alert-danger">{error}</div>}
                                     <div className="form-group">
-                                        <label>Name</label>
+                                        <label>Tên</label>
                                         <input
                                             type="text"
                                             className="form-control"
@@ -358,34 +370,34 @@ const Products = () => {
                                         />
                                     </div>
                                     <div className="form-group">
-                                        <label>Category</label>
+                                        <label>Danh mục</label>
                                         <select
                                             className="form-control"
                                             value={formData.categoryId}
                                             onChange={(e) => setFormData({ ...formData, categoryId: e.target.value })}
                                             required
                                         >
-                                            <option value="">Select Category</option>
+                                            <option value="">Chọn danh mục</option>
                                             {categories.map(cat => (
                                                 <option key={cat.id} value={cat.id}>{cat.name}</option>
                                             ))}
                                         </select>
                                     </div>
                                     <div className="form-group">
-                                        <label>Manufacturer</label>
+                                        <label>Nhà sản xuất</label>
                                         <select
                                             className="form-control"
                                             value={formData.manufacturerId}
                                             onChange={(e) => setFormData({ ...formData, manufacturerId: e.target.value })}
                                         >
-                                            <option value="">Select Manufacturer</option>
+                                            <option value="">Chọn nhà sản xuất</option>
                                             {manufacturers.map(manufacturer => (
                                                 <option key={manufacturer.id} value={manufacturer.id}>{manufacturer.name}</option>
                                             ))}
                                         </select>
                                     </div>
                                     <div className="form-group">
-                                        <label>Price</label>
+                                        <label>Giá</label>
                                         <input
                                             type="number"
                                             className="form-control"
@@ -396,7 +408,7 @@ const Products = () => {
                                         />
                                     </div>
                                     <div className="form-group">
-                                        <label>Stock</label>
+                                        <label>Tồn kho</label>
                                         <input
                                             type="number"
                                             className="form-control"
@@ -407,7 +419,7 @@ const Products = () => {
                                         />
                                     </div>
                                     <div className="form-group">
-                                        <label>Image URL</label>
+                                        <label>Đường dẫn ảnh</label>
                                         <input
                                             type="text"
                                             className="form-control"
@@ -416,7 +428,7 @@ const Products = () => {
                                         />
                                     </div>
                                     <div className="form-group">
-                                        <label>Description</label>
+                                        <label>Mô tả</label>
                                         <textarea
                                             className="form-control"
                                             value={formData.description}
@@ -427,10 +439,10 @@ const Products = () => {
                                 </div>
                                 <div className="modal-footer">
                                     <button type="button" className="btn btn-secondary" onClick={closeModal}>
-                                        Cancel
+                                        Hủy
                                     </button>
                                     <button type="submit" className="btn btn-primary">
-                                        {editingProduct ? 'Update' : 'Create'}
+                                        {editingProduct ? 'Cập nhật' : 'Tạo mới'}
                                     </button>
                                 </div>
                             </form>

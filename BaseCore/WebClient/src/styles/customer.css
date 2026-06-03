@@ -1,0 +1,500 @@
+/* E-commerce Footer Styles */
+.ecommerce-footer {
+  background: #1a1a1a;
+  color: #fff;
+  font-family: 'Poppins', sans-serif;
+}
+
+/* Main Footer Content */
+.ecommerce-footer .section {
+  padding: 60px 0 40px;
+  border-bottom: 1px solid #333;
+}
+
+.ecommerce-footer .footer-title {
+  color: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ecommerce-footer .footer-description {
+  color: #ccc;
+  line-height: 1.6;
+  margin-bottom: 20px;
+  font-size: 14px;
+}
+
+/* Company Information */
+.ecommerce-footer .footer-contact {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ecommerce-footer .footer-contact li {
+  color: #ccc;
+  margin-bottom: 12px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  line-height: 1.5;
+}
+
+.ecommerce-footer .footer-contact li i {
+  color: #D10024;
+  margin-right: 10px;
+  width: 16px;
+  text-align: center;
+}
+
+.ecommerce-footer .footer-contact a {
+  color: #ccc;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.ecommerce-footer .footer-contact a:hover {
+  color: #D10024;
+}
+
+/* Footer Links */
+.ecommerce-footer .footer-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ecommerce-footer .footer-links li {
+  margin-bottom: 10px;
+}
+
+.ecommerce-footer .footer-links a {
+  color: #ccc;
+  text-decoration: none;
+  font-size: 14px;
+  transition: color 0.3s ease;
+  display: inline-block;
+}
+
+.ecommerce-footer .footer-links a:hover {
+  color: #D10024;
+  transform: translateX(3px);
+}
+
+/* Newsletter Section */
+.ecommerce-footer .footer-newsletter {
+  margin-bottom: 25px;
+}
+
+.ecommerce-footer .footer-newsletter p {
+  color: #ccc;
+  margin-bottom: 15px;
+  font-size: 14px;
+}
+
+.ecommerce-footer .newsletter-form {
+  margin-bottom: 10px;
+}
+
+.ecommerce-footer .newsletter-input-group {
+  display: flex;
+  background: #2a2a2a;
+  border-radius: 25px;
+  overflow: hidden;
+  border: 1px solid #444;
+}
+
+.ecommerce-footer .newsletter-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  padding: 12px 20px;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.ecommerce-footer .newsletter-input::placeholder {
+  color: #888;
+}
+
+.ecommerce-footer .newsletter-btn {
+  background: #D10024;
+  border: none;
+  padding: 12px 20px;
+  color: #fff;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  border-radius: 0 25px 25px 0;
+}
+
+.ecommerce-footer .newsletter-btn:hover {
+  background: #b01e1f;
+}
+
+.ecommerce-footer .newsletter-status {
+  color: #4CAF50;
+  font-size: 13px;
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+/* Social Media Links */
+.ecommerce-footer .footer-social {
+  margin-bottom: 25px;
+}
+
+.ecommerce-footer .footer-social h4 {
+  color: #fff;
+  font-size: 16px;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.ecommerce-footer .social-links {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ecommerce-footer .social-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: #2a2a2a;
+  border-radius: 50%;
+  color: #ccc;
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border: 1px solid #444;
+}
+
+.ecommerce-footer .social-link:hover {
+  color: #fff;
+  transform: translateY(-3px);
+}
+
+.ecommerce-footer .social-link.facebook:hover {
+  background: #1877f2;
+  border-color: #1877f2;
+}
+
+.ecommerce-footer .social-link.instagram:hover {
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  border-color: #e6683c;
+}
+
+.ecommerce-footer .social-link.twitter:hover {
+  background: #1da1f2;
+  border-color: #1da1f2;
+}
+
+.ecommerce-footer .social-link.youtube:hover {
+  background: #ff0000;
+  border-color: #ff0000;
+}
+
+.ecommerce-footer .social-link.tiktok:hover {
+  background: #000;
+  border-color: #000;
+}
+
+.ecommerce-footer .social-link.zalo:hover {
+  background: #0068ff;
+  border-color: #0068ff;
+}
+
+.ecommerce-footer .social-link.messenger:hover {
+  background: #0084ff;
+  border-color: #0084ff;
+}
+
+/* App Download Section */
+.ecommerce-footer .footer-app h4 {
+  color: #fff;
+  font-size: 16px;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.ecommerce-footer .app-buttons {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.ecommerce-footer .app-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: #2a2a2a;
+  border: 1px solid #444;
+  border-radius: 8px;
+  color: #fff;
+  text-decoration: none;
+  font-size: 13px;
+  transition: all 0.3s ease;
+}
+
+.ecommerce-footer .app-button:hover {
+  background: #333;
+  border-color: #D10024;
+  color: #fff;
+  transform: translateY(-2px);
+}
+
+/* Payment Methods & Trust Badges Section */
+.ecommerce-footer .footer-payment-section {
+  background: #222;
+  padding: 30px 0;
+  border-bottom: 1px solid #333;
+}
+
+.ecommerce-footer .footer-payment h4,
+.ecommerce-footer .footer-trust h4 {
+  color: #fff;
+  font-size: 16px;
+  margin-bottom: 15px;
+  font-weight: 500;
+}
+
+.ecommerce-footer .payment-methods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.ecommerce-footer .payment-method {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #ccc;
+  font-size: 13px;
+  transition: all 0.3s ease;
+}
+
+.ecommerce-footer .payment-method:hover {
+  border-color: #D10024;
+  color: #fff;
+}
+
+.ecommerce-footer .payment-method.paypal {
+  background: #003087;
+  color: #fff;
+  border-color: #003087;
+}
+
+.ecommerce-footer .trust-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 15px;
+}
+
+.ecommerce-footer .trust-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #1a1a1a;
+  border: 1px solid #444;
+  border-radius: 6px;
+  color: #ccc;
+  font-size: 13px;
+  transition: all 0.3s ease;
+}
+
+.ecommerce-footer .trust-badge:hover {
+  border-color: #4CAF50;
+  color: #4CAF50;
+}
+
+/* Bottom Footer */
+.ecommerce-footer .footer-bottom {
+  background: #111;
+  padding: 20px 0;
+}
+
+.ecommerce-footer .legal-links {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.ecommerce-footer .legal-links li {
+  position: relative;
+}
+
+.ecommerce-footer .legal-links li:not(:last-child)::after {
+  content: '|';
+  position: absolute;
+  right: -12px;
+  color: #666;
+}
+
+.ecommerce-footer .legal-links a {
+  color: #ccc;
+  text-decoration: none;
+  font-size: 13px;
+  transition: color 0.3s ease;
+}
+
+.ecommerce-footer .legal-links a:hover {
+  color: #D10024;
+}
+
+.ecommerce-footer .footer-copyright {
+  text-align: right;
+}
+
+.ecommerce-footer .footer-copyright p {
+  color: #ccc;
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ecommerce-footer .powered-by {
+  color: #888;
+  font-size: 12px;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .ecommerce-footer .section {
+    padding: 40px 0 30px;
+  }
+  
+  .ecommerce-footer .footer-title {
+    font-size: 16px;
+    margin-bottom: 15px;
+  }
+  
+  .ecommerce-footer .footer-description {
+    font-size: 13px;
+  }
+  
+  .ecommerce-footer .footer-links a,
+  .ecommerce-footer .footer-contact li {
+    font-size: 13px;
+  }
+  
+  .ecommerce-footer .social-links {
+    justify-content: center;
+  }
+  
+  .ecommerce-footer .app-buttons {
+    justify-content: center;
+  }
+  
+  .ecommerce-footer .payment-methods,
+  .ecommerce-footer .trust-badges {
+    justify-content: center;
+  }
+  
+  .ecommerce-footer .footer-copyright {
+    text-align: center;
+    margin-top: 20px;
+  }
+  
+  .ecommerce-footer .legal-links {
+    justify-content: center;
+    margin-bottom: 15px;
+  }
+  
+  .ecommerce-footer .legal-links li:not(:last-child)::after {
+    display: none;
+  }
+}
+
+@media (max-width: 480px) {
+  .ecommerce-footer .section {
+    padding: 30px 0 20px;
+  }
+  
+  .ecommerce-footer .footer-payment-section {
+    padding: 20px 0;
+  }
+  
+  .ecommerce-footer .footer-bottom {
+    padding: 15px 0;
+  }
+  
+  .ecommerce-footer .payment-methods,
+  .ecommerce-footer .trust-badges {
+    gap: 10px;
+  }
+  
+  .ecommerce-footer .payment-method,
+  .ecommerce-footer .trust-badge {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  
+  .ecommerce-footer .newsletter-input-group {
+    flex-direction: column;
+    border-radius: 8px;
+  }
+  
+  .ecommerce-footer .newsletter-input {
+    border-radius: 8px 8px 0 0;
+  }
+  
+  .ecommerce-footer .newsletter-btn {
+    border-radius: 0 0 8px 8px;
+  }
+}
+
+/* Animation and Transitions */
+.ecommerce-footer .footer-links a {
+  position: relative;
+}
+
+.ecommerce-footer .footer-links a::before {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 0;
+  height: 1px;
+  background: #D10024;
+  transition: width 0.3s ease;
+}
+
+.ecommerce-footer .footer-links a:hover::before {
+  width: 100%;
+}
+
+/* Accessibility */
+.ecommerce-footer .social-link:focus,
+.ecommerce-footer .app-button:focus,
+.ecommerce-footer .newsletter-btn:focus {
+  outline: 2px solid #D10024;
+  outline-offset: 2px;
+}
+
+/* Print Styles */
+@media print {
+  .ecommerce-footer {
+    background: #fff;
+    color: #000;
+  }
+  
+  .ecommerce-footer .footer-newsletter,
+  .ecommerce-footer .footer-social,
+  .ecommerce-footer .footer-app {
+    display: none;
+  }
+}

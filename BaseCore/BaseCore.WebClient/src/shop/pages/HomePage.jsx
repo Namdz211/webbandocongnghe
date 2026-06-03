@@ -277,13 +277,14 @@ export default function HomePage({
   couponLoadError,
   savedCouponCodes,
   highlightedProducts,
+  topSellingProducts,
   onNavigate,
   onAddToCart,
   onBuyNow,
   onSaveCoupon,
 }) {
   const featuredProducts = highlightedProducts.slice(0, 8)
-  const topSellingProducts = highlightedProducts.slice(0, 4)
+  const visibleTopSellingProducts = (Array.isArray(topSellingProducts) ? topSellingProducts : []).slice(0, 4)
 
   return (
     <>
@@ -360,7 +361,15 @@ export default function HomePage({
             onNavigate={onNavigate}
           />
           <div className="row">
-            {topSellingProducts.map((product) => (
+            {visibleTopSellingProducts.length === 0 && (
+              <div className="col-md-12">
+                <div className="empty-state compact">
+                  Chưa có sản phẩm bán chạy từ đơn hàng đã hoàn thành.
+                </div>
+              </div>
+            )}
+
+            {visibleTopSellingProducts.map((product) => (
               <div className="col-md-3 col-sm-6 col-xs-6" key={product.id}>
                 <div className="product-widget">
                   <div className="product-img">
@@ -379,6 +388,9 @@ export default function HomePage({
                       </LinkButton>
                     </h3>
                     <h4 className="product-price">{formatCurrency(product.price)}</h4>
+                    <small className="product-sold-note">
+                      Đã bán {product.soldQuantity ?? product.SoldQuantity ?? 0}
+                    </small>
                   </div>
                 </div>
               </div>

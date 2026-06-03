@@ -17,8 +17,10 @@ namespace BaseCore.Repository.EFCore
             string? sortBy,
             int page,
             int pageSize);
+        Task<(List<Product> Products, int TotalCount)> SearchAsync(string? keyword, int? categoryId, int page, int pageSize);
         Task<List<Product>> GetByCategoryAsync(int categoryId);
         Task<List<string>> GetManufacturersAsync(int? categoryId = null);
+        Task<Product?> GetDetailByIdAsync(int id);
     }
 
     public class ProductRepositoryEF : Repository<Product>, IProductRepositoryEF
@@ -85,6 +87,18 @@ namespace BaseCore.Repository.EFCore
 
             query = (sortBy ?? "recent").Trim().ToLowerInvariant() switch
             {
+                "bestselling" => query
+                    .OrderByDescending(p => _context.OrderDetails
+                        .Where(detail =>
+                            detail.ProductId == p.Id &&
+                            _context.Orders.Any(order => order.Id == detail.OrderId && order.Status == "Completed"))
+                        .Sum(detail => (int?)detail.Quantity) ?? 0)
+                    .ThenByDescending(p => _context.OrderDetails
+                        .Where(detail =>
+                            detail.ProductId == p.Id &&
+                            _context.Orders.Any(order => order.Id == detail.OrderId && order.Status == "Completed"))
+                        .Sum(detail => (decimal?)(detail.Quantity * detail.UnitPrice)) ?? 0)
+                    .ThenByDescending(p => p.Id),
                 "priceasc" => query.OrderBy(p => p.Price).ThenByDescending(p => p.Id),
                 "pricedesc" => query.OrderByDescending(p => p.Price).ThenByDescending(p => p.Id),
                 _ => query.OrderByDescending(p => p.Id)
@@ -96,6 +110,11 @@ namespace BaseCore.Repository.EFCore
                 .ToListAsync();
 
             return (products, totalCount);
+        }
+
+        public Task<(List<Product> Products, int TotalCount)> SearchAsync(string? keyword, int? categoryId, int page, int pageSize)
+        {
+            return SearchAsync(keyword, categoryId, null, null, null, null, page, pageSize);
         }
 
         public async Task<List<Product>> GetByCategoryAsync(int categoryId)
@@ -121,6 +140,13 @@ namespace BaseCore.Repository.EFCore
                 .Distinct()
                 .OrderBy(manufacturer => manufacturer)
                 .ToListAsync();
+        }
+
+        public async Task<Product?> GetDetailByIdAsync(int id)
+        {
+            return await _dbSet
+                .Include(p => p.Category)
+                .FirstOrDefaultAsync(p => p.Id == id);
         }
     }
 }

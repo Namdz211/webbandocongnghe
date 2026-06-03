@@ -1,0 +1,6 @@
+D:\nam\năm 3\kì 2\cnw\mobile\webbandocongnghe\_verify_obj\$(MSBuildProjectName)\Debug\net8.0\BaseCore.Common.csproj.AssemblyReference.cache
+D:\nam\năm 3\kì 2\cnw\mobile\webbandocongnghe\_verify_obj\$(MSBuildProjectName)\Debug\net8.0\BaseCore.Common.GeneratedMSBuildEditorConfig.editorconfig
+D:\nam\năm 3\kì 2\cnw\mobile\webbandocongnghe\_verify_obj\$(MSBuildProjectName)\Debug\net8.0\BaseCore.Common.AssemblyInfoInputs.cache
+D:\nam\năm 3\kì 2\cnw\mobile\webbandocongnghe\_verify_obj\$(MSBuildProjectName)\Debug\net8.0\BaseCore.Common.AssemblyInfo.cs
+D:\nam\năm 3\kì 2\cnw\mobile\webbandocongnghe\_verify_obj\$(MSBuildProjectName)\Debug\net8.0\BaseCore.Common.csproj.CoreCompileInputs.cache
+D:\nam\năm 3\kì 2\cnw\mobile\webbandocongnghe\_verify_obj\$(MSBuildProjectName)\Debug\net8.0\BaseCore.Common.sourcelink.json

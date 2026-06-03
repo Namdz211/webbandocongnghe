@@ -26,7 +26,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "BaseCore API Service",
         Version = "v1",
-        Description = "Business Logic Microservice - Products, Categories, Orders (Bài 10, 11)"
+        Description = "Business Logic Microservice - Products, Categories, Orders (Bai 10, 11)"
     });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
@@ -58,14 +58,10 @@ builder.Services.AddCors(options =>
     });
 });
 
-
-
-
 builder.Services.AddDbContext<MySqlDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("ConnectedDb"));
 });
-
 
 // Repository Registration - Products, Categories, Orders
 builder.Services.AddScoped<IProductRepositoryEF, ProductRepositoryEF>();
@@ -107,9 +103,12 @@ using (var scope = app.Services.CreateScope())
     EnsureOrderPaymentColumns(db);
     EnsureOrderWorkflowColumns(db);
     EnsureProductManufacturerColumn(db);
+    EnsureProductManufacturerColumns(db);
     EnsureProductReviewTable(db);
+    EnsureReviewsTable(db);
     EnsureCouponsTable(db);
     SeedProductCatalog(db);
+    SeedManufacturersAndAssignProducts(db);
 }
 
 // Configure the HTTP request pipeline
@@ -125,7 +124,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 Console.WriteLine("BaseCore API Service running on port 5001");
-Console.WriteLine("Endpoints: /api/products, /api/categories, /api/orders, /api/coupons");
+Console.WriteLine("Endpoints: /api/products, /api/categories, /api/orders, /api/coupons, /api/statistics");
 app.Run();
 
 static void SeedProductCatalog(MySqlDbContext db)
@@ -334,6 +333,121 @@ END
 WHERE ISNULL(Manufacturer, N'') = N'';");
 }
 
+static void EnsureProductManufacturerColumns(MySqlDbContext db)
+{
+    db.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'dbo.Manufacturers', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Manufacturers
+    (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Manufacturers PRIMARY KEY,
+        Name NVARCHAR(255) NOT NULL
+    );
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF COL_LENGTH(N'dbo.Products', N'ManufacturerId') IS NULL
+BEGIN
+    ALTER TABLE dbo.Products ADD ManufacturerId INT NULL;
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS (SELECT 1 FROM sys.indexes WHERE name = N'IX_Products_ManufacturerId' AND object_id = OBJECT_ID(N'dbo.Products'))
+BEGIN
+    CREATE INDEX IX_Products_ManufacturerId ON dbo.Products(ManufacturerId);
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+IF NOT EXISTS
+(
+    SELECT 1
+    FROM sys.foreign_key_columns fkc
+    WHERE fkc.parent_object_id = OBJECT_ID(N'dbo.Products')
+      AND fkc.parent_column_id = COLUMNPROPERTY(OBJECT_ID(N'dbo.Products'), N'ManufacturerId', 'ColumnId')
+)
+AND NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.Products p
+    LEFT JOIN dbo.Manufacturers m ON m.Id = p.ManufacturerId
+    WHERE p.ManufacturerId IS NOT NULL AND m.Id IS NULL
+)
+BEGIN
+    ALTER TABLE dbo.Products
+    ADD CONSTRAINT FK_Products_Manufacturers_ManufacturerId
+        FOREIGN KEY (ManufacturerId) REFERENCES dbo.Manufacturers(Id)
+        ON DELETE SET NULL;
+END;");
+}
+
+static void SeedManufacturersAndAssignProducts(MySqlDbContext db)
+{
+    db.Database.ExecuteSqlRaw(@"
+DECLARE @Manufacturers TABLE (Name NVARCHAR(255) NOT NULL);
+
+INSERT INTO @Manufacturers (Name)
+VALUES
+    (N'Apple'), (N'Samsung'), (N'Xiaomi'), (N'Huawei'), (N'Lenovo'),
+    (N'Amazfit'), (N'Fitbit'), (N'Coros'), (N'Haylou'), (N'OPPO'),
+    (N'Vivo'), (N'Realme'), (N'Google'), (N'Nokia'), (N'Honor'),
+    (N'Dell'), (N'HP'), (N'ASUS'), (N'Acer'), (N'MSI'),
+    (N'LG'), (N'Microsoft'), (N'Garmin');
+
+INSERT INTO dbo.Manufacturers (Name)
+SELECT source.Name
+FROM @Manufacturers source
+WHERE NOT EXISTS
+(
+    SELECT 1
+    FROM dbo.Manufacturers target
+    WHERE LOWER(target.Name) = LOWER(source.Name)
+);
+
+UPDATE product
+SET ManufacturerId = manufacturer.Id,
+    Manufacturer = manufacturer.Name
+FROM dbo.Products product
+CROSS APPLY
+(
+    SELECT TOP 1 mapping.ManufacturerName
+    FROM
+    (
+        VALUES
+            (N'iPhone', N'Apple'),
+            (N'iPad', N'Apple'),
+            (N'MacBook', N'Apple'),
+            (N'Apple Watch', N'Apple'),
+            (N'Samsung', N'Samsung'),
+            (N'Xiaomi', N'Xiaomi'),
+            (N'Redmi', N'Xiaomi'),
+            (N'Huawei', N'Huawei'),
+            (N'Lenovo', N'Lenovo'),
+            (N'Amazfit', N'Amazfit'),
+            (N'Fitbit', N'Fitbit'),
+            (N'Coros', N'Coros'),
+            (N'Haylou', N'Haylou'),
+            (N'OPPO', N'OPPO'),
+            (N'Vivo', N'Vivo'),
+            (N'Realme', N'Realme'),
+            (N'Google', N'Google'),
+            (N'Nokia', N'Nokia'),
+            (N'Honor', N'Honor'),
+            (N'Dell', N'Dell'),
+            (N'HP ', N'HP'),
+            (N'ASUS', N'ASUS'),
+            (N'Acer', N'Acer'),
+            (N'MSI', N'MSI'),
+            (N'LG ', N'LG'),
+            (N'Microsoft', N'Microsoft'),
+            (N'Garmin', N'Garmin')
+    ) mapping(ProductToken, ManufacturerName)
+    WHERE product.Name LIKE N'%' + mapping.ProductToken + N'%'
+) mapping
+INNER JOIN dbo.Manufacturers manufacturer
+    ON LOWER(manufacturer.Name) = LOWER(mapping.ManufacturerName)
+WHERE product.ManufacturerId IS NULL;");
+}
+
 static void EnsureProductReviewTable(MySqlDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
@@ -380,6 +494,26 @@ IF OBJECT_ID(N'dbo.ProductReviews', N'U') IS NOT NULL
 BEGIN
     CREATE INDEX IX_ProductReviews_ProductId
     ON dbo.ProductReviews(ProductId);
+END;");
+}
+
+static void EnsureReviewsTable(MySqlDbContext db)
+{
+    db.Database.ExecuteSqlRaw(@"
+IF OBJECT_ID(N'dbo.Reviews', N'U') IS NULL
+BEGIN
+    CREATE TABLE dbo.Reviews
+    (
+        Id INT IDENTITY(1,1) NOT NULL CONSTRAINT PK_Reviews PRIMARY KEY,
+        ProductId INT NOT NULL,
+        UserId NVARCHAR(50) NOT NULL,
+        Rating INT NOT NULL,
+        Comment NVARCHAR(1000) NOT NULL CONSTRAINT DF_Reviews_Comment DEFAULT (N''),
+        CreatedDate DATETIME2 NOT NULL CONSTRAINT DF_Reviews_CreatedDate DEFAULT (SYSUTCDATETIME()),
+        CONSTRAINT CK_Reviews_Rating CHECK (Rating BETWEEN 1 AND 5),
+        CONSTRAINT FK_Reviews_Products_ProductId FOREIGN KEY (ProductId) REFERENCES dbo.Products(Id),
+        CONSTRAINT FK_Reviews_Users_UserId FOREIGN KEY (UserId) REFERENCES dbo.Users(Id)
+    );
 END;");
 }
 
@@ -529,6 +663,14 @@ IF EXISTS (
 )
 BEGIN
     ALTER TABLE dbo.Orders DROP CONSTRAINT CK_Orders_Status;
+END;");
+
+    db.Database.ExecuteSqlRaw(@"
+UPDATE dbo.Orders
+SET Status = CASE
+    WHEN Status = N'Processing' THEN N'Shipping'
+    WHEN Status IN (N'Pending', N'Confirmed', N'Shipping', N'Completed', N'Cancelled') THEN Status
+    ELSE N'Pending'
 END;");
 
     db.Database.ExecuteSqlRaw(@"

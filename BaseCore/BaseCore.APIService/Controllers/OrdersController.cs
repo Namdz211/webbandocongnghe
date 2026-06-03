@@ -504,6 +504,7 @@ namespace BaseCore.APIService.Controllers
             {
                 order.Id,
                 order.UserId,
+                user = resolvedCustomer == null ? null : new { name = resolvedCustomer.Name },
                 CustomerName = resolvedCustomer?.Name,
                 CustomerUserName = resolvedCustomer?.UserName,
                 CustomerEmail = resolvedCustomer?.Email,

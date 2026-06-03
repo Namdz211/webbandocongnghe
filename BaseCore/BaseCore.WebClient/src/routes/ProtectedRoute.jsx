@@ -2,25 +2,30 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 
-const ProtectedRoute = ({ children, adminOnly = false }) => {
+const ProtectedRoute = ({
+    children,
+    adminOnly = false,
+    loginPath = '/admin/login',
+    redirectPath = '/admin',
+}) => {
     const { isAuthenticated, isAdmin, loading } = useAuth();
 
     if (loading) {
         return (
             <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
                 <div className="spinner-border text-primary" role="status">
-                    <span className="sr-only">Loading...</span>
+                    <span className="sr-only">Đang tải...</span>
                 </div>
             </div>
         );
     }
 
     if (!isAuthenticated) {
-        return <Navigate to="/admin/login" replace />;
+        return <Navigate to={loginPath} replace />;
     }
 
     if (adminOnly && !isAdmin()) {
-        return <Navigate to="/admin" replace />;
+        return <Navigate to={redirectPath} replace />;
     }
 
     return children;

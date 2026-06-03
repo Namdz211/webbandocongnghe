@@ -10,7 +10,7 @@ namespace BaseCore.APIService.Controllers
 {
     /// <summary>
     /// Product API Controller
-    /// Teaching: RESTful API, CRUD Operations, EF Core (Bài 10, 11)
+    /// Teaching: RESTful API, CRUD Operations, EF Core (Bai 10, 11)
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
@@ -62,11 +62,13 @@ namespace BaseCore.APIService.Controllers
                 sortBy,
                 page,
                 pageSize);
-            var reviewStats = await GetReviewStatsAsync(products.Select(product => product.Id));
+            var productIds = products.Select(product => product.Id).ToList();
+            var reviewStats = await GetReviewStatsAsync(productIds);
+            var soldStats = await GetSoldStatsAsync(productIds);
 
             return Ok(new
             {
-                items = products.Select(product => ToProductListResponse(product, reviewStats)),
+                items = products.Select(product => ToProductListResponse(product, reviewStats, soldStats)),
                 totalCount,
                 page,
                 pageSize,
@@ -92,9 +94,12 @@ namespace BaseCore.APIService.Controllers
         {
             var product = await _productRepository.GetByIdAsync(id);
             if (product == null)
-                return NotFound(new { message = "Product not found" });
+                return NotFound(new { message = "Không tìm thấy sản phẩm" });
 
-            return Ok(product);
+            var reviewStats = await GetReviewStatsAsync(new[] { product.Id });
+            var soldStats = await GetSoldStatsAsync(new[] { product.Id });
+
+            return Ok(ToProductListResponse(product, reviewStats, soldStats));
         }
 
         /// <summary>
@@ -214,15 +219,25 @@ namespace BaseCore.APIService.Controllers
             if (validationMessage != null)
                 return BadRequest(new { message = validationMessage });
 
-            // Validate category exists
             var category = await _categoryRepository.GetByIdAsync(dto.CategoryId);
             if (category == null)
                 return BadRequest(new { message = "Danh mục không tồn tại" });
 
+            var manufacturerName = dto.Manufacturer?.Trim() ?? "";
+            if (dto.ManufacturerId.HasValue)
+            {
+                var manufacturer = await _dbContext.Manufacturers.FindAsync(dto.ManufacturerId.Value);
+                if (manufacturer == null)
+                    return BadRequest(new { message = "Nhà sản xuất không tồn tại" });
+
+                manufacturerName = manufacturer.Name;
+            }
+
             var product = new Product
             {
                 Name = dto.Name.Trim(),
-                Manufacturer = dto.Manufacturer?.Trim() ?? "",
+                Manufacturer = manufacturerName,
+                ManufacturerId = dto.ManufacturerId,
                 Price = dto.Price,
                 Stock = dto.Stock,
                 CategoryId = dto.CategoryId,
@@ -256,8 +271,21 @@ namespace BaseCore.APIService.Controllers
                     return BadRequest(new { message = "Danh mục không tồn tại" });
             }
 
+            if (dto.ManufacturerId.HasValue)
+            {
+                var manufacturer = await _dbContext.Manufacturers.FindAsync(dto.ManufacturerId.Value);
+                if (manufacturer == null)
+                    return BadRequest(new { message = "Nhà sản xuất không tồn tại" });
+
+                product.ManufacturerId = dto.ManufacturerId;
+                product.Manufacturer = manufacturer.Name;
+            }
+            else if (dto.Manufacturer != null)
+            {
+                product.Manufacturer = dto.Manufacturer.Trim();
+            }
+
             product.Name = dto.Name?.Trim() ?? product.Name;
-            product.Manufacturer = dto.Manufacturer?.Trim() ?? product.Manufacturer;
             product.Price = dto.Price ?? product.Price;
             product.Stock = dto.Stock ?? product.Stock;
             product.CategoryId = dto.CategoryId ?? product.CategoryId;
@@ -302,8 +330,11 @@ namespace BaseCore.APIService.Controllers
         public async Task<IActionResult> GetByCategory(int categoryId)
         {
             var products = await _productRepository.GetByCategoryAsync(categoryId);
-            var reviewStats = await GetReviewStatsAsync(products.Select(product => product.Id));
-            return Ok(products.Select(product => ToProductListResponse(product, reviewStats)));
+            var productIds = products.Select(product => product.Id).ToList();
+            var reviewStats = await GetReviewStatsAsync(productIds);
+            var soldStats = await GetSoldStatsAsync(productIds);
+
+            return Ok(products.Select(product => ToProductListResponse(product, reviewStats, soldStats)));
         }
 
         private static string? ValidateCreateDto(ProductCreateDto dto)
@@ -318,7 +349,7 @@ namespace BaseCore.APIService.Controllers
                 return "Giá sản phẩm không được âm";
 
             if (dto.Manufacturer?.Length > 100)
-                return "Hang san xuat khong duoc vuot qua 100 ky tu";
+                return "Hãng sản xuất không được vượt quá 100 ký tự";
 
             if (dto.Stock < 0)
                 return "Tồn kho không được âm";
@@ -341,7 +372,7 @@ namespace BaseCore.APIService.Controllers
                 return "Giá sản phẩm không được âm";
 
             if (dto.Manufacturer?.Length > 100)
-                return "Hang san xuat khong duoc vuot qua 100 ky tu";
+                return "Hãng sản xuất không được vượt quá 100 ký tự";
 
             if (dto.Stock.HasValue && dto.Stock.Value < 0)
                 return "Tồn kho không được âm";
@@ -403,17 +434,46 @@ namespace BaseCore.APIService.Controllers
                 .ToDictionaryAsync(item => item.ProductId);
         }
 
+        private async Task<Dictionary<int, int>> GetSoldStatsAsync(IEnumerable<int> productIds)
+        {
+            var ids = productIds.Distinct().ToList();
+            if (ids.Count == 0)
+                return new Dictionary<int, int>();
+
+            return await _dbContext.OrderDetails
+                .AsNoTracking()
+                .Join(
+                    _dbContext.Orders.AsNoTracking(),
+                    detail => detail.OrderId,
+                    order => order.Id,
+                    (detail, order) => new { detail, order })
+                .Where(item =>
+                    ids.Contains(item.detail.ProductId) &&
+                    item.order.Status == "Completed")
+                .GroupBy(item => item.detail.ProductId)
+                .Select(group => new
+                {
+                    ProductId = group.Key,
+                    SoldQuantity = group.Sum(item => item.detail.Quantity)
+                })
+                .ToDictionaryAsync(item => item.ProductId, item => item.SoldQuantity);
+        }
+
         private static object ToProductListResponse(
             Product product,
-            IReadOnlyDictionary<int, ProductReviewStats> reviewStats)
+            IReadOnlyDictionary<int, ProductReviewStats> reviewStats,
+            IReadOnlyDictionary<int, int> soldStats)
         {
             reviewStats.TryGetValue(product.Id, out var stats);
+            soldStats.TryGetValue(product.Id, out var soldQuantity);
 
             return new
             {
                 product.Id,
                 product.Name,
                 product.Manufacturer,
+                ManufacturerName = product.Manufacturer,
+                product.ManufacturerId,
                 product.Price,
                 product.Stock,
                 product.ImageUrl,
@@ -433,7 +493,9 @@ namespace BaseCore.APIService.Controllers
                 product.WaterResistance,
                 product.Category,
                 AverageRating = stats?.AverageRating ?? 0,
-                ReviewCount = stats?.ReviewCount ?? 0
+                ReviewCount = stats?.ReviewCount ?? 0,
+                ReviewsCount = stats?.ReviewCount ?? 0,
+                SoldQuantity = soldQuantity
             };
         }
     }
@@ -443,6 +505,7 @@ namespace BaseCore.APIService.Controllers
     {
         public string Name { get; set; } = "";
         public string? Manufacturer { get; set; }
+        public int? ManufacturerId { get; set; }
         public decimal Price { get; set; }
         public int Stock { get; set; }
         public int CategoryId { get; set; }
@@ -454,6 +517,7 @@ namespace BaseCore.APIService.Controllers
     {
         public string? Name { get; set; }
         public string? Manufacturer { get; set; }
+        public int? ManufacturerId { get; set; }
         public decimal? Price { get; set; }
         public int? Stock { get; set; }
         public int? CategoryId { get; set; }
