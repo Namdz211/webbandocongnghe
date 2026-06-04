@@ -62,8 +62,8 @@ export const api = {
     request(`/products/manufacturers?${toQueryString(params)}`),
   getProducts: (params = {}) =>
     request(`/products?${toQueryString(params)}`),
-  getProduct: (id) => request(`/products/${id}`),
   getPublicCoupons: () => request('/coupons/public'),
+  getProduct: (id) => request(`/products/${id}`),
   getProductReviews: (id, token) =>
     request(`/products/${id}/reviews`, {
       token,

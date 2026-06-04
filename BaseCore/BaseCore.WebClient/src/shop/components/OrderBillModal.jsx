@@ -70,6 +70,13 @@ function formatPromotionName(value) {
     .join(' + ')
 }
 
+function formatCustomerAddress(value) {
+  const address = String(value || '').trim()
+  const addressMatch = address.match(/(?:^|\|\s*)\u0110\u1ecba ch\u1ec9:\s*(.+)$/i)
+
+  return addressMatch ? addressMatch[1].trim() : address
+}
+
 export default function OrderBillModal({
   bill,
   onClose,
@@ -82,7 +89,7 @@ export default function OrderBillModal({
 
   const pages = buildBillPages(bill.items)
   const dateParts = formatBillDate(bill.orderDate)
-  const customerAddress = bill.customerAddress || bill.shippingAddress || ''
+  const customerAddress = formatCustomerAddress(bill.customerAddress || bill.shippingAddress)
   const totalQuantity = (Array.isArray(bill.items) ? bill.items : [])
     .reduce((sum, item) => sum + Number(item?.quantity || 0), 0)
   const promotionLabel = formatPromotionName(bill.promotionName)

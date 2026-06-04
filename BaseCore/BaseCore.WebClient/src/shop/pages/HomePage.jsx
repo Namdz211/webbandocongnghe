@@ -293,16 +293,16 @@ export default function HomePage({
 
       <div className="section">
         <div className="container">
-          <SectionHeader
-            title="Sản phẩm mới cập nhật"
-            linkTo="/store"
-            onNavigate={onNavigate}
-          />
           <CouponShowcase
             coupons={coupons}
             loadError={couponLoadError}
             savedCouponCodes={savedCouponCodes}
             onSaveCoupon={onSaveCoupon}
+          />
+          <SectionHeader
+            title="Sản phẩm mới cập nhật"
+            linkTo="/store"
+            onNavigate={onNavigate}
           />
           <div className="row">
             {featuredProducts.map((product) => (
@@ -314,42 +314,6 @@ export default function HomePage({
                 onBuyNow={onBuyNow}
               />
             ))}
-          </div>
-        </div>
-      </div>
-
-      <div id="hot-deal" className="section">
-        <div className="container">
-          <div className="row">
-            <div className="col-md-12">
-              <div className="hot-deal">
-                <ul className="hot-deal-countdown">
-                  <li>
-                    <div>
-                      <h3>24</h3>
-                      <span>Giờ</span>
-                    </div>
-                  </li>
-                  <li>
-                    <div>
-                      <h3>60</h3>
-                      <span>Phut</span>
-                    </div>
-                  </li>
-                  <li>
-                    <div>
-                      <h3>60</h3>
-                      <span>Giay</span>
-                    </div>
-                  </li>
-                </ul>
-                <h2 className="text-uppercase">hn mobile</h2>
-                <p>Giá cả phải chăng - Giao hàng miễn phí</p>
-                <LinkButton to="/checkout" className="primary-btn cta-btn" onNavigate={onNavigate}>
-                  Đi đến thanh toán
-                </LinkButton>
-              </div>
-            </div>
           </div>
         </div>
       </div>
@@ -396,6 +360,42 @@ export default function HomePage({
                 </div>
               </div>
             ))}
+          </div>
+        </div>
+      </div>
+
+      <div id="hot-deal" className="section">
+        <div className="container">
+          <div className="row">
+            <div className="col-md-12">
+              <div className="hot-deal">
+                <ul className="hot-deal-countdown">
+                  <li>
+                    <div>
+                      <h3>24</h3>
+                      <span>Giờ</span>
+                    </div>
+                  </li>
+                  <li>
+                    <div>
+                      <h3>60</h3>
+                      <span>Phut</span>
+                    </div>
+                  </li>
+                  <li>
+                    <div>
+                      <h3>60</h3>
+                      <span>Giay</span>
+                    </div>
+                  </li>
+                </ul>
+                <h2 className="text-uppercase">hn mobile</h2>
+                <p>Giá cả phải chăng - Giao hàng miễn phí</p>
+                <LinkButton to="/checkout" className="primary-btn cta-btn" onNavigate={onNavigate}>
+                  Đi đến thanh toán
+                </LinkButton>
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -262,7 +262,7 @@ namespace BaseCore.APIService.Controllers
                     if (!couponUsed)
                     {
                         await transaction.RollbackAsync();
-                        return BadRequest(new { message = "Mã giảm giá đã được sử dụng cho đơn hàng khác." });
+                        return BadRequest(new { message = "Mã giảm giá không còn khả dụng." });
                     }
                 }
 
@@ -662,9 +662,6 @@ namespace BaseCore.APIService.Controllers
             if (DateTime.UtcNow > coupon.ExpiryDate)
                 return CouponDiscountResult.Failed("Mã giảm giá đã hết hạn");
 
-            if (coupon.UsedCount > 0)
-                return CouponDiscountResult.Failed("Mã giảm giá đã được sử dụng");
-
             if (coupon.UsageLimit > 0 && coupon.UsedCount >= coupon.UsageLimit)
                 return CouponDiscountResult.Failed("Mã giảm giá đã hết lượt sử dụng");
 
@@ -711,12 +708,11 @@ namespace BaseCore.APIService.Controllers
                 .Where(coupon =>
                     coupon.Id == couponId &&
                     coupon.IsActive &&
-                    coupon.UsedCount == 0 &&
+                    (coupon.UsageLimit == 0 || coupon.UsedCount < coupon.UsageLimit) &&
                     coupon.StartDate <= now &&
                     coupon.ExpiryDate >= now)
                 .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(coupon => coupon.UsedCount, coupon => coupon.UsedCount + 1)
-                    .SetProperty(coupon => coupon.IsActive, false));
+                    .SetProperty(coupon => coupon.UsedCount, coupon => coupon.UsedCount + 1));
 
             return updatedRows == 1;
         }

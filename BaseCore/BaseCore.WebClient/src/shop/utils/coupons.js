@@ -56,9 +56,10 @@ export function isCouponUsable(coupon, orderAmount) {
   }
 
   const isActive = getCouponValue(coupon, 'isActive', 'IsActive')
+  const usageLimit = Number(getCouponValue(coupon, 'usageLimit', 'UsageLimit') || 0)
   const usedCount = Number(getCouponValue(coupon, 'usedCount', 'UsedCount') || 0)
 
-  if (isActive === false || usedCount > 0) {
+  if (isActive === false || (usageLimit > 0 && usedCount >= usageLimit)) {
     return false
   }
 

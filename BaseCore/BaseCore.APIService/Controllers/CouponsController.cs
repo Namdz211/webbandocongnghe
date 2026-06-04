@@ -31,7 +31,7 @@ namespace BaseCore.APIService.Controllers
             var coupons = await _dbContext.Coupons
                 .Where(c =>
                     c.IsActive &&
-                    c.UsedCount == 0 &&
+                    (c.UsageLimit == 0 || c.UsedCount < c.UsageLimit) &&
                     c.StartDate <= now &&
                     c.ExpiryDate >= now)
                 .OrderBy(c => c.ExpiryDate)
@@ -44,6 +44,8 @@ namespace BaseCore.APIService.Controllers
                     c.DiscountValue,
                     c.MaxDiscountAmount,
                     c.MinOrderAmount,
+                    c.UsageLimit,
+                    c.UsedCount,
                     c.ExpiryDate
                 })
                 .ToListAsync();
@@ -110,9 +112,6 @@ namespace BaseCore.APIService.Controllers
             if (DateTime.UtcNow > coupon.ExpiryDate)
                 return BadRequest(new { message = "Mã giảm giá đã hết hạn" });
 
-            if (coupon.UsedCount > 0)
-                return BadRequest(new { message = "Mã giảm giá đã được sử dụng" });
-
             if (coupon.UsageLimit > 0 && coupon.UsedCount >= coupon.UsageLimit)
                 return BadRequest(new { message = "Mã giảm giá đã hết lượt sử dụng" });
 
@@ -167,7 +166,7 @@ namespace BaseCore.APIService.Controllers
                 DiscountValue = dto.DiscountValue,
                 MaxDiscountAmount = dto.MaxDiscountAmount ?? 0,
                 MinOrderAmount = dto.MinOrderAmount ?? 0,
-                UsageLimit = 1,
+                UsageLimit = Math.Max(0, dto.UsageLimit ?? 0),
                 StartDate = dto.StartDate ?? DateTime.UtcNow,
                 ExpiryDate = dto.ExpiryDate,
                 IsActive = dto.IsActive ?? true,
@@ -206,7 +205,13 @@ namespace BaseCore.APIService.Controllers
             if (dto.DiscountValue.HasValue) coupon.DiscountValue = dto.DiscountValue.Value;
             if (dto.MaxDiscountAmount.HasValue) coupon.MaxDiscountAmount = dto.MaxDiscountAmount.Value;
             if (dto.MinOrderAmount.HasValue) coupon.MinOrderAmount = dto.MinOrderAmount.Value;
-            if (dto.UsageLimit.HasValue) coupon.UsageLimit = 1;
+            if (dto.UsageLimit.HasValue)
+            {
+                if (dto.UsageLimit.Value < 0)
+                    return BadRequest(new { message = "Giới hạn sử dụng không được âm" });
+
+                coupon.UsageLimit = dto.UsageLimit.Value;
+            }
             if (dto.StartDate.HasValue) coupon.StartDate = dto.StartDate.Value;
             if (dto.ExpiryDate.HasValue) coupon.ExpiryDate = dto.ExpiryDate.Value;
             if (dto.IsActive.HasValue) coupon.IsActive = dto.IsActive.Value;
@@ -264,6 +269,9 @@ namespace BaseCore.APIService.Controllers
 
             if (dto.DiscountValue <= 0)
                 return "Giá trị giảm phải lớn hơn 0";
+
+            if (dto.UsageLimit.HasValue && dto.UsageLimit.Value < 0)
+                return "Giới hạn sử dụng không được âm";
 
             if (dto.DiscountType == "percent" && dto.DiscountValue > 100)
                 return "Phần trăm giảm không được vượt quá 100%";
