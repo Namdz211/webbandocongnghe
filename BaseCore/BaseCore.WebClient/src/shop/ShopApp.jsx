@@ -148,6 +148,8 @@ function App() {
     } else {
       localStorage.removeItem(STORAGE_KEYS.auth)
     }
+
+    window.dispatchEvent(new Event('auth-changed'))
   }, [auth])
 
   useEffect(() => {
@@ -414,6 +416,7 @@ function App() {
 
   async function login(username, password) {
     const data = await api.login(username, password)
+    writeStorage(STORAGE_KEYS.auth, data)
     setAuth(data)
     openNotice('success', 'Đăng nhập thành công.')
     return data

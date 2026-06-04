@@ -41,6 +41,8 @@ namespace BaseCore.APIService.Controllers
             [FromQuery] decimal? minPrice,
             [FromQuery] decimal? maxPrice,
             [FromQuery] string? sortBy,
+            [FromQuery] DateTime? startDate,
+            [FromQuery] DateTime? endDate,
             [FromQuery] int page = 1,
             [FromQuery] int pageSize = 10)
         {
@@ -53,6 +55,12 @@ namespace BaseCore.APIService.Controllers
             if (minPrice.HasValue && maxPrice.HasValue && minPrice.Value > maxPrice.Value)
                 return BadRequest(new { message = "Giá tối thiểu không được lớn hơn giá tối đa" });
 
+            if (startDate.HasValue && endDate.HasValue && startDate.Value > endDate.Value)
+                return BadRequest(new { message = "Từ ngày không được lớn hơn đến ngày" });
+
+            if (endDate.HasValue && endDate.Value.TimeOfDay == TimeSpan.Zero)
+                endDate = endDate.Value.AddDays(1).AddTicks(-1);
+
             var (products, totalCount) = await _productRepository.SearchAsync(
                 keyword,
                 categoryId,
@@ -60,11 +68,17 @@ namespace BaseCore.APIService.Controllers
                 minPrice,
                 maxPrice,
                 sortBy,
+                startDate,
+                endDate,
                 page,
                 pageSize);
             var productIds = products.Select(product => product.Id).ToList();
             var reviewStats = await GetReviewStatsAsync(productIds);
-            var soldStats = await GetSoldStatsAsync(productIds);
+            var useSalesDateRange = string.Equals(sortBy, "bestSelling", StringComparison.OrdinalIgnoreCase);
+            var soldStats = await GetSoldStatsAsync(
+                productIds,
+                useSalesDateRange ? startDate : null,
+                useSalesDateRange ? endDate : null);
 
             return Ok(new
             {
@@ -434,7 +448,10 @@ namespace BaseCore.APIService.Controllers
                 .ToDictionaryAsync(item => item.ProductId);
         }
 
-        private async Task<Dictionary<int, int>> GetSoldStatsAsync(IEnumerable<int> productIds)
+        private async Task<Dictionary<int, int>> GetSoldStatsAsync(
+            IEnumerable<int> productIds,
+            DateTime? startDate = null,
+            DateTime? endDate = null)
         {
             var ids = productIds.Distinct().ToList();
             if (ids.Count == 0)
@@ -449,7 +466,9 @@ namespace BaseCore.APIService.Controllers
                     (detail, order) => new { detail, order })
                 .Where(item =>
                     ids.Contains(item.detail.ProductId) &&
-                    item.order.Status == "Completed")
+                    item.order.Status == "Completed" &&
+                    (!startDate.HasValue || item.order.OrderDate >= startDate.Value) &&
+                    (!endDate.HasValue || item.order.OrderDate <= endDate.Value))
                 .GroupBy(item => item.detail.ProductId)
                 .Select(group => new
                 {

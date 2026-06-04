@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api/client.js'
-import { FALLBACK_IMAGES } from '../constants/images.js'
 import LinkButton from '../components/LinkButton.jsx'
 import ProductCard from '../components/ProductCard.jsx'
 import SectionHeader from '../components/SectionHeader.jsx'
@@ -1058,8 +1057,7 @@ export default function ProductPage({
           ) : (
             <>
               <div className="row">
-                <div className="col-md-5 col-md-push-2">
-
+                <div className="col-md-6">
                   <div id="product-main-img" className="product-preview">
                     <img
                       src={getProductImage(product)}
@@ -1069,25 +1067,7 @@ export default function ProductPage({
                   </div>
                 </div>
 
-                <div className="col-md-2 col-md-pull-5">
-                  <div id="product-imgs" className="product-preview-nav">
-                    <img
-                      src={getProductImage(product)}
-                      alt={product.name}
-                      onError={(event) => handleProductImageError(event, product)}
-                    />
-                    <img
-                      src={FALLBACK_IMAGES[(Number(product.id) + 1) % FALLBACK_IMAGES.length]}
-                      alt={`${product.name} gallery`}
-                    />
-                    <img
-                      src={FALLBACK_IMAGES[(Number(product.id) + 2) % FALLBACK_IMAGES.length]}
-                      alt={`${product.name} gallery`}
-                    />
-                  </div>
-                </div>
-
-                <div className="col-md-5">
+                <div className="col-md-6">
                   <div className="product-details">
                     <h2 className="product-name">{product.name}</h2>
                     {product.manufacturer && (

@@ -5,6 +5,8 @@ export function buildStorePath({
   minPrice = '',
   maxPrice = '',
   sortBy = '',
+  startDate = '',
+  endDate = '',
   page = 1,
 } = {}) {
   const params = new URLSearchParams()
@@ -32,6 +34,14 @@ export function buildStorePath({
 
   if (sortBy && sortBy !== 'recent') {
     params.set('sortBy', String(sortBy))
+  }
+
+  if (startDate) {
+    params.set('startDate', String(startDate))
+  }
+
+  if (endDate) {
+    params.set('endDate', String(endDate))
   }
 
   if (page > 1) {

@@ -11,6 +11,21 @@ function getProductReviewCount(product) {
   return Number(product?.reviewCount || product?.ReviewCount || 0)
 }
 
+function formatSoldQuantity(product) {
+  const soldQuantity = Math.max(0, Number(product?.soldQuantity ?? product?.SoldQuantity ?? 0))
+
+  if (soldQuantity < 1000) {
+    return String(soldQuantity)
+  }
+
+  const compactQuantity = soldQuantity / 1000
+  const formattedQuantity = Number.isInteger(compactQuantity)
+    ? compactQuantity.toFixed(0)
+    : compactQuantity.toFixed(1).replace('.', ',')
+
+  return `${formattedQuantity}k`
+}
+
 function renderRatingStars(rating) {
   return RATING_STARS.map((star) => {
     const iconClass = rating >= star
@@ -27,6 +42,7 @@ export default function ProductCard({ product, onNavigate }) {
   const productPath = `/product/${product.id}`
   const averageRating = getProductRating(product)
   const reviewCount = getProductReviewCount(product)
+  const soldQuantity = formatSoldQuantity(product)
 
   function openProductDetail() {
     if (typeof onNavigate === 'function') {
@@ -72,11 +88,14 @@ export default function ProductCard({ product, onNavigate }) {
           )}
           <h3 className="product-name">{product.name}</h3>
           <h4 className="product-price">{formatCurrency(product.price)}</h4>
-          <div className="product-rating product-card-rating">
-            {renderRatingStars(averageRating)}
-            {reviewCount > 0 && (
-              <span>{averageRating.toFixed(1)} ({reviewCount})</span>
-            )}
+          <div className="product-card-meta">
+            <div className="product-rating product-card-rating">
+              {renderRatingStars(averageRating)}
+              {reviewCount > 0 && (
+                <span>{averageRating.toFixed(1)} ({reviewCount})</span>
+              )}
+            </div>
+            <span className="product-card-sold">Đã bán {soldQuantity}</span>
           </div>
         </div>
       </div>

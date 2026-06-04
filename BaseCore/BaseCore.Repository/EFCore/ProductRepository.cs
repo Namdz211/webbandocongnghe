@@ -17,6 +17,17 @@ namespace BaseCore.Repository.EFCore
             string? sortBy,
             int page,
             int pageSize);
+        Task<(List<Product> Products, int TotalCount)> SearchAsync(
+            string? keyword,
+            int? categoryId,
+            string? manufacturer,
+            decimal? minPrice,
+            decimal? maxPrice,
+            string? sortBy,
+            DateTime? startDate,
+            DateTime? endDate,
+            int page,
+            int pageSize);
         Task<(List<Product> Products, int TotalCount)> SearchAsync(string? keyword, int? categoryId, int page, int pageSize);
         Task<List<Product>> GetByCategoryAsync(int categoryId);
         Task<List<string>> GetManufacturersAsync(int? categoryId = null);
@@ -41,6 +52,29 @@ namespace BaseCore.Repository.EFCore
             return await base.GetByIdAsync(id);
         }
 
+        public Task<(List<Product> Products, int TotalCount)> SearchAsync(
+            string? keyword,
+            int? categoryId,
+            string? manufacturer,
+            decimal? minPrice,
+            decimal? maxPrice,
+            string? sortBy,
+            int page,
+            int pageSize)
+        {
+            return SearchAsync(
+                keyword,
+                categoryId,
+                manufacturer,
+                minPrice,
+                maxPrice,
+                sortBy,
+                null,
+                null,
+                page,
+                pageSize);
+        }
+
         public async Task<(List<Product> Products, int TotalCount)> SearchAsync(
             string? keyword,
             int? categoryId,
@@ -48,6 +82,8 @@ namespace BaseCore.Repository.EFCore
             decimal? minPrice,
             decimal? maxPrice,
             string? sortBy,
+            DateTime? startDate,
+            DateTime? endDate,
             int page,
             int pageSize)
         {
@@ -83,20 +119,30 @@ namespace BaseCore.Repository.EFCore
                 query = query.Where(p => p.Price <= maxPrice.Value);
             }
 
+            var normalizedSortBy = (sortBy ?? "recent").Trim().ToLowerInvariant();
+            var completedSales = _context.OrderDetails.Where(detail =>
+                _context.Orders.Any(order =>
+                    order.Id == detail.OrderId &&
+                    order.Status == "Completed" &&
+                    (!startDate.HasValue || order.OrderDate >= startDate.Value) &&
+                    (!endDate.HasValue || order.OrderDate <= endDate.Value)));
+
+            if (normalizedSortBy == "bestselling")
+            {
+                query = query.Where(product =>
+                    completedSales.Any(detail => detail.ProductId == product.Id));
+            }
+
             var totalCount = await query.CountAsync();
 
-            query = (sortBy ?? "recent").Trim().ToLowerInvariant() switch
+            query = normalizedSortBy switch
             {
                 "bestselling" => query
-                    .OrderByDescending(p => _context.OrderDetails
-                        .Where(detail =>
-                            detail.ProductId == p.Id &&
-                            _context.Orders.Any(order => order.Id == detail.OrderId && order.Status == "Completed"))
+                    .OrderByDescending(p => completedSales
+                        .Where(detail => detail.ProductId == p.Id)
                         .Sum(detail => (int?)detail.Quantity) ?? 0)
-                    .ThenByDescending(p => _context.OrderDetails
-                        .Where(detail =>
-                            detail.ProductId == p.Id &&
-                            _context.Orders.Any(order => order.Id == detail.OrderId && order.Status == "Completed"))
+                    .ThenByDescending(p => completedSales
+                        .Where(detail => detail.ProductId == p.Id)
                         .Sum(detail => (decimal?)(detail.Quantity * detail.UnitPrice)) ?? 0)
                     .ThenByDescending(p => p.Id),
                 "priceasc" => query.OrderBy(p => p.Price).ThenByDescending(p => p.Id),

@@ -4,9 +4,9 @@ import { useAuth } from '../auth/AuthContext';
 
 const ProtectedRoute = ({
     children,
-    adminOnly = false,
-    loginPath = '/admin/login',
-    redirectPath = '/admin',
+    adminOnly = true,
+    loginPath = '/login?redirect=/admin',
+    redirectPath = '/',
 }) => {
     const { isAuthenticated, isAdmin, loading } = useAuth();
 

@@ -24,15 +24,6 @@ const productIntroThemes = [
   },
 ]
 
-function getProductCategoryLabel(product) {
-  return (
-    product?.category?.name ||
-    product?.categoryName ||
-    product?.manufacturer ||
-    'Sản phẩm nổi bật'
-  )
-}
-
 function getCouponValue(coupon, camelKey, pascalKey) {
   return coupon?.[camelKey] ?? coupon?.[pascalKey]
 }
@@ -121,6 +112,16 @@ function CouponShowcase({ coupons, loadError, savedCouponCodes, onSaveCoupon }) 
     </div>
   )
 }
+
+function getProductCategoryLabel(product) {
+  return (
+    product?.category?.name ||
+    product?.categoryName ||
+    product?.manufacturer ||
+    'Sản phẩm mới cập nhật'
+  )
+}
+
 
 function ProductIntroCarousel({ products, onNavigate }) {
   const slides = (Array.isArray(products) ? products : []).filter(Boolean).slice(0, 5)
@@ -356,8 +357,8 @@ export default function HomePage({
       <div className="section">
         <div className="container">
           <SectionHeader
-            title="Bán chạy"
-            linkTo="/store"
+            title="Sản phẩm bán chạy"
+            linkTo="/store?sortBy=bestSelling"
             onNavigate={onNavigate}
           />
           <div className="row">

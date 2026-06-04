@@ -26,6 +26,21 @@ const SORT_OPTIONS = [
   },
 ]
 
+function formatDateValue(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function getDefaultSalesDateRange() {
+  const today = new Date()
+  return {
+    startDate: formatDateValue(new Date(today.getFullYear(), today.getMonth(), 1)),
+    endDate: formatDateValue(today),
+  }
+}
+
 const BRAND_COLORS = {
   acer: '#83b81a',
   amazfit: '#ff4f00',
@@ -168,6 +183,7 @@ export default function StorePage({ categories, route, onNavigate, onAddToCart, 
   const [totalPages, setTotalPages] = useState(1)
   const [totalCount, setTotalCount] = useState(0)
   const [isSortMenuOpen, setIsSortMenuOpen] = useState(false)
+  const defaultSalesDateRange = useMemo(getDefaultSalesDateRange, [])
 
   const currentPage = Math.max(1, Number(route.query.page || 1))
   const keyword = route.query.keyword || ''
@@ -180,12 +196,25 @@ export default function StorePage({ categories, route, onNavigate, onAddToCart, 
   const sortBy = SORT_OPTIONS.some((option) => option.value === requestedSortBy)
     ? requestedSortBy
     : 'recent'
+  const startDate = sortBy === 'bestSelling'
+    ? route.query.startDate || defaultSalesDateRange.startDate
+    : ''
+  const endDate = sortBy === 'bestSelling'
+    ? route.query.endDate || defaultSalesDateRange.endDate
+    : ''
   const currentCategoryName = getCategoryName(categories, effectiveCategoryId)
+  const [salesDateRange, setSalesDateRange] = useState({ startDate, endDate })
+  const [salesDateError, setSalesDateError] = useState('')
 
   const selectedSortOption = useMemo(
     () => SORT_OPTIONS.find((option) => option.value === sortBy) || SORT_OPTIONS[0],
     [sortBy],
   )
+
+  useEffect(() => {
+    setSalesDateRange({ startDate, endDate })
+    setSalesDateError('')
+  }, [startDate, endDate])
 
   useEffect(() => {
     if (!isSortMenuOpen) {
@@ -265,6 +294,8 @@ export default function StorePage({ categories, route, onNavigate, onAddToCart, 
           categoryId: effectiveCategoryId,
           manufacturer,
           sortBy,
+          startDate: startDate || undefined,
+          endDate: endDate || undefined,
           page: currentPage,
           pageSize: 12,
         })
@@ -292,7 +323,7 @@ export default function StorePage({ categories, route, onNavigate, onAddToCart, 
     return () => {
       cancelled = true
     }
-  }, [currentPage, effectiveCategoryId, effectiveKeyword, manufacturer, sortBy])
+  }, [currentPage, effectiveCategoryId, effectiveKeyword, manufacturer, sortBy, startDate, endDate])
 
   const goToStore = (nextQuery = {}) => {
     onNavigate(buildStorePath({
@@ -300,6 +331,8 @@ export default function StorePage({ categories, route, onNavigate, onAddToCart, 
       categoryId: effectiveCategoryId,
       manufacturer,
       sortBy,
+      startDate,
+      endDate,
       ...nextQuery,
       page: nextQuery.page || 1,
     }))
@@ -307,7 +340,27 @@ export default function StorePage({ categories, route, onNavigate, onAddToCart, 
 
   const selectSortOption = (nextSortBy) => {
     setIsSortMenuOpen(false)
-    goToStore({ sortBy: nextSortBy })
+    goToStore({
+      sortBy: nextSortBy,
+      startDate: nextSortBy === 'bestSelling' ? startDate || defaultSalesDateRange.startDate : '',
+      endDate: nextSortBy === 'bestSelling' ? endDate || defaultSalesDateRange.endDate : '',
+    })
+  }
+
+  const applySalesDateRange = (event) => {
+    event.preventDefault()
+
+    if (salesDateRange.startDate > salesDateRange.endDate) {
+      setSalesDateError('Từ ngày không được lớn hơn đến ngày.')
+      return
+    }
+
+    setSalesDateError('')
+    goToStore({
+      sortBy: 'bestSelling',
+      startDate: salesDateRange.startDate,
+      endDate: salesDateRange.endDate,
+    })
   }
 
   const scrollBrands = (direction) => {
@@ -401,7 +454,12 @@ export default function StorePage({ categories, route, onNavigate, onAddToCart, 
             <button
               className="store-filter-reset"
               type="button"
-              onClick={() => goToStore({ manufacturer: '', sortBy: 'recent' })}
+              onClick={() => goToStore({
+                manufacturer: '',
+                sortBy: 'recent',
+                startDate: '',
+                endDate: '',
+              })}
             >
               <i className="fa fa-filter" />
               Bộ lọc
@@ -441,6 +499,40 @@ export default function StorePage({ categories, route, onNavigate, onAddToCart, 
                 </div>
               )}
             </div>
+
+            {sortBy === 'bestSelling' && (
+              <form className="store-sales-date-filter" onSubmit={applySalesDateRange}>
+                <label>
+                  <span>Từ ngày</span>
+                  <input
+                    type="date"
+                    required
+                    value={salesDateRange.startDate}
+                    onChange={(event) => setSalesDateRange((current) => ({
+                      ...current,
+                      startDate: event.target.value,
+                    }))}
+                  />
+                </label>
+                <label>
+                  <span>Đến ngày</span>
+                  <input
+                    type="date"
+                    required
+                    value={salesDateRange.endDate}
+                    onChange={(event) => setSalesDateRange((current) => ({
+                      ...current,
+                      endDate: event.target.value,
+                    }))}
+                  />
+                </label>
+                <button type="submit">
+                  <i className="fa fa-filter" />
+                  Lọc
+                </button>
+                {salesDateError && <small>{salesDateError}</small>}
+              </form>
+            )}
           </div>
 
           <div id="store" className="store-products-full">

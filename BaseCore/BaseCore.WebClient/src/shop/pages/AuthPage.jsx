@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import LinkButton from '../components/LinkButton.jsx'
+import { isAdmin } from '../utils/auth.js'
 
 export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpdateProfile, route }) {
   const [mode, setMode] = useState(route.query.mode === 'register' ? 'register' : 'login')
@@ -64,7 +65,12 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
             })
           : await onLogin(formData.username.trim(), formData.password.trim())
 
-      onNavigate(redirectPath)
+      if (isAdmin(loggedInAuth)) {
+        window.location.replace('/admin')
+        return
+      }
+
+      onNavigate(redirectPath.startsWith('/admin') ? '/' : redirectPath)
 
     } catch (requestError) {
       setError(requestError.message)
@@ -433,15 +439,6 @@ export default function AuthPage({ auth, onNavigate, onLogin, onRegister, onUpda
                       : 'Đăng nhập'}
                 </button>
               </form>
-            </div>
-
-            <div className="auth-side-note">
-              <h4>Tích hợp FW</h4>
-              <p>
-                Đăng nhập dùng endpoint `/api/auth/login`, đăng ký dùng
-                `/api/auth/register`, và sau khi đăng nhập token sẽ được dùng cho
-                `/api/orders`.
-              </p>
             </div>
           </div>
         </div>

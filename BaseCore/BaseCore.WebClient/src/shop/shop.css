@@ -933,6 +933,68 @@ textarea {
   margin-bottom: 28px;
 }
 
+.store-sales-date-filter {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-left: auto;
+}
+
+.store-sales-date-filter label {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+}
+
+.store-sales-date-filter label span {
+  color: #606c80;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.store-sales-date-filter input,
+.store-sales-date-filter button {
+  height: 39px;
+  border: 1px solid #d8dce5;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.store-sales-date-filter input {
+  min-width: 142px;
+  padding: 0 10px;
+  background: #fff;
+  color: #111827;
+}
+
+.store-sales-date-filter button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 16px;
+  border-color: #d10024;
+  background: #d10024;
+  color: #fff;
+}
+
+.store-sales-date-filter button:hover,
+.store-sales-date-filter button:focus {
+  border-color: #b8001f;
+  background: #b8001f;
+  color: #fff;
+  outline: none;
+}
+
+.store-sales-date-filter small {
+  flex-basis: 100%;
+  color: #d10024;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .store-filter-reset,
 .store-sort-selected {
   min-height: 39px;
@@ -1446,7 +1508,6 @@ textarea {
 .product-card-rating {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
   flex-wrap: wrap;
   gap: 4px;
   min-height: 20px;
@@ -1457,6 +1518,25 @@ textarea {
   color: #8d99ae;
   font-size: 12px;
   line-height: 1;
+}
+
+.product-card-meta {
+  width: 100%;
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: auto;
+}
+
+.product-card-sold {
+  flex: 0 0 auto;
+  color: #8d99ae;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .product-review-section {
@@ -2072,14 +2152,12 @@ textarea {
 }
 
 .auth-layout {
-  display: grid;
-  grid-template-columns: minmax(0, 420px) minmax(0, 1fr);
-  gap: 28px;
-  align-items: stretch;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .auth-card,
-.auth-side-note,
 .account-card {
   background: #fff;
   border-radius: 24px;
@@ -2092,25 +2170,9 @@ textarea {
   padding: 30px;
 }
 
-.auth-side-note {
-  padding: 34px;
-  background:
-    linear-gradient(135deg, rgba(43, 45, 66, 0.96), rgba(26, 31, 45, 0.96)),
-    url('/electro/img/hotdeal.png') center/cover;
-  color: #fff;
-}
-
-.auth-side-note h4 {
-  margin-top: 0;
-  margin-bottom: 12px;
-  font-size: 28px;
-  color: #fff;
-}
-
-.auth-side-note p {
-  max-width: 48ch;
-  color: rgba(255, 255, 255, 0.78);
-  line-height: 1.9;
+.auth-card {
+  width: 100%;
+  max-width: 520px;
 }
 
 .auth-tabs {
@@ -3035,10 +3097,6 @@ textarea {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .auth-layout {
-    grid-template-columns: 1fr;
-  }
-
   .admin-products-layout {
     grid-template-columns: 1fr;
   }
@@ -3051,6 +3109,25 @@ textarea {
 @media only screen and (max-width: 767px) {
   .store-filter-panel {
     padding: 18px 14px;
+  }
+
+  .store-sales-date-filter {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .store-sales-date-filter label {
+    flex: 1 1 140px;
+  }
+
+  .store-sales-date-filter input {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .store-sales-date-filter button {
+    flex: 1 1 100%;
+    justify-content: center;
   }
 
   .store-brand-carousel {

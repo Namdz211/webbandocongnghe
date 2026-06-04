@@ -1,10 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import React from 'react';
-import { AuthProvider, useAuth } from '../auth/AuthContext';
+import { AuthProvider } from '../auth/AuthContext';
 import ProtectedRoute from '../routes/ProtectedRoute';
 import AdminLayout from '../layouts/AdminLayout';
 import ShopApp from '../shop/ShopApp';
-import Login from '../pages/login/Login';
 import Dashboard from '../pages/dashboard/Dashboard';
 import Products from '../pages/products/Products';
 import Users from '../pages/users/Users';
@@ -14,26 +13,6 @@ import Orders from '../pages/orders/Orders';
 import Customers from '../pages/customers/Customers';
 import Reviews from '../pages/reviews/Reviews';
 import Coupons from '../pages/coupons/Coupons';
-
-const PublicRoute = ({ children, redirectTo = '/admin' }) => {
-    const { isAuthenticated, loading } = useAuth();
-
-    if (loading) {
-        return (
-            <div className="d-flex justify-content-center align-items-center" style={{ height: '100vh' }}>
-                <div className="spinner-border text-primary" role="status">
-                    <span className="sr-only">Đang tải...</span>
-                </div>
-            </div>
-        );
-    }
-
-    if (isAuthenticated) {
-        return <Navigate to={redirectTo} replace />;
-    }
-
-    return children;
-};
 
 function AppRoutes() {
     const location = useLocation();
@@ -47,11 +26,7 @@ function AppRoutes() {
         <Routes>
             <Route
                 path="/admin/login"
-                element={
-                    <PublicRoute redirectTo="/admin">
-                        <Login />
-                    </PublicRoute>
-                }
+                element={<Navigate to="/login?redirect=/admin" replace />}
             />
             <Route
                 path="/admin"

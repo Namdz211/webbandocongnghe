@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import AdminAssets from '../components/AdminAssets';
@@ -7,10 +7,21 @@ const AdminLayout = ({ children }) => {
     const location = useLocation();
     const navigate = useNavigate();
     const { user, logout, isAdmin } = useAuth();
+    const [isAccountMenuOpen, setIsAccountMenuOpen] = useState(false);
+
+    useEffect(() => {
+        setIsAccountMenuOpen(false);
+        document.body.classList.remove('sidebar-open');
+    }, [location.pathname]);
 
     const handleLogout = () => {
         logout();
-        navigate('/admin/login');
+        navigate('/login');
+    };
+
+    const handleToggleSidebar = () => {
+        const className = window.innerWidth <= 991.98 ? 'sidebar-open' : 'sidebar-collapse';
+        document.body.classList.toggle(className);
     };
 
     const isActive = (path) => location.pathname === path ? 'active' : '';
@@ -21,9 +32,14 @@ const AdminLayout = ({ children }) => {
             <nav className="main-header navbar navbar-expand navbar-white navbar-light">
                 <ul className="navbar-nav">
                     <li className="nav-item">
-                        <a className="nav-link" data-widget="pushmenu" href="#" role="button">
+                        <button
+                            type="button"
+                            className="nav-link btn btn-link"
+                            aria-label="Thu gọn thanh điều hướng"
+                            onClick={handleToggleSidebar}
+                        >
                             <i className="fas fa-bars"></i>
-                        </a>
+                        </button>
                     </li>
                     <li className="nav-item d-none d-sm-inline-block">
                         <Link to="/" className="nav-link">Trang chủ</Link>
@@ -32,10 +48,15 @@ const AdminLayout = ({ children }) => {
 
                 <ul className="navbar-nav ml-auto">
                     <li className="nav-item dropdown">
-                        <a className="nav-link" data-toggle="dropdown" href="#">
+                        <button
+                            type="button"
+                            className="nav-link btn btn-link"
+                            aria-expanded={isAccountMenuOpen}
+                            onClick={() => setIsAccountMenuOpen((current) => !current)}
+                        >
                             <i className="far fa-user"></i> {user?.name || user?.username}
-                        </a>
-                        <div className="dropdown-menu dropdown-menu-right">
+                        </button>
+                        <div className={`dropdown-menu dropdown-menu-right ${isAccountMenuOpen ? 'show' : ''}`}>
                             <span className="dropdown-item dropdown-header">
                                 {user?.email}
                             </span>
@@ -66,7 +87,7 @@ const AdminLayout = ({ children }) => {
                     </div>
 
                     <nav className="mt-2">
-                        <ul className="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu">
+                        <ul className="nav nav-pills nav-sidebar flex-column" role="menu">
                             <li className="nav-item">
                                 <Link to="/admin" className={`nav-link ${isActive('/admin')}`}>
                                     <i className="nav-icon fas fa-tachometer-alt text-warning"></i>
@@ -121,6 +142,12 @@ const AdminLayout = ({ children }) => {
                                         <Link to="/admin/coupons" className={`nav-link ${isActive('/admin/coupons')}`}>
                                             <i className="nav-icon fas fa-ticket-alt text-warning"></i>
                                             <p>Mã giảm giá</p>
+                                        </Link>
+                                    </li>
+                                    <li className="nav-item">
+                                        <Link to="/login" className="nav-link" onClick={logout}>
+                                            <i className="nav-icon fas fa-sign-out-alt text-warning"></i>
+                                            <p>Đăng xuất</p>
                                         </Link>
                                     </li>
                                 </>
