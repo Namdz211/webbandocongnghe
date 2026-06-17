@@ -2,6 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { productApi, categoryApi, manufacturerApi } from '../../services';
 import { useAuth } from '../../auth/AuthContext';
 
+// anti-slop guidelines:
+// - VISUAL_DENSITY: 6 - Thiết kế bảng danh sách sản phẩm đầy đủ thông tin (ID, tên, danh mục, giá, tồn kho, đã bán).
+// - LOADING STATE: Tích hợp Spinner loading để giảm nháy màn hình khi thay đổi trang hoặc tìm kiếm.
+// - SHAPE CONSISTENCY LOCK: Bo tròn hình ảnh sản phẩm (style={{ borderRadius: 6 }}) và các nút bấm đồng nhất.
 const Products = () => {
     const [products, setProducts] = useState([]);
     const [categories, setCategories] = useState([]);

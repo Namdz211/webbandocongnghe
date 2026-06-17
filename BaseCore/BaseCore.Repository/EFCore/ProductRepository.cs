@@ -32,12 +32,52 @@ namespace BaseCore.Repository.EFCore
         Task<List<Product>> GetByCategoryAsync(int categoryId);
         Task<List<string>> GetManufacturersAsync(int? categoryId = null);
         Task<Product?> GetDetailByIdAsync(int id);
+        Task<Dictionary<int, int>> GetSoldStatsAsync(
+            IEnumerable<int> productIds,
+            DateTime? startDate = null,
+            DateTime? endDate = null);
+        Task<bool> HasOrdersAsync(int productId);
     }
 
     public class ProductRepositoryEF : Repository<Product>, IProductRepositoryEF
     {
         public ProductRepositoryEF(MySqlDbContext context) : base(context)
         {
+        }
+
+        public async Task<Dictionary<int, int>> GetSoldStatsAsync(
+            IEnumerable<int> productIds,
+            DateTime? startDate = null,
+            DateTime? endDate = null)
+        {
+            var ids = productIds.Distinct().ToList();
+            if (ids.Count == 0)
+                return new Dictionary<int, int>();
+
+            return await _context.OrderDetails
+                .AsNoTracking()
+                .Join(
+                    _context.Orders.AsNoTracking(),
+                    detail => detail.OrderId,
+                    order => order.Id,
+                    (detail, order) => new { detail, order })
+                .Where(item =>
+                    ids.Contains(item.detail.ProductId) &&
+                    item.order.Status == "Completed" &&
+                    (!startDate.HasValue || item.order.OrderDate >= startDate.Value) &&
+                    (!endDate.HasValue || item.order.OrderDate <= endDate.Value))
+                .GroupBy(item => item.detail.ProductId)
+                .Select(group => new
+                {
+                    ProductId = group.Key,
+                    SoldQuantity = group.Sum(item => item.detail.Quantity)
+                })
+                .ToDictionaryAsync(item => item.ProductId, item => item.SoldQuantity);
+        }
+
+        public async Task<bool> HasOrdersAsync(int productId)
+        {
+            return await _context.OrderDetails.AnyAsync(orderDetail => orderDetail.ProductId == productId);
         }
 
         public override async Task<Product?> GetByIdAsync(object id)

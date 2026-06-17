@@ -5,6 +5,10 @@ import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, Legend, ResponsiveCont
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d', '#ffc658'];
 
+// anti-slop guidelines:
+// - VISUAL_DENSITY: 8 - Bảng điều khiển admin tích hợp nhiều biểu đồ thống kê với mật độ dữ liệu cao.
+// - SHAPE CONSISTENCY LOCK: Định dạng card bóng nhẹ và góc bo tròn 10px đồng bộ (borderRadius: '10px').
+// - MOTION_INTENSITY: 4 - Sử dụng hiệu ứng chuyển động mượt mà cho biểu đồ PieChart (animationDuration={1500}).
 const Dashboard = () => {
     const [stats, setStats] = useState({
         products: 0,

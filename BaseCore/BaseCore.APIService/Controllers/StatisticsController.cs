@@ -6,9 +6,12 @@ using BaseCore.Services;
 
 namespace BaseCore.APIService.Controllers
 {
+    /// <summary>
+    /// API Controller quản lý Thống kê và Báo cáo (Statistics)
+    /// </summary>
     [Route("api/[controller]")]
     [ApiController]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = "Admin")] // Chỉ có tài khoản Admin mới được truy cập các thông tin thống kê
     public class StatisticsController : ControllerBase
     {
         private readonly IStatisticsService _statisticsService;
@@ -18,15 +21,18 @@ namespace BaseCore.APIService.Controllers
             _statisticsService = statisticsService;
         }
 
+        /// <summary>
+        /// Thống kê doanh thu theo khoảng thời gian từ ngày đến ngày
+        /// </summary>
         [HttpGet("revenue")]
         public async Task<IActionResult> GetRevenue([FromQuery] DateTime startDate, [FromQuery] DateTime endDate)
         {
             if (startDate > endDate)
             {
-                return BadRequest("Start date cannot be after end date.");
+                return BadRequest("Ngày bắt đầu không được lớn hơn ngày kết thúc.");
             }
 
-            // Đảm bảo endDate bao gồm đến hết ngày nếu client chỉ gửi yyyy-MM-dd
+            // Đảm bảo endDate bao gồm đến hết ngày nếu client chỉ gửi yyyy-MM-dd (thiếu giờ)
             if (endDate.TimeOfDay == TimeSpan.Zero)
             {
                 endDate = endDate.AddDays(1).AddTicks(-1);
@@ -36,6 +42,9 @@ namespace BaseCore.APIService.Controllers
             return Ok(revenue);
         }
 
+        /// <summary>
+        /// Lấy báo cáo tồn kho hiện tại (tổng số lượng sản phẩm, tổng giá trị tồn kho)
+        /// </summary>
         [HttpGet("inventory")]
         public async Task<IActionResult> GetInventory()
         {
@@ -43,6 +52,9 @@ namespace BaseCore.APIService.Controllers
             return Ok(inventory);
         }
 
+        /// <summary>
+        /// Lấy thống kê số lượng đơn đặt hàng phân nhóm theo Danh mục sản phẩm
+        /// </summary>
         [HttpGet("orders-by-category")]
         public async Task<IActionResult> GetOrdersByCategory()
         {
@@ -50,6 +62,9 @@ namespace BaseCore.APIService.Controllers
             return Ok(orderStats);
         }
 
+        /// <summary>
+        /// Lấy thống kê số lượng sản phẩm tồn kho phân nhóm theo Danh mục sản phẩm
+        /// </summary>
         [HttpGet("inventory-by-category")]
         public async Task<IActionResult> GetInventoryByCategory()
         {
@@ -57,6 +72,9 @@ namespace BaseCore.APIService.Controllers
             return Ok(stats);
         }
 
+        /// <summary>
+        /// Lấy danh sách các sản phẩm bán chạy nhất trong khoảng thời gian xác định
+        /// </summary>
         [HttpGet("top-selling-products")]
         public async Task<IActionResult> GetTopSellingProducts(
             [FromQuery] DateTime? startDate = null,
@@ -65,9 +83,10 @@ namespace BaseCore.APIService.Controllers
         {
             if (startDate.HasValue && endDate.HasValue && startDate.Value > endDate.Value)
             {
-                return BadRequest("Start date cannot be after end date.");
+                return BadRequest("Ngày bắt đầu không được lớn hơn ngày kết thúc.");
             }
 
+            // Đảm bảo tính toán đến hết ngày cuối cùng của chu kỳ lọc
             if (endDate.HasValue && endDate.Value.TimeOfDay == TimeSpan.Zero)
             {
                 endDate = endDate.Value.AddDays(1).AddTicks(-1);

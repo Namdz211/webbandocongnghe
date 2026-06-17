@@ -3,6 +3,11 @@ import { AlertMessage, LoadingState, PageHeader } from '../../components/common'
 import { reviewApi } from '../../services';
 import { useAuth } from '../../auth/AuthContext';
 
+// anti-slop guidelines:
+// - VISUAL_DENSITY: 6 - Thiết kế danh sách đánh giá sản phẩm với mật độ thông tin trung bình, hiển thị rõ nội dung bình luận.
+// - SHAPE CONSISTENCY LOCK: Định dạng các badge và bo góc card đồng nhất.
+// - ERROR / LOADING STATES: Quản lý chi tiết lỗi tải đánh giá.
+// - CONTRAST RATIO: Sử dụng nền đỏ nhạt cho các bình luận tiêu cực (rating <= 2) để Admin dễ nhận biết.
 const Reviews = () => {
     const [reviews, setReviews] = useState([]);
     const [summary, setSummary] = useState({

@@ -9,8 +9,7 @@ using System.Security.Claims;
 namespace BaseCore.APIService.Controllers
 {
     /// <summary>
-    /// Product API Controller
-    /// Teaching: RESTful API, CRUD Operations, EF Core (Bai 10, 11)
+    /// API Controller quản lý Sản phẩm (Products)
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
@@ -18,20 +17,26 @@ namespace BaseCore.APIService.Controllers
     {
         private readonly IProductRepositoryEF _productRepository;
         private readonly ICategoryRepositoryEF _categoryRepository;
-        private readonly MySqlDbContext _dbContext;
+        private readonly IManufacturerRepository _manufacturerRepository;
+        private readonly IProductReviewRepository _productReviewRepository;
+        private readonly IOrderRepositoryEF _orderRepository;
 
         public ProductsController(
             IProductRepositoryEF productRepository,
             ICategoryRepositoryEF categoryRepository,
-            MySqlDbContext dbContext)
+            IManufacturerRepository manufacturerRepository,
+            IProductReviewRepository productReviewRepository,
+            IOrderRepositoryEF orderRepository)
         {
             _productRepository = productRepository;
             _categoryRepository = categoryRepository;
-            _dbContext = dbContext;
+            _manufacturerRepository = manufacturerRepository;
+            _productReviewRepository = productReviewRepository;
+            _orderRepository = orderRepository;
         }
 
         /// <summary>
-        /// Get all products with pagination and search
+        /// Tìm kiếm và lấy danh sách sản phẩm có phân trang kèm theo bộ lọc (Giá, Danh mục, Hãng, Ngày tạo, Sắp xếp)
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetAll(
@@ -58,9 +63,11 @@ namespace BaseCore.APIService.Controllers
             if (startDate.HasValue && endDate.HasValue && startDate.Value > endDate.Value)
                 return BadRequest(new { message = "Từ ngày không được lớn hơn đến ngày" });
 
+            // Nếu đến ngày chỉ có ngày (không có giờ), điều chỉnh thành 23:59:59 của ngày đó
             if (endDate.HasValue && endDate.Value.TimeOfDay == TimeSpan.Zero)
                 endDate = endDate.Value.AddDays(1).AddTicks(-1);
 
+            // Tìm kiếm sản phẩm thông qua Repository
             var (products, totalCount) = await _productRepository.SearchAsync(
                 keyword,
                 categoryId,
@@ -72,8 +79,13 @@ namespace BaseCore.APIService.Controllers
                 endDate,
                 page,
                 pageSize);
+            
             var productIds = products.Select(product => product.Id).ToList();
+            
+            // Lấy số sao trung bình và số lượng đánh giá của từng sản phẩm
             var reviewStats = await GetReviewStatsAsync(productIds);
+            
+            // Kiểm tra xem có lọc/sắp xếp theo lượng bán chạy nhất không
             var useSalesDateRange = string.Equals(sortBy, "bestSelling", StringComparison.OrdinalIgnoreCase);
             var soldStats = await GetSoldStatsAsync(
                 productIds,
@@ -91,7 +103,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Get distinct product manufacturers
+        /// Lấy danh sách các Hãng sản xuất hiện có (có thể lọc theo Danh mục sản phẩm)
         /// </summary>
         [HttpGet("manufacturers")]
         public async Task<IActionResult> GetManufacturers([FromQuery] int? categoryId)
@@ -101,7 +113,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Get product by ID
+        /// Lấy chi tiết thông tin một sản phẩm theo ID
         /// </summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
@@ -117,23 +129,18 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Get public reviews for a product. If a valid customer token is provided,
-        /// the response also tells the frontend whether that customer can review.
+        /// Lấy tất cả các lượt đánh giá và số sao trung bình của một sản phẩm
         /// </summary>
         [HttpGet("{id}/reviews")]
         public async Task<IActionResult> GetReviews(int id)
         {
-            var productExists = await _dbContext.Products.AnyAsync(product => product.Id == id);
-            if (!productExists)
+            var product = await _productRepository.GetByIdAsync(id);
+            if (product == null)
                 return NotFound(new { message = "Không tìm thấy sản phẩm" });
 
-            var reviews = await _dbContext.ProductReviews
-                .Include(review => review.User)
-                .AsNoTracking()
-                .Where(review => review.ProductId == id)
-                .OrderByDescending(review => review.CreatedAt)
-                .ToListAsync();
+            var reviews = await _productReviewRepository.GetByProductIdAsync(id);
 
+            // Kiểm tra xem người dùng hiện tại đã đăng nhập chưa và lấy bình luận của họ nếu có
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var myReview = string.IsNullOrEmpty(userId)
                 ? null
@@ -152,7 +159,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Create or update a customer's product review after they have received the order.
+        /// Thêm mới hoặc cập nhật đánh giá sản phẩm của khách hàng sau khi nhận đơn hàng thành công
         /// </summary>
         [HttpPost("{id}/reviews")]
         [Authorize]
@@ -171,20 +178,21 @@ namespace BaseCore.APIService.Controllers
             if (content.Length > 1000)
                 return BadRequest(new { message = "Nội dung đánh giá tối đa 1000 ký tự" });
 
-            var productExists = await _dbContext.Products.AnyAsync(product => product.Id == id);
-            if (!productExists)
+            var product = await _productRepository.GetByIdAsync(id);
+            if (product == null)
                 return NotFound(new { message = "Không tìm thấy sản phẩm" });
 
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
 
+            // Xác định xem user đã mua và nhận thành công sản phẩm này chưa
             var completedOrder = await GetCompletedOrderForProductAsync(userId, id);
             if (completedOrder == null)
                 return BadRequest(new { message = "Bạn chỉ có thể đánh giá sau khi đã nhận đơn hàng có sản phẩm này" });
 
-            var review = await _dbContext.ProductReviews
-                .FirstOrDefaultAsync(item => item.ProductId == id && item.UserId == userId);
+            // Tìm đánh giá cũ để xem là sửa hay thêm mới
+            var review = await _productReviewRepository.GetByUserAndProductAsync(userId, id);
             var isNewReview = review == null;
 
             if (review == null)
@@ -196,8 +204,6 @@ namespace BaseCore.APIService.Controllers
                     OrderId = completedOrder.Id,
                     CreatedAt = DateTime.UtcNow
                 };
-
-                _dbContext.ProductReviews.Add(review);
             }
             else
             {
@@ -208,22 +214,27 @@ namespace BaseCore.APIService.Controllers
             review.Rating = dto.Rating;
             review.Content = content;
 
-            await _dbContext.SaveChangesAsync();
+            if (isNewReview)
+            {
+                await _productReviewRepository.AddAsync(review);
+            }
+            else
+            {
+                await _productReviewRepository.UpdateAsync(review);
+            }
 
-            var savedReview = await _dbContext.ProductReviews
-                .Include(item => item.User)
-                .AsNoTracking()
-                .FirstAsync(item => item.Id == review.Id);
+            var reviews = await _productReviewRepository.GetByProductIdAsync(id);
+            var savedReview = reviews.First(item => item.Id == review.Id);
 
             return Ok(new
             {
-                message = isNewReview ? "Đã gửi đánh giá sản phẩm" : "Đã cập nhật đánh giá sản phẩm",
+                message = isNewReview ? "Đã gửi đánh giá sản phẩm thành công" : "Đã cập nhật đánh giá sản phẩm thành công",
                 review = ToProductReviewResponse(savedReview)
             });
         }
 
         /// <summary>
-        /// Create new product (Admin only)
+        /// Tạo mới một sản phẩm (Yêu cầu tài khoản Admin)
         /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin")]
@@ -240,7 +251,7 @@ namespace BaseCore.APIService.Controllers
             var manufacturerName = dto.Manufacturer?.Trim() ?? "";
             if (dto.ManufacturerId.HasValue)
             {
-                var manufacturer = await _dbContext.Manufacturers.FindAsync(dto.ManufacturerId.Value);
+                var manufacturer = await _manufacturerRepository.GetByIdAsync(dto.ManufacturerId.Value);
                 if (manufacturer == null)
                     return BadRequest(new { message = "Nhà sản xuất không tồn tại" });
 
@@ -264,7 +275,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Update product (Admin only)
+        /// Cập nhật thông tin chi tiết của một sản phẩm (Yêu cầu tài khoản Admin)
         /// </summary>
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin")]
@@ -287,7 +298,7 @@ namespace BaseCore.APIService.Controllers
 
             if (dto.ManufacturerId.HasValue)
             {
-                var manufacturer = await _dbContext.Manufacturers.FindAsync(dto.ManufacturerId.Value);
+                var manufacturer = await _manufacturerRepository.GetByIdAsync(dto.ManufacturerId.Value);
                 if (manufacturer == null)
                     return BadRequest(new { message = "Nhà sản xuất không tồn tại" });
 
@@ -311,7 +322,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Delete product (Admin only)
+        /// Xóa bỏ hoàn toàn sản phẩm khỏi hệ thống (Yêu cầu tài khoản Admin và sản phẩm chưa có trong hóa đơn nào)
         /// </summary>
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
@@ -321,7 +332,8 @@ namespace BaseCore.APIService.Controllers
             if (product == null)
                 return NotFound(new { message = "Không tìm thấy sản phẩm" });
 
-            var productHasOrders = await _dbContext.OrderDetails.AnyAsync(orderDetail => orderDetail.ProductId == id);
+            // Kiểm tra ràng buộc đơn hàng trước khi xóa
+            var productHasOrders = await _productRepository.HasOrdersAsync(id);
             if (productHasOrders)
                 return BadRequest(new { message = "Không thể xóa sản phẩm đã có trong đơn hàng. Hãy sửa tồn kho hoặc thông tin sản phẩm thay vì xóa." });
 
@@ -338,7 +350,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Get products by category
+        /// Lấy tất cả sản phẩm thuộc về một danh mục cụ thể
         /// </summary>
         [HttpGet("category/{categoryId}")]
         public async Task<IActionResult> GetByCategory(int categoryId)
@@ -350,6 +362,8 @@ namespace BaseCore.APIService.Controllers
 
             return Ok(products.Select(product => ToProductListResponse(product, reviewStats, soldStats)));
         }
+
+        // ──────────────── Bộ điều hướng hợp lệ (Private Helpers) ────────────────
 
         private static string? ValidateCreateDto(ProductCreateDto dto)
         {
@@ -399,18 +413,12 @@ namespace BaseCore.APIService.Controllers
 
         private async Task<bool> HasCompletedOrderForProductAsync(string userId, int productId)
         {
-            return await _dbContext.Orders
-                .Where(order => order.UserId == userId && order.Status == "Completed")
-                .AnyAsync(order => order.OrderDetails.Any(detail => detail.ProductId == productId));
+            return await _orderRepository.HasCompletedOrderForProductAsync(userId, productId);
         }
 
         private async Task<Order?> GetCompletedOrderForProductAsync(string userId, int productId)
         {
-            return await _dbContext.Orders
-                .Where(order => order.UserId == userId && order.Status == "Completed")
-                .Where(order => order.OrderDetails.Any(detail => detail.ProductId == productId))
-                .OrderByDescending(order => order.OrderDate)
-                .FirstOrDefaultAsync();
+            return await _orderRepository.GetCompletedOrderForProductAsync(userId, productId);
         }
 
         private static object ToProductReviewResponse(ProductReview review)
@@ -431,21 +439,7 @@ namespace BaseCore.APIService.Controllers
 
         private async Task<Dictionary<int, ProductReviewStats>> GetReviewStatsAsync(IEnumerable<int> productIds)
         {
-            var ids = productIds.Distinct().ToList();
-            if (ids.Count == 0)
-                return new Dictionary<int, ProductReviewStats>();
-
-            return await _dbContext.ProductReviews
-                .AsNoTracking()
-                .Where(review => ids.Contains(review.ProductId))
-                .GroupBy(review => review.ProductId)
-                .Select(group => new ProductReviewStats
-                {
-                    ProductId = group.Key,
-                    ReviewCount = group.Count(),
-                    AverageRating = Math.Round(group.Average(review => review.Rating), 1)
-                })
-                .ToDictionaryAsync(item => item.ProductId);
+            return await _productReviewRepository.GetReviewStatsAsync(productIds);
         }
 
         private async Task<Dictionary<int, int>> GetSoldStatsAsync(
@@ -453,29 +447,7 @@ namespace BaseCore.APIService.Controllers
             DateTime? startDate = null,
             DateTime? endDate = null)
         {
-            var ids = productIds.Distinct().ToList();
-            if (ids.Count == 0)
-                return new Dictionary<int, int>();
-
-            return await _dbContext.OrderDetails
-                .AsNoTracking()
-                .Join(
-                    _dbContext.Orders.AsNoTracking(),
-                    detail => detail.OrderId,
-                    order => order.Id,
-                    (detail, order) => new { detail, order })
-                .Where(item =>
-                    ids.Contains(item.detail.ProductId) &&
-                    item.order.Status == "Completed" &&
-                    (!startDate.HasValue || item.order.OrderDate >= startDate.Value) &&
-                    (!endDate.HasValue || item.order.OrderDate <= endDate.Value))
-                .GroupBy(item => item.detail.ProductId)
-                .Select(group => new
-                {
-                    ProductId = group.Key,
-                    SoldQuantity = group.Sum(item => item.detail.Quantity)
-                })
-                .ToDictionaryAsync(item => item.ProductId, item => item.SoldQuantity);
+            return await _productRepository.GetSoldStatsAsync(productIds, startDate, endDate);
         }
 
         private static object ToProductListResponse(
@@ -519,7 +491,8 @@ namespace BaseCore.APIService.Controllers
         }
     }
 
-    // DTOs
+    // ──────────────── Đối tượng DTO nhận dữ liệu ────────────────
+
     public class ProductCreateDto
     {
         public string Name { get; set; } = "";
@@ -548,12 +521,5 @@ namespace BaseCore.APIService.Controllers
     {
         public int Rating { get; set; }
         public string? Content { get; set; }
-    }
-
-    public class ProductReviewStats
-    {
-        public int ProductId { get; set; }
-        public int ReviewCount { get; set; }
-        public double AverageRating { get; set; }
     }
 }

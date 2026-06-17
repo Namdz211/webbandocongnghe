@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
@@ -10,64 +10,64 @@ using System.Security.Claims;
 namespace BaseCore.APIService.Controllers
 {
     /// <summary>
-    /// Order API Controller
-    /// Teaching: RESTful API, Business Logic, Authentication (Bai 10, 11)
+    /// API Controller quản lý Đơn hàng (Orders)
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
     [Authorize]
     public class OrdersController : ControllerBase
     {
-        private const string PendingStatus = "Pending";
-        private const string ConfirmedStatus = "Confirmed";
-        private const string ShippingStatus = "Shipping";
-        private const string CompletedStatus = "Completed";
-        private const string CancelledStatus = "Cancelled";
-        private const string DeliveryMessage = "Đơn hàng đang trên đường giao đến bạn, vui lòng chú ý điện thoại.";
-        private const string GuestCustomerId = "guest_checkout";
-        private const string GuestCustomerUserName = "guest_checkout";
-
-        private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
-        {
-            PendingStatus,
-            ConfirmedStatus,
-            ShippingStatus,
-            CompletedStatus,
-            CancelledStatus
-        };
-
-        private static readonly Dictionary<string, (string Label, string Status, string Note, string CodePrefix)> PaymentOptions = new()
-        {
-            ["cod"] = ("Thanh toán khi nhận hàng (COD)", "Unpaid", "Thanh toán khi nhận hàng.", "COD"),
-            ["bank_transfer"] = ("Chuyển khoản ngân hàng", "Paid", "Đã ghi nhận thanh toán chuyển khoản ngân hàng.", "BANK"),
-            ["e_wallet"] = ("Ví điện tử", "Paid", "Đã ghi nhận thanh toán qua ví điện tử.", "EWALLET"),
-            ["momo"] = ("Ví điện tử", "Paid", "Đã ghi nhận thanh toán qua ví điện tử.", "EWALLET"),
-            ["zalopay"] = ("Ví điện tử", "Paid", "Đã ghi nhận thanh toán qua ví điện tử.", "EWALLET"),
-            ["counter"] = ("Thanh toán khi nhận hàng (COD)", "Unpaid", "Thanh toán khi nhận hàng.", "COD")
-        };
-
         private readonly IOrderRepositoryEF _orderRepository;
         private readonly IOrderDetailRepositoryEF _orderDetailRepository;
         private readonly IProductRepositoryEF _productRepository;
-        private readonly MySqlDbContext _dbContext;
+        private readonly BaseCore.Repository.Authen.IUserRepository _userRepository;
+        private readonly ICouponRepository _couponRepository;
         private readonly IOrderService _orderService;
+
+        // Định nghĩa các trạng thái của Đơn hàng làm chuẩn trong hệ thống
+        private const string PendingStatus = "Pending";     // Đang chờ xác nhận
+        private const string ConfirmedStatus = "Confirmed"; // Đã xác nhận đơn hàng
+        private const string ShippingStatus = "Shipping";   // Đang giao hàng
+        private const string CompletedStatus = "Completed"; // Giao hàng thành công (Hoàn thành)
+        private const string CancelledStatus = "Cancelled"; // Đã hủy đơn hàng
+
+        // Thông báo bàn giao vận chuyển
+        private const string DeliveryMessage = "Đơn hàng đã được bàn giao cho đơn vị vận chuyển.";
+
+        // Danh sách trạng thái hợp lệ để Admin cập nhật
+        private static readonly HashSet<string> ValidStatuses = new(StringComparer.OrdinalIgnoreCase)
+        {
+            PendingStatus, ConfirmedStatus, ShippingStatus, CompletedStatus, CancelledStatus
+        };
+
+        // Danh sách phương thức thanh toán và trạng thái mặc định của chúng
+        private static readonly Dictionary<string, (string Label, string Status, string CodePrefix, string Note)> PaymentOptions = 
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                ["cod"] = ("Thanh toán khi nhận hàng (COD)", "Pending", "COD", "Khách hàng sẽ thanh toán bằng tiền mặt khi nhận hàng."),
+                ["vnpay"] = ("Thanh toán qua cổng VNPay", "Paid", "VNPAY", "Đã thanh toán trực tuyến qua cổng VNPay thành công."),
+                ["momo"] = ("Thanh toán qua ví MoMo", "Paid", "MOMO", "Đã thanh toán trực tuyến qua ví MoMo thành công."),
+                ["counter"] = ("Thanh toán trực tiếp tại quầy", "Paid", "CASH", "Khách hàng đã thanh toán tại quầy thu ngân.")
+            };
 
         public OrdersController(
             IOrderRepositoryEF orderRepository,
             IOrderDetailRepositoryEF orderDetailRepository,
             IProductRepositoryEF productRepository,
-            MySqlDbContext dbContext,
+            BaseCore.Repository.Authen.IUserRepository userRepository,
+            ICouponRepository couponRepository,
             IOrderService orderService)
         {
             _orderRepository = orderRepository;
             _orderDetailRepository = orderDetailRepository;
             _productRepository = productRepository;
-            _dbContext = dbContext;
+            _userRepository = userRepository;
+            _couponRepository = couponRepository;
             _orderService = orderService;
         }
 
         /// <summary>
-        /// Get orders for current user
+        /// Lấy lịch sử đơn hàng của người dùng hiện tại đang đăng nhập
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetMyOrders()
@@ -77,12 +77,12 @@ namespace BaseCore.APIService.Controllers
                 return Unauthorized();
 
             var orders = await _orderRepository.GetByUserAsync(userId);
-            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == userId);
+            var customer = await _userRepository.GetByIdAsync(userId);
             return Ok(orders.Select(order => ToOrderResponse(order, customer)));
         }
 
         /// <summary>
-        /// Get all orders (Admin only)
+        /// Lấy toàn bộ đơn hàng của cửa hàng kèm bộ lọc tìm kiếm (Chỉ dành cho Admin)
         /// </summary>
         [HttpGet("all")]
         [Authorize(Roles = "Admin")]
@@ -92,31 +92,23 @@ namespace BaseCore.APIService.Controllers
             [FromQuery] string? keyword = null,
             [FromQuery] string? status = null)
         {
-            var query = _dbContext.Orders
-                .Include(o => o.User)
-                .AsNoTracking()
-                .AsQueryable();
-
-            if (fromDate.HasValue) query = query.Where(o => o.OrderDate >= fromDate.Value.Date);
-            if (toDate.HasValue) query = query.Where(o => o.OrderDate < toDate.Value.Date.AddDays(1));
-            if (!string.IsNullOrEmpty(keyword)) query = query.Where(o => o.Id.ToString().Contains(keyword));
-            if (!string.IsNullOrEmpty(status)) query = query.Where(o => o.Status == status);
-
-            var orders = await query.OrderByDescending(o => o.OrderDate).ToListAsync();
+            var orders = await _orderRepository.GetAllOrdersWithUsersAsync(fromDate, toDate, keyword, status);
             return Ok(orders.Select(order => ToOrderResponse(order)));
         }
 
         /// <summary>
-        /// Get order by ID
+        /// Lấy chi tiết thông tin một đơn hàng và danh sách sản phẩm bên trong theo ID đơn hàng
         /// </summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
             var order = await _orderRepository.GetByIdAsync(id);
             if (order == null) return NotFound(new { message = "Không tìm thấy đơn hàng" });
+            
+            // Bảo mật: Admin hoặc chính chủ đơn hàng mới được quyền xem chi tiết đơn
             if (!CanAccessOrder(order)) return Forbid();
 
-            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+            var customer = await _userRepository.GetByIdAsync(order.UserId);
             var details = await _orderDetailRepository.GetByOrderAsync(id);
             return Ok(new
             {
@@ -126,10 +118,9 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Create new order
+        /// Tạo mới một đơn hàng mua sắm (yêu cầu khách đăng nhập)
         /// </summary>
         [HttpPost]
-        [AllowAnonymous]
         public async Task<IActionResult> Create([FromBody] CreateOrderDto dto)
         {
             if (dto == null)
@@ -142,31 +133,16 @@ namespace BaseCore.APIService.Controllers
                 return BadRequest(new { message = "Dữ liệu sản phẩm trong đơn hàng không hợp lệ" });
 
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var isAuthenticatedOrder = !string.IsNullOrEmpty(userId);
-            User? customer = null;
-
-            if (isAuthenticatedOrder)
-            {
-                customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == userId);
-                if (customer == null)
-                    return Unauthorized(new { message = "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại." });
-            }
-            else
-            {
-                if (string.IsNullOrWhiteSpace(dto.CustomerName))
-                    return BadRequest(new { message = "Vui lòng nhập tên người nhận." });
-
-                if (string.IsNullOrWhiteSpace(dto.CustomerPhone))
-                    return BadRequest(new { message = "Vui lòng nhập số điện thoại người nhận." });
-
-                userId = await EnsureGuestCustomerAsync();
-            }
-
             if (string.IsNullOrEmpty(userId))
-                return BadRequest(new { message = "Không xác định được khách hàng của đơn hàng." });
+                return Unauthorized(new { message = "Vui lòng đăng nhập để thực hiện đặt hàng." });
+
+            var customer = await _userRepository.GetByIdAsync(userId);
+            if (customer == null)
+                return Unauthorized(new { message = "Phiên đăng nhập không còn hợp lệ. Vui lòng đăng nhập lại." });
 
             var orderUserId = userId;
 
+            // Kiểm tra thông tin địa chỉ giao hàng
             if (string.IsNullOrWhiteSpace(dto.ShippingAddress) && string.IsNullOrWhiteSpace(customer?.Address))
                 return BadRequest(new { message = "Vui lòng nhập địa chỉ giao hàng." });
 
@@ -184,10 +160,12 @@ namespace BaseCore.APIService.Controllers
             decimal originalAmount = 0;
             var orderDetails = new List<OrderDetail>();
 
-            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            // Bắt đầu một Transaction database để đảm bảo tính toàn vẹn (tất cả thành công hoặc cùng rollback)
+            await using var transaction = await _orderRepository.BeginTransactionAsync();
 
             try
             {
+                // 1. Kiểm tra từng sản phẩm và trừ số lượng tồn kho
                 foreach (var item in dto.Items)
                 {
                     var product = await _productRepository.GetByIdAsync(item.ProductId);
@@ -195,7 +173,7 @@ namespace BaseCore.APIService.Controllers
                         return BadRequest(new { message = $"Sản phẩm {item.ProductId} không còn tồn tại" });
 
                     if (product.Stock < item.Quantity)
-                        return BadRequest(new { message = $"Sản phẩm {product.Name} không đủ tồn kho" });
+                        return BadRequest(new { message = $"Sản phẩm {product.Name} không đủ số lượng tồn kho" });
 
                     var unitPrice = item.UnitPrice.HasValue && item.UnitPrice.Value > product.Price
                         ? item.UnitPrice.Value
@@ -209,21 +187,23 @@ namespace BaseCore.APIService.Controllers
                         UnitPrice = unitPrice
                     });
 
+                    // Cập nhật tồn kho sản phẩm
                     product.Stock -= item.Quantity;
                     await _productRepository.UpdateAsync(product);
                 }
 
-                var customerDiscount = isAuthenticatedOrder
-                    ? await CalculateCustomerDiscountAsync(orderUserId, originalAmount)
-                    : new CustomerDiscount();
+                // 2. Tính toán chiết khấu phân hạng khách hàng và áp dụng mã giảm giá (Coupon)
+                var customerDiscount = await CalculateCustomerDiscountAsync(orderUserId, originalAmount);
                 var couponResult = await CalculateCouponDiscountAsync(dto.CouponCode, originalAmount);
 
                 if (couponResult.ErrorMessage != null)
                     return BadRequest(new { message = couponResult.ErrorMessage });
 
+                // Tổng số tiền giảm giá không vượt quá giá trị ban đầu của giỏ hàng
                 var discountAmount = Math.Min(
                     originalAmount,
                     customerDiscount.Amount + couponResult.Discount.Amount);
+                
                 var promotionNames = new[]
                     {
                         customerDiscount.PromotionName,
@@ -231,6 +211,7 @@ namespace BaseCore.APIService.Controllers
                     }
                     .Where(name => !string.IsNullOrWhiteSpace(name));
 
+                // 3. Khởi tạo thực thể Order mới
                 var order = new Order
                 {
                     UserId = orderUserId,
@@ -250,12 +231,14 @@ namespace BaseCore.APIService.Controllers
 
                 await _orderRepository.AddAsync(order);
 
+                // 4. Lưu danh sách chi tiết đơn hàng
                 foreach (var detail in orderDetails)
                 {
                     detail.OrderId = order.Id;
                     await _orderDetailRepository.AddAsync(detail);
                 }
 
+                // 5. Cập nhật số lượt đã sử dụng của coupon trong DB
                 if (couponResult.Coupon != null)
                 {
                     var couponUsed = await MarkCouponAsUsedAsync(couponResult.Coupon.Id);
@@ -266,6 +249,7 @@ namespace BaseCore.APIService.Controllers
                     }
                 }
 
+                // Commit Transaction lưu trữ dữ liệu chính thức
                 await transaction.CommitAsync();
 
                 var successMessage = IsPaidPayment(order.PaymentStatus)
@@ -281,13 +265,14 @@ namespace BaseCore.APIService.Controllers
             }
             catch (DbUpdateException)
             {
+                // Rollback lại dữ liệu tồn kho và giỏ hàng nếu ghi DB xảy ra lỗi
                 await transaction.RollbackAsync();
                 return BadRequest(new { message = "Không tạo được đơn hàng. Vui lòng kiểm tra lại tài khoản, sản phẩm và dữ liệu tồn kho." });
             }
         }
 
         /// <summary>
-        /// Update order status
+        /// Cập nhật nhanh trạng thái đơn hàng (Yêu cầu tài khoản Admin)
         /// </summary>
         [HttpPut("{id}/status")]
         [Authorize(Roles = "Admin")]
@@ -301,18 +286,19 @@ namespace BaseCore.APIService.Controllers
             if (string.IsNullOrWhiteSpace(nextStatus))
                 return BadRequest(new { message = "Trạng thái đơn hàng không hợp lệ" });
 
+            // Không cho phép sửa đổi trạng thái đối với các đơn hàng đã Completed
             if (string.Equals(order.Status, "Completed", StringComparison.OrdinalIgnoreCase))
                 return BadRequest(new { message = "Không thể đổi trạng thái đơn hàng đã hoàn thành." });
 
             order.Status = nextStatus;
             await _orderRepository.UpdateAsync(order);
 
-            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+            var customer = await _userRepository.GetByIdAsync(order.UserId);
             return Ok(ToOrderResponse(order, customer));
         }
 
         /// <summary>
-        /// Admin confirms the order has been received and accepted for processing.
+        /// Admin xác nhận duyệt đơn hàng để bắt đầu đóng gói (Yêu cầu tài khoản Admin)
         /// </summary>
         [HttpPut("{id}/admin/confirm")]
         [Authorize(Roles = "Admin")]
@@ -326,7 +312,7 @@ namespace BaseCore.APIService.Controllers
 
             order.Status = ConfirmedStatus;
             await _orderRepository.UpdateAsync(order);
-            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+            var customer = await _userRepository.GetByIdAsync(order.UserId);
 
             return Ok(new
             {
@@ -336,7 +322,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Admin hands the order over to the shipping provider.
+        /// Admin bàn giao đơn hàng cho bưu tá vận chuyển (Yêu cầu tài khoản Admin)
         /// </summary>
         [HttpPut("{id}/admin/ship")]
         [Authorize(Roles = "Admin")]
@@ -350,7 +336,7 @@ namespace BaseCore.APIService.Controllers
 
             order.Status = ShippingStatus;
             await _orderRepository.UpdateAsync(order);
-            var customer = await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+            var customer = await _userRepository.GetByIdAsync(order.UserId);
 
             return Ok(new
             {
@@ -360,7 +346,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Customer confirms the order was received.
+        /// Khách hàng xác nhận đã nhận được hàng thành công (Cập nhật đơn hàng thành Completed và thanh toán)
         /// </summary>
         [HttpPut("{id}/received")]
         public async Task<IActionResult> ConfirmReceived(int id)
@@ -377,6 +363,7 @@ namespace BaseCore.APIService.Controllers
 
             order.Status = CompletedStatus;
 
+            // Nếu đơn hàng thanh toán COD hoặc thanh toán tại quầy, cập nhật trạng thái thanh toán thành Đã thanh toán (Paid)
             if (string.Equals(order.PaymentMethod, "cod", StringComparison.OrdinalIgnoreCase) ||
                 string.Equals(order.PaymentMethod, "counter", StringComparison.OrdinalIgnoreCase))
             {
@@ -394,7 +381,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Cancel order
+        /// Hủy đơn hàng và hoàn lại số lượng tồn kho cho các sản phẩm trong đơn (Dành cho Admin hoặc Khách hàng khi đơn chưa được duyệt)
         /// </summary>
         [HttpPut("{id}/cancel")]
         public async Task<IActionResult> CancelOrder(int id)
@@ -406,15 +393,11 @@ namespace BaseCore.APIService.Controllers
             if (!string.Equals(order.Status, PendingStatus, StringComparison.OrdinalIgnoreCase))
                 return BadRequest(new { message = "Chỉ có thể hủy đơn hàng đang chờ admin xác nhận" });
 
-            await using var transaction = await _dbContext.Database.BeginTransactionAsync();
+            await using var transaction = await _orderRepository.BeginTransactionAsync();
 
             try
             {
-                var updatedRows = await _dbContext.Orders
-                    .Where(currentOrder => currentOrder.Id == id && currentOrder.Status == PendingStatus)
-                    .ExecuteUpdateAsync(setters => setters.SetProperty(
-                        currentOrder => currentOrder.Status,
-                        CancelledStatus));
+                var updatedRows = await _orderRepository.CancelOrderAsync(id);
 
                 if (updatedRows == 0)
                 {
@@ -422,6 +405,7 @@ namespace BaseCore.APIService.Controllers
                     return BadRequest(new { message = "Chỉ có thể hủy đơn hàng đang chờ admin xác nhận" });
                 }
 
+                // Hoàn lại số lượng sản phẩm vào kho hàng
                 var details = await _orderDetailRepository.GetByOrderAsync(id);
                 foreach (var detail in details)
                 {
@@ -446,7 +430,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Assign transport unit to order (Admin)
+        /// Chỉ định đơn vị vận chuyển và mã vận đơn cho đơn hàng (Yêu cầu tài khoản Admin)
         /// </summary>
         [HttpPost("{id}/assign-transport")]
         [Authorize(Roles = "Admin")]
@@ -458,7 +442,7 @@ namespace BaseCore.APIService.Controllers
                 var order = await _orderRepository.GetByIdAsync(id);
                 var customer = order == null
                     ? null
-                    : await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+                    : await _userRepository.GetByIdAsync(order.UserId);
 
                 return Ok(new { message = "Đã giao cho đơn vị vận chuyển", order = order == null ? null : ToOrderResponse(order, customer) });
             }
@@ -469,7 +453,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Update delivery status (Admin)
+        /// Cập nhật chi tiết trạng thái giao hàng từ đơn vị vận chuyển (Yêu cầu tài khoản Admin)
         /// </summary>
         [HttpPut("{id}/update-delivery")]
         [Authorize(Roles = "Admin")]
@@ -481,7 +465,7 @@ namespace BaseCore.APIService.Controllers
                 var order = await _orderRepository.GetByIdAsync(id);
                 var customer = order == null
                     ? null
-                    : await _dbContext.Users.FirstOrDefaultAsync(user => user.Id == order.UserId);
+                    : await _userRepository.GetByIdAsync(order.UserId);
 
                 return Ok(new { message = "Đã cập nhật trạng thái giao hàng", order = order == null ? null : ToOrderResponse(order, customer) });
             }
@@ -496,6 +480,9 @@ namespace BaseCore.APIService.Controllers
             return ex.InnerException?.Message ?? ex.Message;
         }
 
+        /// <summary>
+        /// Định dạng thông tin đơn hàng trả về phía Frontend
+        /// </summary>
         private static object ToOrderResponse(Order order, User? customer = null)
         {
             var resolvedCustomer = customer ?? order.User;
@@ -539,53 +526,11 @@ namespace BaseCore.APIService.Controllers
             return string.Equals(paymentStatus, "Paid", StringComparison.OrdinalIgnoreCase);
         }
 
-        private async Task<string> EnsureGuestCustomerAsync()
-        {
-            var guestUser = await _dbContext.Users
-                .FirstOrDefaultAsync(user => user.Id == GuestCustomerId || user.UserName == GuestCustomerUserName);
 
-            if (guestUser != null)
-                return guestUser.Id;
 
-            guestUser = new User
-            {
-                Id = GuestCustomerId,
-                UserName = GuestCustomerUserName,
-                Password = "",
-                Salt = Array.Empty<byte>(),
-                Name = "Khách vãng lai",
-                Email = "",
-                Phone = "",
-                Address = "",
-                Position = "Customer",
-                Contact = "",
-                Image = "",
-                IsActive = false,
-                UserType = 0,
-                Created = DateTime.Now
-            };
-
-            await _dbContext.Users.AddAsync(guestUser);
-
-            try
-            {
-                await _dbContext.SaveChangesAsync();
-                return guestUser.Id;
-            }
-            catch (DbUpdateException)
-            {
-                _dbContext.Entry(guestUser).State = EntityState.Detached;
-                var existingGuest = await _dbContext.Users
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(user => user.Id == GuestCustomerId || user.UserName == GuestCustomerUserName);
-
-                if (existingGuest != null)
-                    return existingGuest.Id;
-
-                throw;
-            }
-        }
-
+        /// <summary>
+        /// Xây dựng chuỗi địa chỉ nhận hàng hoàn chỉnh từ thông tin người nhận
+        /// </summary>
         private static string BuildShippingAddress(CreateOrderDto dto, User? customer)
         {
             var customerName = NormalizeText(dto.CustomerName);
@@ -619,12 +564,12 @@ namespace BaseCore.APIService.Controllers
             return value?.Trim() ?? "";
         }
 
+        /// <summary>
+        /// Tính toán phần trăm chiết khấu trực tiếp theo phân hạng khách hàng (VIP/Loyal/Potential/New)
+        /// </summary>
         private async Task<CustomerDiscount> CalculateCustomerDiscountAsync(string userId, decimal originalAmount)
         {
-            var completedOrders = await _dbContext.Orders
-                .Where(order => order.UserId == userId && order.Status == "Completed")
-                .Select(order => new { order.TotalAmount })
-                .ToListAsync();
+            var completedOrders = await _orderRepository.GetCompletedOrdersByUserIdAsync(userId);
 
             var completedOrderCount = completedOrders.Count;
             var totalSpent = completedOrders.Sum(order => order.TotalAmount);
@@ -640,6 +585,9 @@ namespace BaseCore.APIService.Controllers
             };
         }
 
+        /// <summary>
+        /// Tính toán giá trị giảm giá của Coupon/Mã giảm giá được áp dụng
+        /// </summary>
         private async Task<CouponDiscountResult> CalculateCouponDiscountAsync(string? couponCode, decimal originalAmount)
         {
             var code = NormalizeText(couponCode).ToUpperInvariant();
@@ -647,8 +595,7 @@ namespace BaseCore.APIService.Controllers
             if (string.IsNullOrWhiteSpace(code))
                 return new CouponDiscountResult();
 
-            var coupon = await _dbContext.Coupons
-                .FirstOrDefaultAsync(item => item.Code.ToUpper() == code);
+            var coupon = await _couponRepository.GetByCodeAsync(code);
 
             if (coupon == null)
                 return CouponDiscountResult.Failed("Mã giảm giá không tồn tại");
@@ -703,20 +650,12 @@ namespace BaseCore.APIService.Controllers
 
         private async Task<bool> MarkCouponAsUsedAsync(int couponId)
         {
-            var now = DateTime.UtcNow;
-            var updatedRows = await _dbContext.Coupons
-                .Where(coupon =>
-                    coupon.Id == couponId &&
-                    coupon.IsActive &&
-                    (coupon.UsageLimit == 0 || coupon.UsedCount < coupon.UsageLimit) &&
-                    coupon.StartDate <= now &&
-                    coupon.ExpiryDate >= now)
-                .ExecuteUpdateAsync(setters => setters
-                    .SetProperty(coupon => coupon.UsedCount, coupon => coupon.UsedCount + 1));
-
-            return updatedRows == 1;
+            return await _couponRepository.UseCouponAsync(couponId);
         }
 
+        /// <summary>
+        /// Phân hạng khách hàng dựa trên số lượng đơn hàng và số tiền tích lũy từ các đơn hàng hoàn thành
+        /// </summary>
         private static string CalculateCustomerSegment(int completedOrders, decimal totalSpent)
         {
             if (completedOrders >= 5 || totalSpent >= 50000000) return "VIP";
@@ -726,6 +665,9 @@ namespace BaseCore.APIService.Controllers
             return "NoOrders";
         }
 
+        /// <summary>
+        /// Lấy phần trăm chiết khấu trực tiếp theo phân hạng
+        /// </summary>
         private static decimal GetDiscountPercent(string segment)
         {
             return segment switch
@@ -795,11 +737,11 @@ namespace BaseCore.APIService.Controllers
 
             return normalized switch
             {
-                "Chá» láº¥y hÃ ng" => "Chờ lấy hàng",
-                "ÄÃ£ giao Ä‘Æ¡n vá»‹ váº­n chuyá»ƒn" => "Đã giao đơn vị vận chuyển",
-                "Äang giao" => "Đang giao",
-                "ÄÃ£ giao thÃ nh cÃ´ng" => "Đã giao thành công",
-                "Giao tháº¥t báº¡i" => "Giao thất bại",
+                "Chờ lấy hàng " => "Chờ lấy hàng",
+                "Đã giao đơn vị vận chuyển " => "Đã giao đơn vị vận chuyển",
+                "Đang giao" => "Đang giao",
+                "Đã giao thành công" => "Đã giao thành công",
+                "Giao thất bại" => "Giao thất bại",
                 _ => normalized
             };
         }
@@ -834,8 +776,11 @@ namespace BaseCore.APIService.Controllers
                     }
             };
         }
+
+
     }
 
+    // DTOs nhận dữ liệu
     public class CreateOrderDto
     {
         public List<OrderItemDto> Items { get; set; } = new();
@@ -858,6 +803,7 @@ namespace BaseCore.APIService.Controllers
     {
         public string Status { get; set; } = "";
     }
+    
     public class AssignTransportDto
     {
         public string TransportUnit { get; set; } = "";

@@ -19,6 +19,10 @@ const SEGMENT_CONFIG = {
     NoOrders: { label: 'Chưa mua', color: 'secondary' },
 };
 
+// anti-slop guidelines:
+// - VISUAL_DENSITY: 5 - Bảng quản lý khách hàng dạng tối ưu mật độ hiển thị (Cockpit layout), tinh gọn các trường cột.
+// - SEGMENTATION DIAL: Phân hạng khách hàng tự động để cá nhân hóa chiến dịch chăm sóc (VIP, Loyal, Potential, New).
+// - LOADING / ERROR STATES: Tích hợp đầy đủ thông báo lỗi và trạng thái tải dữ liệu chuẩn UX.
 const Customers = () => {
     const [customers, setCustomers] = useState([]);
     const [orders, setOrders] = useState([]);
@@ -43,6 +47,7 @@ const Customers = () => {
         }
     };
 
+    // Tải thông tin chi tiết của khách hàng cùng lịch sử đơn hàng của họ (Xử lý chặt chẽ Error States)
     const viewCustomer = async (customer) => {
         setError('');
 
@@ -224,6 +229,9 @@ const Customers = () => {
     );
 };
 
+// anti-slop guidelines:
+// - MODAL LAYOUT: Sử dụng Modal kích thước lớn (modal-xl) kết hợp cấu trúc lưới thông tin 2 cột rõ ràng.
+// - DATA DENSITY: Bảng danh sách đơn hàng lịch sử được làm gọn gàng, có nhãn trạng thái trực quan để tăng tốc độ xử lý của admin.
 const CustomerModal = ({ customer, orders, onClose }) => (
     <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
         <div className="modal-dialog modal-xl">

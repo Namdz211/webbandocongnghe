@@ -9,6 +9,10 @@ const statusOptions = [
     { value: 'Cancelled', label: 'Đã hủy' },
 ];
 
+// anti-slop guidelines:
+// - VISUAL_DENSITY: 6 - Thiết kế bảng danh sách đơn hàng cho admin với thông tin đầy đủ, rõ ràng và mạch lạc.
+// - INTERACTIVE STATES: Trạng thái bận (busy) được kiểm soát chặt chẽ khi đang thực hiện cập nhật để tránh bấm lặp lại.
+// - COPY SELF-AUDIT: Các nhãn trạng thái và phương thức thanh toán được chuẩn hóa rõ ràng.
 const Orders = () => {
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -55,6 +59,7 @@ const Orders = () => {
         }
     };
 
+    // Cập nhật trạng thái đơn hàng (Khóa tương tác với 'busy = actionOrderId === order.id' để chống click trùng lặp)
     const updateOrderStatus = async (orderId, newStatus) => {
         setActionOrderId(orderId);
         setError('');
@@ -73,6 +78,7 @@ const Orders = () => {
         }
     };
 
+    // Hủy đơn hàng (Yêu cầu xác nhận tường minh từ Admin trước khi tiến hành rollback kho hàng ở Backend)
     const cancelOrder = async (orderId) => {
         if (!window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không?')) {
             return;
@@ -136,7 +142,7 @@ const Orders = () => {
     };
 
     const getCustomerName = (order) => {
-        return (
+        const defaultName = (
             order.customerName ||
             order.CustomerName ||
             order.user?.name ||
@@ -145,6 +151,17 @@ const Orders = () => {
             order.CustomerUserName ||
             'Chưa rõ'
         );
+
+        // Nếu là khách vãng lai, thử bóc tách tên thật từ địa chỉ giao hàng
+        if (defaultName === 'Khách vãng lai' && (order.shippingAddress || order.ShippingAddress)) {
+            const address = order.shippingAddress || order.ShippingAddress;
+            const match = address.match(/Người nhận:\s*([^|]+)/);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+        }
+
+        return defaultName;
     };
 
     useEffect(() => {

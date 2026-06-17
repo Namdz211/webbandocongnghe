@@ -71,6 +71,10 @@ builder.Services.AddScoped<IOrderDetailRepositoryEF, OrderDetailRepositoryEF>();
 builder.Services.AddScoped<IStatisticsRepository, StatisticsRepository>();
 builder.Services.AddScoped<IStatisticsService, StatisticsService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
+builder.Services.AddScoped<IManufacturerRepository, ManufacturerRepository>();
+builder.Services.AddScoped<IProductReviewRepository, ProductReviewRepository>();
+builder.Services.AddScoped<BaseCore.Repository.Authen.IUserRepository, BaseCore.Repository.Authen.UserRepository>();
+builder.Services.AddScoped<ICouponRepository, CouponRepository>();
 
 // JWT Authentication
 var key = Encoding.ASCII.GetBytes(builder.Configuration["Jwt:SecretKey"] ?? "YourSecretKeyForAuthenticationShouldBeLongEnough");

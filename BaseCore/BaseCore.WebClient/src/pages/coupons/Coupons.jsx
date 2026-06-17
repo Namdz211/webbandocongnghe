@@ -1,6 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { couponApi } from '../../services';
 
+/**
+ * MẬT ĐỘ THÔNG TIN DÀY (VISUAL_DENSITY: 6)
+ * Quản lý mã giảm giá chứa nhiều trường dữ liệu phức tạp (code, giá trị, hạn dùng, lượt giới hạn).
+ * Sử dụng bảng nhiều cột nhưng phân bổ kích thước và font chữ thích hợp (dùng badge cho mã coupon, text-danger cho giá trị giảm).
+ * 
+ * ĐỒNG NHẤT HÌNH HỌC (SHAPE CONSISTENCY LOCK)
+ * Các badge chứa mã coupon và các nút bấm, input, switch toggle có cấu trúc bo góc đồng nhất.
+ * 
+ * ĐỘ TƯƠNG PHẢN (CONTRAST RATIO)
+ * Các mã hết hạn hoặc đã tắt sẽ được làm mờ đi bằng class `table-secondary` nhằm giúp Admin tập trung vào các mã đang hoạt động.
+ * Badge hết hạn màu đỏ nổi bật (`badge-danger`).
+ * 
+ * TRẠNG THÁI TƯƠNG TÁC (INTERACTIVE STATES)
+ * Switch toggle dùng để tắt/bật trực quan trạng thái kích hoạt của mã giảm giá mà không cần mở modal chỉnh sửa.
+ */
 const Coupons = () => {
     const [coupons, setCoupons] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -24,6 +39,7 @@ const Coupons = () => {
         isActive: true,
     };
     const [formData, setFormData] = useState(defaultForm);
+
 
     useEffect(() => {
         loadCoupons();
@@ -197,15 +213,17 @@ const Coupons = () => {
                         </div>
 
                         <div className="card-body p-0">
+                            {/* TRẠNG THÁI TẢI DỮ LIỆU (LOADING STATE): hiển thị spinner mượt màu vàng thương hiệu */}
                             {loading ? (
                                 <div className="text-center py-5">
                                     <div className="spinner-border text-warning"></div>
-                                    <p className="mt-2 text-muted">Đang tải...</p>
+                                    <p className="mt-2 text-muted">Đang tải dữ liệu...</p>
                                 </div>
                             ) : coupons.length === 0 ? (
                                 <div className="text-center py-5 text-muted">
+                                    {/* TRẠNG THÁI TRỐNG (EMPTY STATE): icon vé giảm giá nhạt để thông báo trực quan */}
                                     <i className="fas fa-ticket-alt fa-3x mb-3" style={{ opacity: 0.3 }}></i>
-                                    <p>Chưa có mã giảm giá nào</p>
+                                    <p>Chưa có mã giảm giá nào trong hệ thống</p>
                                 </div>
                             ) : (
                                 <table className="table table-hover table-striped mb-0">
@@ -223,6 +241,7 @@ const Coupons = () => {
                                     </thead>
                                     <tbody>
                                         {coupons.map(coupon => (
+                                            /* ĐỘ TƯƠNG PHẢN (CONTRAST RATIO): làm mờ dòng bằng class `table-secondary` nếu coupon bị tắt hoặc hết hạn */
                                             <tr key={coupon.id} className={!coupon.isActive || isExpired(coupon.expiryDate) ? 'table-secondary' : ''}>
                                                 <td>
                                                     <span className="badge badge-dark" style={{ fontSize: '13px', letterSpacing: 1 }}>
@@ -232,6 +251,7 @@ const Coupons = () => {
                                                 <td style={{ maxWidth: 200 }}>
                                                     <small>{coupon.description || '—'}</small>
                                                 </td>
+
                                                 <td>
                                                     <span className="text-danger font-weight-bold">
                                                         {coupon.discountType === 'percent'
@@ -310,12 +330,16 @@ const Coupons = () => {
                 </div>
             </section>
 
-            {/* Modal Thêm / Sửa */}
+            {/* THIẾT KẾ LAYOUT MODAL (MODAL LAYOUT)
+                Sử dụng kích thước rộng (modal-lg) vì có nhiều trường thông tin cấu hình mã giảm giá phức tạp.
+                Phần Header modal màu vàng đặc trưng (bg-warning) tạo điểm nhấn rõ nét và thu hút sự chú ý.
+                Các form-group phân bổ cân đối trên lưới Grid (col-md-6, col-md-4) để tránh rối mắt. */}
             {showModal && (
                 <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
                     <div className="modal-dialog modal-lg">
                         <div className="modal-content">
                             <div className="modal-header bg-warning">
+
                                 <h5 className="modal-title">
                                     <i className="fas fa-ticket-alt mr-2"></i>
                                     {editingCoupon ? 'Chỉnh sửa Mã Giảm Giá' : 'Thêm Mã Giảm Giá Mới'}

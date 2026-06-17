@@ -7,8 +7,7 @@ using BaseCore.Repository;
 namespace BaseCore.APIService.Controllers
 {
     /// <summary>
-    /// Coupon/Voucher Management API Controller
-    /// Admin quản lý mã giảm giá, FE customer sẽ áp dụng khi đặt hàng
+    /// API Controller quản lý Mã giảm giá/Khuyến mãi (Coupons)
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
@@ -21,13 +20,16 @@ namespace BaseCore.APIService.Controllers
             _dbContext = dbContext;
         }
 
-        /// <summary>Lấy danh sách coupon còn hiệu lực để hiển thị ở trang user</summary>
+        /// <summary>
+        /// Lấy danh sách mã giảm giá công khai còn hiệu lực để khách hàng xem ngoài trang chủ
+        /// </summary>
         [HttpGet("public")]
         [AllowAnonymous]
         public async Task<IActionResult> GetPublicCoupons()
         {
             var now = DateTime.UtcNow;
 
+            // Tìm các mã kích hoạt, chưa hết lượt sử dụng, trong khoảng ngày hiệu lực
             var coupons = await _dbContext.Coupons
                 .Where(c =>
                     c.IsActive &&
@@ -53,7 +55,9 @@ namespace BaseCore.APIService.Controllers
             return Ok(coupons);
         }
 
-        /// <summary>Lấy danh sách tất cả coupon (Admin)</summary>
+        /// <summary>
+        /// Lấy toàn bộ danh sách mã giảm giá kèm bộ lọc (Chỉ dành cho Admin)
+        /// </summary>
         [HttpGet]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetAll(
@@ -62,6 +66,7 @@ namespace BaseCore.APIService.Controllers
         {
             var query = _dbContext.Coupons.AsQueryable();
 
+            // Tìm kiếm theo từ khóa Code hoặc mô tả Description
             if (!string.IsNullOrWhiteSpace(keyword))
             {
                 var kw = keyword.Trim().ToLower();
@@ -70,6 +75,7 @@ namespace BaseCore.APIService.Controllers
                     c.Description.ToLower().Contains(kw));
             }
 
+            // Lọc theo trạng thái Kích hoạt / Vô hiệu hóa
             if (isActive.HasValue)
                 query = query.Where(c => c.IsActive == isActive.Value);
 
@@ -80,7 +86,9 @@ namespace BaseCore.APIService.Controllers
             return Ok(coupons);
         }
 
-        /// <summary>Lấy chi tiết một coupon theo Id (Admin)</summary>
+        /// <summary>
+        /// Lấy chi tiết thông tin một mã giảm giá theo ID (Chỉ dành cho Admin)
+        /// </summary>
         [HttpGet("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetById(int id)
@@ -92,7 +100,9 @@ namespace BaseCore.APIService.Controllers
             return Ok(coupon);
         }
 
-        /// <summary>Kiểm tra và áp dụng coupon khi đặt hàng (Customer - không cần Admin)</summary>
+        /// <summary>
+        /// Kiểm tra tính hợp lệ và tính số tiền giảm của mã giảm giá khi đặt hàng
+        /// </summary>
         [HttpGet("validate/{code}")]
         [Authorize]
         public async Task<IActionResult> Validate(string code, [FromQuery] decimal orderAmount)
@@ -118,11 +128,12 @@ namespace BaseCore.APIService.Controllers
             if (orderAmount < coupon.MinOrderAmount)
                 return BadRequest(new { message = $"Đơn hàng tối thiểu {coupon.MinOrderAmount:N0}đ mới được dùng mã này" });
 
-            // Tính toán số tiền giảm thực tế
+            // Tính toán số tiền giảm thực tế dựa vào phần trăm hoặc giá tiền cố định
             decimal discountAmount;
             if (coupon.DiscountType == "percent")
             {
                 discountAmount = orderAmount * coupon.DiscountValue / 100;
+                // Áp dụng mức giảm tối đa nếu có cấu hình
                 if (coupon.MaxDiscountAmount > 0)
                     discountAmount = Math.Min(discountAmount, coupon.MaxDiscountAmount);
             }
@@ -144,7 +155,9 @@ namespace BaseCore.APIService.Controllers
             });
         }
 
-        /// <summary>Tạo mã giảm giá mới (Admin)</summary>
+        /// <summary>
+        /// Tạo mới một mã giảm giá (Chỉ dành cho Admin)
+        /// </summary>
         [HttpPost]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Create([FromBody] CouponCreateDto dto)
@@ -153,7 +166,7 @@ namespace BaseCore.APIService.Controllers
             if (validationMsg != null)
                 return BadRequest(new { message = validationMsg });
 
-            // Kiểm tra trùng code
+            // Kiểm tra trùng code (mã code viết hoa làm chuẩn)
             var exists = await _dbContext.Coupons.AnyAsync(c => c.Code == dto.Code.Trim().ToUpper());
             if (exists)
                 return BadRequest(new { message = $"Mã '{dto.Code.ToUpper()}' đã tồn tại" });
@@ -179,7 +192,9 @@ namespace BaseCore.APIService.Controllers
             return CreatedAtAction(nameof(GetById), new { id = coupon.Id }, coupon);
         }
 
-        /// <summary>Cập nhật mã giảm giá (Admin)</summary>
+        /// <summary>
+        /// Cập nhật thông tin mã giảm giá (Chỉ dành cho Admin)
+        /// </summary>
         [HttpPut("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] CouponUpdateDto dto)
@@ -188,7 +203,7 @@ namespace BaseCore.APIService.Controllers
             if (coupon == null)
                 return NotFound(new { message = "Không tìm thấy mã giảm giá" });
 
-            // Kiểm tra trùng code nếu thay đổi
+            // Kiểm tra trùng code nếu admin cập nhật mã code mới
             if (!string.IsNullOrWhiteSpace(dto.Code) &&
                 dto.Code.Trim().ToUpper() != coupon.Code)
             {
@@ -220,7 +235,9 @@ namespace BaseCore.APIService.Controllers
             return Ok(coupon);
         }
 
-        /// <summary>Bật/Tắt trạng thái coupon nhanh (Admin)</summary>
+        /// <summary>
+        /// Bật/Tắt trạng thái kích hoạt của mã giảm giá nhanh (Chỉ dành cho Admin)
+        /// </summary>
         [HttpPatch("{id}/toggle")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Toggle(int id)
@@ -239,7 +256,9 @@ namespace BaseCore.APIService.Controllers
             });
         }
 
-        /// <summary>Xóa mã giảm giá (Admin)</summary>
+        /// <summary>
+        /// Xóa bỏ hoàn toàn mã giảm giá khỏi cơ sở dữ liệu (Chỉ dành cho Admin)
+        /// </summary>
         [HttpDelete("{id}")]
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
@@ -254,7 +273,7 @@ namespace BaseCore.APIService.Controllers
             return Ok(new { message = "Đã xóa mã giảm giá thành công" });
         }
 
-        // ──────────────── Private Helpers ────────────────
+        // ──────────────── Bộ điều hướng hợp lệ (Private Helpers) ────────────────
 
         private static string? ValidateDto(CouponCreateDto dto)
         {
@@ -286,13 +305,13 @@ namespace BaseCore.APIService.Controllers
         }
     }
 
-    // ──────────────── DTOs ────────────────
+    // ──────────────── Đối tượng DTO nhận dữ liệu ────────────────
 
     public class CouponCreateDto
     {
         public string Code { get; set; } = "";
         public string? Description { get; set; }
-        public string? DiscountType { get; set; } = "percent"; // "percent" | "fixed"
+        public string? DiscountType { get; set; } = "percent";
         public decimal DiscountValue { get; set; }
         public decimal? MaxDiscountAmount { get; set; }
         public decimal? MinOrderAmount { get; set; }

@@ -6,8 +6,7 @@ using BaseCore.Repository.EFCore;
 namespace BaseCore.APIService.Controllers
 {
     /// <summary>
-    /// Category API Controller
-    /// Teaching: RESTful API, CRUD Operations (Bài 10)
+    /// API Controller quản lý Danh mục sản phẩm (Categories)
     /// </summary>
     [Route("api/[controller]")]
     [ApiController]
@@ -21,7 +20,7 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Get all categories
+        /// Lấy danh sách tất cả danh mục sản phẩm
         /// </summary>
         [HttpGet]
         public async Task<IActionResult> GetAll()
@@ -31,28 +30,29 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Get category by ID
+        /// Lấy chi tiết danh mục sản phẩm theo ID
         /// </summary>
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
             var category = await _categoryRepository.GetByIdAsync(id);
             if (category == null)
-                return NotFound(new { message = "Category not found" });
+                return NotFound(new { message = "Không tìm thấy danh mục" });
 
             return Ok(category);
         }
 
         /// <summary>
-        /// Create new category
+        /// Tạo mới một danh mục sản phẩm
         /// </summary>
         [HttpPost]
-        [Authorize]
+        [Authorize] // Yêu cầu xác thực tài khoản trước khi thực hiện
         public async Task<IActionResult> Create([FromBody] CategoryDto dto)
         {
+            // Kiểm tra trùng tên danh mục
             var existing = await _categoryRepository.GetByNameAsync(dto.Name);
             if (existing != null)
-                return BadRequest(new { message = "Category name already exists" });
+                return BadRequest(new { message = "Tên danh mục này đã tồn tại" });
 
             var category = new Category
             {
@@ -65,15 +65,15 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Update category
+        /// Cập nhật thông tin danh mục sản phẩm
         /// </summary>
         [HttpPut("{id}")]
-        [Authorize]
+        [Authorize] // Yêu cầu xác thực tài khoản
         public async Task<IActionResult> Update(int id, [FromBody] CategoryDto dto)
         {
             var category = await _categoryRepository.GetByIdAsync(id);
             if (category == null)
-                return NotFound(new { message = "Category not found" });
+                return NotFound(new { message = "Không tìm thấy danh mục để cập nhật" });
 
             category.Name = dto.Name ?? category.Name;
             category.Description = dto.Description ?? category.Description;
@@ -83,21 +83,24 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Delete category
+        /// Xóa danh mục sản phẩm
         /// </summary>
         [HttpDelete("{id}")]
-        [Authorize]
+        [Authorize] // Yêu cầu xác thực tài khoản
         public async Task<IActionResult> Delete(int id)
         {
             var category = await _categoryRepository.GetByIdAsync(id);
             if (category == null)
-                return NotFound(new { message = "Category not found" });
+                return NotFound(new { message = "Không tìm thấy danh mục để xóa" });
 
             await _categoryRepository.DeleteAsync(category);
-            return Ok(new { message = "Category deleted successfully" });
+            return Ok(new { message = "Đã xóa danh mục thành công" });
         }
     }
 
+    /// <summary>
+    /// Đối tượng DTO nhận dữ liệu gửi lên từ client để tạo/sửa danh mục
+    /// </summary>
     public class CategoryDto
     {
         public string Name { get; set; } = "";

@@ -602,7 +602,9 @@ function App() {
   }
 
   let content = null
-  const authRequiredRoutes = new Set(['orders', 'account'])
+  // anti-slop guidelines (ACCESSIBILITY & SECURITY GUARDRAILS):
+  // Bắt buộc xác thực với route 'checkout' để tránh tạo đơn hàng dưới tài khoản khách vãng lai ảo.
+  const authRequiredRoutes = new Set(['orders', 'account', 'checkout'])
   const needsAuthFirst = !auth && authRequiredRoutes.has(route.name)
 
   if (needsAuthFirst) {

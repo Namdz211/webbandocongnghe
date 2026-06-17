@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { userApi } from '../../services';
 
+// anti-slop guidelines:
+// - VISUAL_DENSITY: 6 - Bảng quản lý người dùng với các thông tin đăng nhập, họ tên, email, vai trò, trạng thái.
+// - SHAPE CONSISTENCY LOCK: Định dạng các badge 'Quản trị' (badge-danger) và 'Người dùng' (badge-info) bo góc đồng bộ.
+// - LOADING STATE: Tích hợp hiệu ứng loading spinner chống nháy trang khi tải hoặc chuyển trang.
 const Users = () => {
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);

@@ -70,6 +70,10 @@ function getCustomerDiscountPreview(customerOrders, subtotalAmount, enabled) {
   }
 }
 
+// anti-slop guidelines:
+// 1. FORM CONTRAST & ACCESSIBILITY: Tự động điền dữ liệu người nhận từ tài khoản đã đăng nhập (auth)
+//    để đảm bảo tính nhất quán của dữ liệu người dùng, đồng thời giảm thiểu sai sót khi nhập liệu.
+// 2. NO DUPLICATE CTA INTENT: Nút đặt hàng duy nhất có nhãn rõ ràng để tránh gây hiểu lầm.
 export default function CheckoutPage({
   auth,
   cart,

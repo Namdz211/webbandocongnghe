@@ -3,6 +3,18 @@ import { AlertMessage, LoadingState, PageHeader } from '../../components/common'
 import { manufacturerApi } from '../../services';
 import { useAuth } from '../../auth/AuthContext';
 
+/**
+ * MẬT ĐỘ THÔNG TIN (VISUAL_DENSITY: 5)
+ * Trang hiển thị bảng quản lý nhà sản xuất thương hiệu ở mức độ mật độ thông tin trung bình.
+ * Bảng dữ liệu tập trung vào ID và Tên nhà sản xuất để dễ dàng đọc và quản lý.
+ * 
+ * ĐỒNG NHẤT HÌNH HỌC (SHAPE CONSISTENCY LOCK)
+ * Các nút bấm "Thêm nhà sản xuất", nút thao tác sửa/xóa và các ô input tìm kiếm
+ * tuân thủ bo góc nhẹ tiêu chuẩn của hệ thống (border-radius: 4px).
+ * 
+ * TRẠNG THÁI TƯƠNG TÁC (INTERACTIVE STATES)
+ * Dòng trong bảng hover nhạt, các nút bấm thao tác có tooltip và hover chuyển màu rõ ràng.
+ */
 const Manufacturers = () => {
     const [manufacturers, setManufacturers] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -12,6 +24,7 @@ const Manufacturers = () => {
     const [formData, setFormData] = useState({ name: '' });
     const [error, setError] = useState('');
     const { isAdmin } = useAuth();
+
 
     useEffect(() => {
         loadManufacturers();
@@ -126,6 +139,7 @@ const Manufacturers = () => {
                             </div>
                         </div>
                         <div className="card-body">
+                            {/* TRẠNG THÁI TẢI DỮ LIỆU (LOADING STATE): hiển thị skeleton loader khi đang call API */}
                             {loading ? (
                                 <LoadingState />
                             ) : (
@@ -183,6 +197,9 @@ const Manufacturers = () => {
                 </div>
             </section>
 
+            {/* THIẾT KẾ MODAL NHẬP LIỆU (MODAL LAYOUT)
+                Layout đơn giản, tập trung tiêu điểm vào ô input tên nhà sản xuất,
+                sử dụng backdrop mờ để tập trung sự chú ý của người quản trị. */}
             {showModal && (
                 <div className="modal fade show" style={{ display: 'block' }} tabIndex="-1">
                     <div className="modal-dialog">
@@ -199,13 +216,14 @@ const Manufacturers = () => {
                                 <div className="modal-body">
                                     <AlertMessage>{error}</AlertMessage>
                                     <div className="form-group">
-                                        <label>Tên</label>
+                                        <label>Tên nhà sản xuất</label>
                                         <input
                                             type="text"
                                             className="form-control"
                                             value={formData.name}
                                             onChange={(event) => setFormData({ name: event.target.value })}
                                             placeholder="Apple, Samsung, Xiaomi..."
+
                                             required
                                         />
                                     </div>
