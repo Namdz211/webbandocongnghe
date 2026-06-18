@@ -24,44 +24,45 @@ namespace BaseCore.APIService.Controllers
         }
 
         /// <summary>
-        /// Lấy danh sách khách hàng (User có UserType == 0) kèm theo phân loại và chi tiêu
+        /// Lấy danh sách khách hàng có phân trang, tìm kiếm theo từ khóa và lọc theo phân khúc.
         /// </summary>
         [HttpGet]
-        public async Task<IActionResult> GetAll([FromQuery] string keyword = "", [FromQuery] string segment = "")
+        public async Task<IActionResult> GetAll(
+            [FromQuery] string keyword = "",
+            [FromQuery] string segment = "",
+            [FromQuery] int page = 1,
+            [FromQuery] int pageSize = 10)
         {
-            // 1. Lấy danh sách khách hàng thông qua Repository
-            var users = await _customerRepository.GetCustomersAsync(keyword);
-            
-            // 2. Lấy toàn bộ danh sách đơn hàng của những khách hàng này để phân tích hành vi mua sắm
+            // Đảm bảo page và pageSize hợp lệ
+            if (page < 1) page = 1;
+            if (pageSize < 1 || pageSize > 100) pageSize = 10;
+
+            // 1. Lấy trang khách hàng từ DB (đã phân trang + tìm kiếm trong DB)
+            var (users, totalCount) = await _customerRepository.GetCustomersPagedAsync(keyword, page, pageSize);
+
+            // 2. Lấy đơn hàng của riêng trang này (không load toàn bộ)
             var userIds = users.Select(u => u.Id).ToList();
             var orders = await _customerRepository.GetOrdersByUserIdsAsync(userIds);
 
-            // Nhóm đơn hàng theo UserId để xử lý in-memory giúp tối ưu hóa hiệu năng, giảm tải truy vấn DB lặp đi lặp lại
-            var ordersGrouped = orders.GroupBy(o => o.UserId).ToDictionary(g => g.Key, g => g.ToList());
+            // Nhóm đơn hàng theo UserId để xử lý in-memory (chỉ trang hiện tại)
+            var ordersGrouped = orders
+                .GroupBy(o => o.UserId)
+                .ToDictionary(g => g.Key, g => g.ToList());
 
-            // 3. Tổng hợp dữ liệu đơn hàng và gán phân hạng cho từng khách hàng
+            // 3. Tổng hợp dữ liệu và phân hạng từng khách hàng
             var customersList = users.Select(u =>
             {
                 var userOrders = ordersGrouped.TryGetValue(u.Id, out var oList) ? oList : new List<Order>();
-                
-                // Tính tổng số lượng đơn hàng khách hàng đã tạo
                 var totalOrders = userOrders.Count;
-                
-                // Lọc ra các đơn hàng đã được giao hàng thành công (Completed)
-                var completedOrdersList = userOrders.Where(o => string.Equals(o.Status, "Completed", StringComparison.OrdinalIgnoreCase)).ToList();
+                var completedOrdersList = userOrders
+                    .Where(o => string.Equals(o.Status, "Completed", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
                 var completedOrders = completedOrdersList.Count;
-                
-                // Tổng số tiền khách hàng đã thanh toán cho các đơn hàng hoàn thành
                 var totalSpent = completedOrdersList.Sum(o => o.TotalAmount);
-                
-                // Tìm đơn hàng đặt gần đây nhất của khách
-                var lastOrder = userOrders.OrderByDescending(o => o.OrderDate).FirstOrDefault();
-                DateTime? lastOrderDate = lastOrder?.OrderDate;
-
-                // Tính toán phân khúc (VIP, Loyal, Potential, New, NoOrders) dựa trên đơn hoàn thành & chi tiêu
+                var lastOrderDate = userOrders
+                    .OrderByDescending(o => o.OrderDate)
+                    .FirstOrDefault()?.OrderDate;
                 var seg = CalculateCustomerSegment(completedOrders, totalSpent);
-                
-                // Đưa ra gợi ý ưu đãi tương thích với phân khúc khách hàng
                 var suggestedOffer = GetSuggestedOffer(seg);
 
                 return new CustomerResponseDto
@@ -81,7 +82,7 @@ namespace BaseCore.APIService.Controllers
                 };
             }).ToList();
 
-            // 4. Lọc kết quả theo phân khúc khách hàng cụ thể nếu client có yêu cầu bộ lọc
+            // 4. Lọc theo phân khúc (in-memory trên trang hiện tại - segment không thể tính trong DB)
             if (!string.IsNullOrEmpty(segment))
             {
                 customersList = customersList
@@ -89,8 +90,17 @@ namespace BaseCore.APIService.Controllers
                     .ToList();
             }
 
-            // Trả về trực tiếp mảng dữ liệu khách hàng cho frontend
-            return Ok(customersList);
+            // 5. Tính tổng trang và trả về kết quả kèm metadata phân trang
+            var totalPages = (int)Math.Ceiling(totalCount / (double)pageSize);
+
+            return Ok(new
+            {
+                items = customersList,
+                totalCount,
+                totalPages,
+                currentPage = page,
+                pageSize
+            });
         }
 
         /// <summary>

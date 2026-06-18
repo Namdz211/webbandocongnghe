@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System.Linq.Expressions;
 
 namespace BaseCore.Repository.EFCore
@@ -11,7 +11,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Database context shared by derived repositories.
         /// </summary>
-        protected readonly MySqlDbContext _context;
+        protected readonly AppDbContext _context;
 
         /// <summary>
         /// Entity set handled by this generic repository.
@@ -21,7 +21,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Creates a repository for the entity set represented by <typeparamref name="T"/>.
         /// </summary>
-        public Repository(MySqlDbContext context)
+        public Repository(AppDbContext context)
         {
             _context = context;
             _dbSet = context.Set<T>();

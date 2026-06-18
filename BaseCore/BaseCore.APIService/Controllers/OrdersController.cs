@@ -47,7 +47,9 @@ namespace BaseCore.APIService.Controllers
                 ["cod"] = ("Thanh toán khi nhận hàng (COD)", "Pending", "COD", "Khách hàng sẽ thanh toán bằng tiền mặt khi nhận hàng."),
                 ["vnpay"] = ("Thanh toán qua cổng VNPay", "Paid", "VNPAY", "Đã thanh toán trực tuyến qua cổng VNPay thành công."),
                 ["momo"] = ("Thanh toán qua ví MoMo", "Paid", "MOMO", "Đã thanh toán trực tuyến qua ví MoMo thành công."),
-                ["counter"] = ("Thanh toán trực tiếp tại quầy", "Paid", "CASH", "Khách hàng đã thanh toán tại quầy thu ngân.")
+                ["counter"] = ("Thanh toán trực tiếp tại quầy", "Paid", "CASH", "Khách hàng đã thanh toán tại quầy thu ngân."),
+                ["bank_transfer"] = ("Chuyển khoản ngân hàng", "Pending", "BANK", "Khách hàng chuyển khoản theo mã thanh toán của đơn hàng."),
+                ["e_wallet"] = ("Ví điện tử", "Paid", "WALLET", "Đã thanh toán trực tuyến qua ví điện tử thành công.")
             };
 
         public OrdersController(
@@ -311,6 +313,14 @@ namespace BaseCore.APIService.Controllers
                 return BadRequest(new { message = "Chỉ đơn hàng đang chờ xử lý mới được admin xác nhận" });
 
             order.Status = ConfirmedStatus;
+
+            // Tự động chuyển trạng thái thanh toán sang Paid đối với phương thức chuyển khoản ngân hàng khi Admin xác nhận đơn hàng
+            if (string.Equals(order.PaymentMethod, "bank_transfer", StringComparison.OrdinalIgnoreCase))
+            {
+                order.PaymentStatus = "Paid";
+                order.PaymentNote = "Admin đã xác nhận nhận tiền chuyển khoản.";
+            }
+
             await _orderRepository.UpdateAsync(order);
             var customer = await _userRepository.GetByIdAsync(order.UserId);
 
@@ -369,6 +379,11 @@ namespace BaseCore.APIService.Controllers
             {
                 order.PaymentStatus = "Paid";
                 order.PaymentNote = "Khách hàng đã thanh toán COD khi nhận hàng.";
+            }
+            else if (string.Equals(order.PaymentMethod, "bank_transfer", StringComparison.OrdinalIgnoreCase) && order.PaymentStatus != "Paid")
+            {
+                order.PaymentStatus = "Paid";
+                order.PaymentNote = "Khách hàng xác nhận đã nhận hàng và hoàn tất thanh toán.";
             }
 
             await _orderRepository.UpdateAsync(order);

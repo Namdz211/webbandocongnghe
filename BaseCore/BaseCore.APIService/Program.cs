@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -58,7 +58,7 @@ builder.Services.AddCors(options =>
     });
 });
 
-builder.Services.AddDbContext<MySqlDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("ConnectedDb"));
 });
@@ -103,7 +103,7 @@ var app = builder.Build();
 // Auto migrate database
 using (var scope = app.Services.CreateScope())
 {
-    var db = scope.ServiceProvider.GetRequiredService<MySqlDbContext>();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
     EnsureUserAddressColumn(db);
     EnsureOrderPaymentColumns(db);
@@ -133,7 +133,7 @@ Console.WriteLine("BaseCore API Service running on port 5001");
 Console.WriteLine("Endpoints: /api/products, /api/categories, /api/orders, /api/coupons, /api/statistics");
 app.Run();
 
-static void SeedProductCatalog(MySqlDbContext db)
+static void SeedProductCatalog(AppDbContext db)
 {
     var retiredCategoryNames = new HashSet<string>
     {
@@ -302,7 +302,7 @@ static string GetProductImageUrl(string productName)
     return $"{imageBaseUrl}?{imageParams}&q={query}";
 }
 
-static void EnsureUserAddressColumn(MySqlDbContext db)
+static void EnsureUserAddressColumn(AppDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 IF COL_LENGTH(N'dbo.Users', N'Address') IS NULL
@@ -313,7 +313,7 @@ BEGIN
 END;");
 }
 
-static void EnsureProductManufacturerColumn(MySqlDbContext db)
+static void EnsureProductManufacturerColumn(AppDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 IF COL_LENGTH(N'dbo.Products', N'Manufacturer') IS NULL
@@ -339,7 +339,7 @@ END
 WHERE ISNULL(Manufacturer, N'') = N'';");
 }
 
-static void EnsureProductManufacturerColumns(MySqlDbContext db)
+static void EnsureProductManufacturerColumns(AppDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 IF OBJECT_ID(N'dbo.Manufacturers', N'U') IS NULL
@@ -386,7 +386,7 @@ BEGIN
 END;");
 }
 
-static void SeedManufacturersAndAssignProducts(MySqlDbContext db)
+static void SeedManufacturersAndAssignProducts(AppDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 DECLARE @Manufacturers TABLE (Name NVARCHAR(255) NOT NULL);
@@ -454,7 +454,7 @@ INNER JOIN dbo.Manufacturers manufacturer
 WHERE product.ManufacturerId IS NULL;");
 }
 
-static void EnsureProductReviewTable(MySqlDbContext db)
+static void EnsureProductReviewTable(AppDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 IF OBJECT_ID(N'dbo.ProductReviews', N'U') IS NULL
@@ -503,7 +503,7 @@ BEGIN
 END;");
 }
 
-static void EnsureReviewsTable(MySqlDbContext db)
+static void EnsureReviewsTable(AppDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 IF OBJECT_ID(N'dbo.Reviews', N'U') IS NULL
@@ -523,7 +523,7 @@ BEGIN
 END;");
 }
 
-static void EnsureCouponsTable(MySqlDbContext db)
+static void EnsureCouponsTable(AppDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 IF OBJECT_ID(N'dbo.Coupons', N'U') IS NULL
@@ -560,7 +560,7 @@ BEGIN
 END;");
 }
 
-static void EnsureOrderPaymentColumns(MySqlDbContext db)
+static void EnsureOrderPaymentColumns(AppDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 IF COL_LENGTH(N'dbo.Orders', N'PaymentCode') IS NULL
@@ -658,7 +658,7 @@ SET OriginalAmount = CASE WHEN OriginalAmount = 0 THEN TotalAmount ELSE Original
     TransportTrackingCode = ISNULL(TransportTrackingCode, N'');");
 }
 
-static void EnsureOrderWorkflowColumns(MySqlDbContext db)
+static void EnsureOrderWorkflowColumns(AppDbContext db)
 {
     db.Database.ExecuteSqlRaw(@"
 IF EXISTS (

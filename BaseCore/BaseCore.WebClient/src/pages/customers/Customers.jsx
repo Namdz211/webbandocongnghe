@@ -32,19 +32,38 @@ const Customers = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [showModal, setShowModal] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pageSize] = useState(10);
+    const [totalCount, setTotalCount] = useState(0);
+    const [totalPages, setTotalPages] = useState(0);
 
-    const loadCustomers = async () => {
+    const loadCustomers = async (currentPage = page) => {
         setLoading(true);
         setError('');
 
         try {
-            const response = await customerApi.getAll({ keyword, segment });
-            setCustomers(response.data || []);
+            const response = await customerApi.getAll({ keyword, segment, page: currentPage, pageSize });
+            const data = response.data;
+            setCustomers(data.items || []);
+            setTotalCount(data.totalCount || 0);
+            setTotalPages(data.totalPages || 0);
         } catch (err) {
             setError(err.response?.data?.message || 'Không tải được danh sách khách hàng');
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleSearch = (e) => {
+        e.preventDefault();
+        setPage(1);
+        loadCustomers(1);
+    };
+
+    const handlePageChange = (newPage) => {
+        if (newPage < 1 || newPage > totalPages) return;
+        setPage(newPage);
+        loadCustomers(newPage);
     };
 
     // Tải thông tin chi tiết của khách hàng cùng lịch sử đơn hàng của họ (Xử lý chặt chẽ Error States)
@@ -65,6 +84,9 @@ const Customers = () => {
         loadCustomers();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    // Cập nhật StatBox chỉ từ trang hiện tại (dữ liệu summary tổng cần API riêng nếu muốn chính xác toàn bộ)
+    const displayCount = totalCount > 0 ? totalCount : customers.length;
 
     const totals = useMemo(() => {
         return customers.reduce(
@@ -101,7 +123,7 @@ const Customers = () => {
             <section className="content">
                 <div className="container-fluid">
                     <div className="row">
-                        <StatBox color="info" icon="fas fa-users" label="Khách hàng" value={customers.length} />
+                        <StatBox color="info" icon="fas fa-users" label="Tổng khách hàng" value={displayCount} />
                         <StatBox color="success" icon="fas fa-check-circle" label="Đơn hoàn thành" value={totals.completed} />
                         <StatBox color="danger" icon="fas fa-star" label="Khách VIP" value={totals.vip} />
                         <StatBox color="warning" icon="fas fa-coins" label="Doanh thu khách" value={formatCurrency(totals.spent)} />
@@ -112,7 +134,7 @@ const Customers = () => {
                             <h3 className="card-title">Tìm kiếm và phân loại</h3>
                         </div>
                         <div className="card-body">
-                            <form onSubmit={(event) => { event.preventDefault(); loadCustomers(); }}>
+                            <form onSubmit={handleSearch}>
                                 <div className="row">
                                     <div className="col-md-6">
                                         <div className="form-group">
@@ -157,61 +179,110 @@ const Customers = () => {
                     <AlertMessage>{error}</AlertMessage>
 
                     <div className="card">
-                        <div className="card-header">
-                            <h3 className="card-title">Danh sách khách hàng</h3>
+                        <div className="card-header d-flex justify-content-between align-items-center">
+                            <h3 className="card-title mb-0">Danh sách khách hàng</h3>
+                            <span className="text-muted small">
+                                Trang {page}/{totalPages > 0 ? totalPages : 1} &mdash; {totalCount} khách hàng
+                            </span>
                         </div>
                         <div className="card-body">
                             {loading ? (
                                 <LoadingState className="py-4" />
                             ) : (
-                                <div className="table-responsive">
-                                    <table className="table table-bordered table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th>Khách hàng</th>
-                                                <th>Liên hệ</th>
-                                                <th>Tổng đơn</th>
-                                                <th>Đã hoàn thành</th>
-                                                <th>Tổng chi tiêu</th>
-                                                <th>Lần mua gần nhất</th>
-                                                <th>Phân loại</th>
-                                                <th>Ưu đãi gợi ý</th>
-                                                <th>Thao tác</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {customers.length === 0 ? (
+                                <>
+                                    <div className="table-responsive">
+                                        <table className="table table-bordered table-striped">
+                                            <thead>
                                                 <tr>
-                                                    <td colSpan="9" className="text-center">Không tìm thấy khách hàng</td>
+                                                    <th>Khách hàng</th>
+                                                    <th>Liên hệ</th>
+                                                    <th>Tổng đơn</th>
+                                                    <th>Đã hoàn thành</th>
+                                                    <th>Tổng chi tiêu</th>
+                                                    <th>Lần mua gần nhất</th>
+                                                    <th>Phân loại</th>
+                                                    <th>Ưu đãi gợi ý</th>
+                                                    <th>Thao tác</th>
                                                 </tr>
-                                            ) : (
-                                                customers.map((customer) => (
-                                                    <tr key={customer.userId}>
-                                                        <td>
-                                                            <strong>{customer.name || customer.userName || 'Chưa rõ'}</strong>
-                                                            <small className="d-block text-muted">{customer.userName}</small>
-                                                        </td>
-                                                        <td>
-                                                            <span>{customer.email || '-'}</span>
-                                                            <small className="d-block text-muted">{customer.phone || '-'}</small>
-                                                        </td>
-                                                        <td>{customer.totalOrders}</td>
-                                                        <td>{customer.completedOrders}</td>
-                                                        <td>{formatCurrency(customer.totalSpent)}</td>
-                                                        <td>{formatDate(customer.lastOrderDate)}</td>
-                                                        <td>{getSegmentBadge(customer.segment)}</td>
-                                                        <td>{customer.suggestedOffer}</td>
-                                                        <td>
-                                                            <button className="btn btn-sm btn-info" type="button" onClick={() => viewCustomer(customer)}>
-                                                                <i className="fas fa-eye"></i>
-                                                            </button>
-                                                        </td>
+                                            </thead>
+                                            <tbody>
+                                                {customers.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="9" className="text-center">Không tìm thấy khách hàng</td>
                                                     </tr>
-                                                ))
-                                            )}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                                ) : (
+                                                    customers.map((customer) => (
+                                                        <tr key={customer.userId}>
+                                                            <td>
+                                                                <strong>{customer.name || customer.userName || 'Chưa rõ'}</strong>
+                                                                <small className="d-block text-muted">{customer.userName}</small>
+                                                            </td>
+                                                            <td>
+                                                                <span>{customer.email || '-'}</span>
+                                                                <small className="d-block text-muted">{customer.phone || '-'}</small>
+                                                            </td>
+                                                            <td>{customer.totalOrders}</td>
+                                                            <td>{customer.completedOrders}</td>
+                                                            <td>{formatCurrency(customer.totalSpent)}</td>
+                                                            <td>{formatDate(customer.lastOrderDate)}</td>
+                                                            <td>{getSegmentBadge(customer.segment)}</td>
+                                                            <td>{customer.suggestedOffer}</td>
+                                                            <td>
+                                                                <button className="btn btn-sm btn-info" type="button" onClick={() => viewCustomer(customer)}>
+                                                                    <i className="fas fa-eye"></i>
+                                                                </button>
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Pagination */}
+                                    {totalPages > 1 && (
+                                        <div className="d-flex justify-content-between align-items-center mt-3">
+                                            <span className="text-muted">
+                                                Hiển thị {((page - 1) * pageSize) + 1}–{Math.min(page * pageSize, totalCount)} trong tổng số {totalCount} khách hàng
+                                            </span>
+                                            <nav>
+                                                <ul className="pagination pagination-sm mb-0">
+                                                    <li className={`page-item ${page === 1 ? 'disabled' : ''}`}>
+                                                        <button className="page-link" onClick={() => handlePageChange(page - 1)}>
+                                                            &laquo; Trước
+                                                        </button>
+                                                    </li>
+                                                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                                        .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 2)
+                                                        .reduce((acc, p, idx, arr) => {
+                                                            if (idx > 0 && p - arr[idx - 1] > 1) {
+                                                                acc.push('...');
+                                                            }
+                                                            acc.push(p);
+                                                            return acc;
+                                                        }, [])
+                                                        .map((p, idx) =>
+                                                            p === '...' ? (
+                                                                <li key={`ellipsis-${idx}`} className="page-item disabled">
+                                                                    <span className="page-link">…</span>
+                                                                </li>
+                                                            ) : (
+                                                                <li key={p} className={`page-item ${page === p ? 'active' : ''}`}>
+                                                                    <button className="page-link" onClick={() => handlePageChange(p)}>{p}</button>
+                                                                </li>
+                                                            )
+                                                        )
+                                                    }
+                                                    <li className={`page-item ${page === totalPages ? 'disabled' : ''}`}>
+                                                        <button className="page-link" onClick={() => handlePageChange(page + 1)}>
+                                                            Sau &raquo;
+                                                        </button>
+                                                    </li>
+                                                </ul>
+                                            </nav>
+                                        </div>
+                                    )}
+                                </>
                             )}
                         </div>
                     </div>

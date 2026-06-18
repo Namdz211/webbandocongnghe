@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
 
 namespace BaseCore.Repository.EFCore
@@ -22,7 +22,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Creates a category repository backed by the MySQL EF Core context.
         /// </summary>
-        public CategoryRepositoryEF(MySqlDbContext context) : base(context)
+        public CategoryRepositoryEF(AppDbContext context) : base(context)
         {
         }
 

@@ -1,4 +1,4 @@
-using BaseCore.Entities;
+﻿using BaseCore.Entities;
 
 namespace BaseCore.Repository.EFCore
 {
@@ -10,7 +10,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Creates a manufacturer repository backed by the MySQL EF Core context.
         /// </summary>
-        public ManufacturerRepository(MySqlDbContext context) : base(context)
+        public ManufacturerRepository(AppDbContext context) : base(context)
         {
         }
     }

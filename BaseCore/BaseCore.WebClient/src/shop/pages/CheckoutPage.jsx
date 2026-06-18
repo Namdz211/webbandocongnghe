@@ -12,10 +12,10 @@ import {
 import { formatCurrency } from '../utils/formatters.js'
 
 const CUSTOMER_DISCOUNT_LABELS = {
-  VIP: 'Kh\u00e1ch VIP',
-  Loyal: 'Kh\u00e1ch th\u00e2n thi\u1ebft',
-  Potential: 'Kh\u00e1ch ti\u1ec1m n\u0103ng',
-  New: 'Kh\u00e1ch m\u1edbi',
+  VIP: 'Khách VIP',
+  Loyal: 'Khách thân thiết',
+  Potential: 'Khách tiềm năng',
+  New: 'Khách mới',
 }
 
 function getOrderValue(order, camelKey, pascalKey) {
@@ -141,10 +141,10 @@ export default function CheckoutPage({
       <div className="section">
         <div className="container">
           <div className="empty-state">
-            {'Gi\u1ecf h\u00e0ng \u0111ang tr\u1ed1ng. H\u00e3y th\u00eam s\u1ea3n ph\u1ea9m tr\u01b0\u1edbc khi thanh to\u00e1n.'}
+            {'Giỏ hàng đang trống. Hãy thêm sản phẩm trước khi thanh toán.'}
             <div className="empty-actions">
               <LinkButton to="/store" className="primary-btn" onNavigate={onNavigate}>
-                {'\u0110i \u0111\u1ebfn c\u1eeda h\u00e0ng'}
+                {'Đi đến cửa hàng'}
               </LinkButton>
             </div>
           </div>

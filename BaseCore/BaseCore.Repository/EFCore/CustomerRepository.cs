@@ -15,7 +15,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Khởi tạo một phiên bản của CustomerRepository.
         /// </summary>
-        public CustomerRepository(MySqlDbContext context) : base(context)
+        public CustomerRepository(AppDbContext context) : base(context)
         {
         }
 
@@ -36,6 +36,36 @@ namespace BaseCore.Repository.EFCore
             }
 
             return await query.ToListAsync();
+        }
+
+        /// <inheritdoc />
+        public async Task<(List<User> Items, int TotalCount)> GetCustomersPagedAsync(
+            string keyword,
+            int page,
+            int pageSize)
+        {
+            var query = _context.Users
+                .Where(u => u.UserType == 0 && u.Id != "guest_checkout");
+
+            if (!string.IsNullOrEmpty(keyword))
+            {
+                var kw = keyword.Trim().ToLower();
+                query = query.Where(u =>
+                    (u.Name != null && u.Name.ToLower().Contains(kw)) ||
+                    (u.UserName != null && u.UserName.ToLower().Contains(kw)) ||
+                    (u.Email != null && u.Email.ToLower().Contains(kw)) ||
+                    (u.Phone != null && u.Phone.ToLower().Contains(kw))
+                );
+            }
+
+            var totalCount = await query.CountAsync();
+            var items = await query
+                .OrderBy(u => u.Name)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
+                .ToListAsync();
+
+            return (items, totalCount);
         }
 
         /// <inheritdoc />

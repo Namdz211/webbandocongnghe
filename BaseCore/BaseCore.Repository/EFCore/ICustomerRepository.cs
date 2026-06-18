@@ -10,9 +10,17 @@ namespace BaseCore.Repository.EFCore
     public interface ICustomerRepository : IRepository<User>
     {
         /// <summary>
-        /// Tìm kiếm danh sách khách hàng (User có UserType == 0) theo từ khóa.
+        /// Tìm kiếm danh sách khách hàng (User có UserType == 0) theo từ khóa — không phân trang (dùng nội bộ).
         /// </summary>
         Task<List<User>> GetCustomersAsync(string keyword);
+
+        /// <summary>
+        /// Tìm kiếm khách hàng có phân trang: trả về trang dữ liệu và tổng số bản ghi khớp.
+        /// </summary>
+        Task<(List<User> Items, int TotalCount)> GetCustomersPagedAsync(
+            string keyword,
+            int page,
+            int pageSize);
 
         /// <summary>
         /// Lấy thông tin chi tiết của khách hàng theo ID.

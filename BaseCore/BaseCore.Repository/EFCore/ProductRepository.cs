@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
 
 namespace BaseCore.Repository.EFCore
@@ -78,7 +78,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Creates a product repository backed by the MySQL EF Core context.
         /// </summary>
-        public ProductRepositoryEF(MySqlDbContext context) : base(context)
+        public ProductRepositoryEF(AppDbContext context) : base(context)
         {
         }
 

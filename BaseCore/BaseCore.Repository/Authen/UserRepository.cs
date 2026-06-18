@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -19,9 +19,9 @@ namespace BaseCore.Repository.Authen
 
     public class UserRepository : IUserRepository
     {
-        private readonly MySqlDbContext _context;
+        private readonly AppDbContext _context;
 
-        public UserRepository(MySqlDbContext context)
+        public UserRepository(AppDbContext context)
         {
             _context = context;
         }

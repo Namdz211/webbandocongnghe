@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -15,7 +15,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Creates a coupon repository backed by the MySQL EF Core context.
         /// </summary>
-        public CouponRepository(MySqlDbContext context) : base(context)
+        public CouponRepository(AppDbContext context) : base(context)
         {
         }
 

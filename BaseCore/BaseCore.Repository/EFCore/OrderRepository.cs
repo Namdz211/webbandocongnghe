@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
 using BaseCore.Entities;
 
@@ -58,7 +58,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Creates an order repository backed by the MySQL EF Core context.
         /// </summary>
-        public OrderRepositoryEF(MySqlDbContext context) : base(context)
+        public OrderRepositoryEF(AppDbContext context) : base(context)
         {
         }
 
@@ -158,7 +158,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Creates an order detail repository backed by the MySQL EF Core context.
         /// </summary>
-        public OrderDetailRepositoryEF(MySqlDbContext context) : base(context)
+        public OrderDetailRepositoryEF(AppDbContext context) : base(context)
         {
         }
 

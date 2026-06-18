@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+﻿using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -66,7 +66,7 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-builder.Services.AddDbContext<MySqlDbContext>(options =>
+builder.Services.AddDbContext<AppDbContext>(options =>
 {
     options.UseSqlServer(builder.Configuration.GetConnectionString("ConnectedDb"));
 });
@@ -100,7 +100,7 @@ var app = builder.Build();
 // Ensure SQL Server database and seed auth data
 using (var scope = app.Services.CreateScope())
 {
-    var dbContext = scope.ServiceProvider.GetRequiredService<MySqlDbContext>();
+    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     dbContext.Database.EnsureCreated();
     EnsureUserAddressColumn(dbContext);
 
@@ -148,7 +148,7 @@ Console.WriteLine("BaseCore Auth Service running on port 5002");
 Console.WriteLine("Endpoints: /api/auth, /api/users, /api/roles");
 app.Run();
 
-static void EnsureUserAddressColumn(MySqlDbContext dbContext)
+static void EnsureUserAddressColumn(AppDbContext dbContext)
 {
     dbContext.Database.ExecuteSqlRaw(@"
 IF COL_LENGTH(N'dbo.Users', N'Address') IS NULL

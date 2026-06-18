@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
 
 namespace BaseCore.Repository.EFCore
@@ -27,7 +27,7 @@ namespace BaseCore.Repository.EFCore
         /// <summary>
         /// Creates a user repository backed by the MySQL EF Core context.
         /// </summary>
-        public UserRepositoryEF(MySqlDbContext context) : base(context)
+        public UserRepositoryEF(AppDbContext context) : base(context)
         {
         }
 

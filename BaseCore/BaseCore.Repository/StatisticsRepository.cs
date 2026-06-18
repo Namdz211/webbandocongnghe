@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,9 +9,9 @@ namespace BaseCore.Repository
 {
     public class StatisticsRepository : IStatisticsRepository
     {
-        private readonly MySqlDbContext _context;
+        private readonly AppDbContext _context;
 
-        public StatisticsRepository(MySqlDbContext context)
+        public StatisticsRepository(AppDbContext context)
         {
             _context = context;
         }
