@@ -4,10 +4,13 @@ using BaseCore.Entities;
 namespace BaseCore.Repository.EFCore
 {
     /// <summary>
-    /// Product Repository using Entity Framework Core
+    /// Defines product-specific data access operations.
     /// </summary>
     public interface IProductRepositoryEF : IRepository<Product>
     {
+        /// <summary>
+        /// Searches products with catalog filters and sorting.
+        /// </summary>
         Task<(List<Product> Products, int TotalCount)> SearchAsync(
             string? keyword,
             int? categoryId,
@@ -17,6 +20,10 @@ namespace BaseCore.Repository.EFCore
             string? sortBy,
             int page,
             int pageSize);
+
+        /// <summary>
+        /// Searches products with catalog filters, sorting, and optional sales date bounds.
+        /// </summary>
         Task<(List<Product> Products, int TotalCount)> SearchAsync(
             string? keyword,
             int? categoryId,
@@ -28,23 +35,54 @@ namespace BaseCore.Repository.EFCore
             DateTime? endDate,
             int page,
             int pageSize);
+
+        /// <summary>
+        /// Searches products by keyword and category only.
+        /// </summary>
         Task<(List<Product> Products, int TotalCount)> SearchAsync(string? keyword, int? categoryId, int page, int pageSize);
+
+        /// <summary>
+        /// Gets all products that belong to one category.
+        /// </summary>
         Task<List<Product>> GetByCategoryAsync(int categoryId);
+
+        /// <summary>
+        /// Gets distinct manufacturer names, optionally scoped to one category.
+        /// </summary>
         Task<List<string>> GetManufacturersAsync(int? categoryId = null);
+
+        /// <summary>
+        /// Gets product details with related category data.
+        /// </summary>
         Task<Product?> GetDetailByIdAsync(int id);
+
+        /// <summary>
+        /// Gets sold quantities for products from completed orders.
+        /// </summary>
         Task<Dictionary<int, int>> GetSoldStatsAsync(
             IEnumerable<int> productIds,
             DateTime? startDate = null,
             DateTime? endDate = null);
+
+        /// <summary>
+        /// Checks whether a product appears in any order detail.
+        /// </summary>
         Task<bool> HasOrdersAsync(int productId);
     }
 
+    /// <summary>
+    /// Handles product catalog queries, filters, details, and sales statistics.
+    /// </summary>
     public class ProductRepositoryEF : Repository<Product>, IProductRepositoryEF
     {
+        /// <summary>
+        /// Creates a product repository backed by the MySQL EF Core context.
+        /// </summary>
         public ProductRepositoryEF(MySqlDbContext context) : base(context)
         {
         }
 
+        /// <inheritdoc />
         public async Task<Dictionary<int, int>> GetSoldStatsAsync(
             IEnumerable<int> productIds,
             DateTime? startDate = null,
@@ -54,6 +92,7 @@ namespace BaseCore.Repository.EFCore
             if (ids.Count == 0)
                 return new Dictionary<int, int>();
 
+            // Only completed orders are counted as successful sales.
             return await _context.OrderDetails
                 .AsNoTracking()
                 .Join(
@@ -75,11 +114,13 @@ namespace BaseCore.Repository.EFCore
                 .ToDictionaryAsync(item => item.ProductId, item => item.SoldQuantity);
         }
 
+        /// <inheritdoc />
         public async Task<bool> HasOrdersAsync(int productId)
         {
             return await _context.OrderDetails.AnyAsync(orderDetail => orderDetail.ProductId == productId);
         }
 
+        /// <inheritdoc />
         public override async Task<Product?> GetByIdAsync(object id)
         {
             if (id is int productId)
@@ -92,6 +133,7 @@ namespace BaseCore.Repository.EFCore
             return await base.GetByIdAsync(id);
         }
 
+        /// <inheritdoc />
         public Task<(List<Product> Products, int TotalCount)> SearchAsync(
             string? keyword,
             int? categoryId,
@@ -115,6 +157,7 @@ namespace BaseCore.Repository.EFCore
                 pageSize);
         }
 
+        /// <inheritdoc />
         public async Task<(List<Product> Products, int TotalCount)> SearchAsync(
             string? keyword,
             int? categoryId,
@@ -129,6 +172,7 @@ namespace BaseCore.Repository.EFCore
         {
             var query = _dbSet.Include(p => p.Category).AsQueryable();
 
+            // Apply text search over fields visible in the product catalog.
             if (!string.IsNullOrEmpty(keyword))
             {
                 keyword = keyword.ToLower();
@@ -160,6 +204,8 @@ namespace BaseCore.Repository.EFCore
             }
 
             var normalizedSortBy = (sortBy ?? "recent").Trim().ToLowerInvariant();
+
+            // Reusable sales subquery keeps best-selling logic aligned with completed orders only.
             var completedSales = _context.OrderDetails.Where(detail =>
                 _context.Orders.Any(order =>
                     order.Id == detail.OrderId &&
@@ -198,11 +244,13 @@ namespace BaseCore.Repository.EFCore
             return (products, totalCount);
         }
 
+        /// <inheritdoc />
         public Task<(List<Product> Products, int TotalCount)> SearchAsync(string? keyword, int? categoryId, int page, int pageSize)
         {
             return SearchAsync(keyword, categoryId, null, null, null, null, page, pageSize);
         }
 
+        /// <inheritdoc />
         public async Task<List<Product>> GetByCategoryAsync(int categoryId)
         {
             return await _dbSet
@@ -211,6 +259,7 @@ namespace BaseCore.Repository.EFCore
                 .ToListAsync();
         }
 
+        /// <inheritdoc />
         public async Task<List<string>> GetManufacturersAsync(int? categoryId = null)
         {
             var query = _dbSet.AsQueryable();
@@ -228,6 +277,7 @@ namespace BaseCore.Repository.EFCore
                 .ToListAsync();
         }
 
+        /// <inheritdoc />
         public async Task<Product?> GetDetailByIdAsync(int id)
         {
             return await _dbSet

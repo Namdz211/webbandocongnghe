@@ -122,11 +122,11 @@ namespace BaseCore.Services
 
             return normalized switch
             {
-                "Chá» láº¥y hÃ ng" => "Chờ lấy hàng",
-                "ÄÃ£ giao Ä‘Æ¡n vá»‹ váº­n chuyá»ƒn" => "Đã giao đơn vị vận chuyển",
-                "Äang giao" => "Đang giao",
-                "ÄÃ£ giao thÃ nh cÃ´ng" => "Đã giao thành công",
-                "Giao tháº¥t báº¡i" => "Giao thất bại",
+                "Chờ lấy hàng" => "Chờ lấy hàng",
+                "Đã giao đơn vị vận chuyển" => "Đã giao đơn vị vận chuyển",
+                "Đang giao" => "Đang giao",
+                "Đã giao thành công" => "Đã giao thành công",
+                "Giao thất bại" => "Giao thất bại",
                 _ => normalized
             };
         }

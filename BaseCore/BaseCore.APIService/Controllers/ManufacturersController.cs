@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
 using BaseCore.Repository;
+using BaseCore.Services;
 
 namespace BaseCore.APIService.Controllers
 {
@@ -13,11 +13,11 @@ namespace BaseCore.APIService.Controllers
     [ApiController]
     public class ManufacturersController : ControllerBase
     {
-        private readonly MySqlDbContext _dbContext;
+        private readonly IManufacturerService _manufacturerService;
 
-        public ManufacturersController(MySqlDbContext dbContext)
+        public ManufacturersController(IManufacturerService manufacturerService)
         {
-            _dbContext = dbContext;
+            _manufacturerService = manufacturerService;
         }
 
         /// <summary>
@@ -26,10 +26,7 @@ namespace BaseCore.APIService.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var manufacturers = await _dbContext.Manufacturers
-                .OrderBy(manufacturer => manufacturer.Name)
-                .ToListAsync();
-
+            var manufacturers = await _manufacturerService.GetAllAsync();
             return Ok(manufacturers);
         }
 
@@ -39,7 +36,7 @@ namespace BaseCore.APIService.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var manufacturer = await _dbContext.Manufacturers.FindAsync(id);
+            var manufacturer = await _manufacturerService.GetByIdAsync(id);
             if (manufacturer == null)
                 return NotFound(new { message = "Không tìm thấy nhà sản xuất" });
 
@@ -56,19 +53,19 @@ namespace BaseCore.APIService.Controllers
             if (dto == null || string.IsNullOrWhiteSpace(dto.Name))
                 return BadRequest(new { message = "Tên nhà sản xuất không được để trống" });
 
-            var name = dto.Name.Trim();
-            
-            // Kiểm tra nhà sản xuất đã tồn tại chưa (không phân biệt hoa thường)
-            var exists = await _dbContext.Manufacturers
-                .AnyAsync(manufacturer => manufacturer.Name.ToLower() == name.ToLower());
-            if (exists)
-                return BadRequest(new { message = "Nhà sản xuất này đã tồn tại trong hệ thống" });
-
-            var manufacturer = new Manufacturer { Name = name };
-            _dbContext.Manufacturers.Add(manufacturer);
-            await _dbContext.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetById), new { id = manufacturer.Id }, manufacturer);
+            try
+            {
+                var manufacturer = await _manufacturerService.CreateAsync(dto.Name);
+                return CreatedAtAction(nameof(GetById), new { id = manufacturer.Id }, manufacturer);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         /// <summary>
@@ -81,14 +78,23 @@ namespace BaseCore.APIService.Controllers
             if (dto == null || string.IsNullOrWhiteSpace(dto.Name))
                 return BadRequest(new { message = "Tên nhà sản xuất không được để trống" });
 
-            var manufacturer = await _dbContext.Manufacturers.FindAsync(id);
-            if (manufacturer == null)
-                return NotFound(new { message = "Không tìm thấy nhà sản xuất để cập nhật" });
-
-            manufacturer.Name = dto.Name.Trim();
-            await _dbContext.SaveChangesAsync();
-
-            return Ok(manufacturer);
+            try
+            {
+                var manufacturer = await _manufacturerService.UpdateAsync(id, dto.Name);
+                return Ok(manufacturer);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
 
         /// <summary>
@@ -98,19 +104,19 @@ namespace BaseCore.APIService.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
-            var manufacturer = await _dbContext.Manufacturers.FindAsync(id);
-            if (manufacturer == null)
-                return NotFound(new { message = "Không tìm thấy nhà sản xuất để xóa" });
-
-            // Kiểm tra xem nhà sản xuất có đang liên kết với sản phẩm nào không
-            var hasProducts = await _dbContext.Products.AnyAsync(product => product.ManufacturerId == id);
-            if (hasProducts)
-                return BadRequest(new { message = "Không thể xóa nhà sản xuất này vì đang có sản phẩm thuộc hãng." });
-
-            _dbContext.Manufacturers.Remove(manufacturer);
-            await _dbContext.SaveChangesAsync();
-
-            return Ok(new { message = "Đã xóa nhà sản xuất thành công" });
+            try
+            {
+                await _manufacturerService.DeleteAsync(id);
+                return Ok(new { message = "Đã xóa nhà sản xuất thành công" });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
         }
     }
 

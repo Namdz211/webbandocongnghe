@@ -4,29 +4,45 @@ using BaseCore.Entities;
 namespace BaseCore.Repository.EFCore
 {
     /// <summary>
-    /// User Repository using Entity Framework Core
+    /// Defines user-specific data access operations.
     /// </summary>
     public interface IUserRepositoryEF : IRepository<User>
     {
+        /// <summary>
+        /// Gets an active user by username.
+        /// </summary>
         Task<User?> GetByUsernameAsync(string username);
+
+        /// <summary>
+        /// Searches users by keyword and returns one paged result set.
+        /// </summary>
         Task<(List<User> Users, int TotalCount)> SearchAsync(string? keyword, int page, int pageSize);
     }
 
+    /// <summary>
+    /// Handles user queries that extend the generic repository behavior.
+    /// </summary>
     public class UserRepositoryEF : Repository<User>, IUserRepositoryEF
     {
+        /// <summary>
+        /// Creates a user repository backed by the MySQL EF Core context.
+        /// </summary>
         public UserRepositoryEF(MySqlDbContext context) : base(context)
         {
         }
 
+        /// <inheritdoc />
         public async Task<User?> GetByUsernameAsync(string username)
         {
             return await _dbSet.FirstOrDefaultAsync(u => u.UserName == username && u.IsActive);
         }
 
+        /// <inheritdoc />
         public async Task<(List<User> Users, int TotalCount)> SearchAsync(string? keyword, int page, int pageSize)
         {
             var query = _dbSet.AsQueryable();
 
+            // Apply keyword search across the fields shown in user management.
             if (!string.IsNullOrEmpty(keyword))
             {
                 keyword = keyword.ToLower();

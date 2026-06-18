@@ -4,40 +4,54 @@ using System.Linq.Expressions;
 namespace BaseCore.Repository.EFCore
 {
     /// <summary>
-    /// Generic Repository Implementation for Entity Framework Core
-    /// Teaching Repository Pattern (Bài 10)
+    /// Provides the shared Entity Framework Core implementation for repository operations.
     /// </summary>
     public class Repository<T> : IRepository<T> where T : class
     {
+        /// <summary>
+        /// Database context shared by derived repositories.
+        /// </summary>
         protected readonly MySqlDbContext _context;
+
+        /// <summary>
+        /// Entity set handled by this generic repository.
+        /// </summary>
         protected readonly DbSet<T> _dbSet;
 
+        /// <summary>
+        /// Creates a repository for the entity set represented by <typeparamref name="T"/>.
+        /// </summary>
         public Repository(MySqlDbContext context)
         {
             _context = context;
             _dbSet = context.Set<T>();
         }
 
+        /// <inheritdoc />
         public virtual async Task<T?> GetByIdAsync(object id)
         {
             return await _dbSet.FindAsync(id);
         }
 
+        /// <inheritdoc />
         public virtual async Task<IEnumerable<T>> GetAllAsync()
         {
             return await _dbSet.ToListAsync();
         }
 
+        /// <inheritdoc />
         public virtual async Task<IEnumerable<T>> FindAsync(Expression<Func<T, bool>> predicate)
         {
             return await _dbSet.Where(predicate).ToListAsync();
         }
 
+        /// <inheritdoc />
         public virtual async Task<T?> FirstOrDefaultAsync(Expression<Func<T, bool>> predicate)
         {
             return await _dbSet.FirstOrDefaultAsync(predicate);
         }
 
+        /// <inheritdoc />
         public virtual async Task<T> AddAsync(T entity)
         {
             await _dbSet.AddAsync(entity);
@@ -45,24 +59,28 @@ namespace BaseCore.Repository.EFCore
             return entity;
         }
 
+        /// <inheritdoc />
         public virtual async Task AddRangeAsync(IEnumerable<T> entities)
         {
             await _dbSet.AddRangeAsync(entities);
             await _context.SaveChangesAsync();
         }
 
+        /// <inheritdoc />
         public virtual async Task UpdateAsync(T entity)
         {
             _dbSet.Update(entity);
             await _context.SaveChangesAsync();
         }
 
+        /// <inheritdoc />
         public virtual async Task DeleteAsync(T entity)
         {
             _dbSet.Remove(entity);
             await _context.SaveChangesAsync();
         }
 
+        /// <inheritdoc />
         public virtual async Task DeleteByIdAsync(object id)
         {
             var entity = await GetByIdAsync(id);
@@ -72,6 +90,7 @@ namespace BaseCore.Repository.EFCore
             }
         }
 
+        /// <inheritdoc />
         public virtual async Task<(IEnumerable<T> Items, int TotalCount)> GetPagedAsync(
             int page,
             int pageSize,
@@ -81,16 +100,16 @@ namespace BaseCore.Repository.EFCore
         {
             IQueryable<T> query = _dbSet;
 
-            // Apply filter
+            // Apply optional filter before counting and paging.
             if (filter != null)
             {
                 query = query.Where(filter);
             }
 
-            // Get total count
+            // Keep the unpaged total so callers can build pagination metadata.
             var totalCount = await query.CountAsync();
 
-            // Apply ordering
+            // Apply optional ordering before Skip/Take to keep pages stable.
             if (orderBy != null)
             {
                 query = descending
@@ -98,7 +117,7 @@ namespace BaseCore.Repository.EFCore
                     : query.OrderBy(orderBy);
             }
 
-            // Apply pagination
+            // Fetch only the requested page.
             var items = await query
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)

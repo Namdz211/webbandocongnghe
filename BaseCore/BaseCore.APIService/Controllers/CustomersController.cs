@@ -6,6 +6,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BaseCore.Repository;
+using BaseCore.Repository.EFCore;
 using BaseCore.Entities;
 
 namespace BaseCore.APIService.Controllers
@@ -15,11 +16,11 @@ namespace BaseCore.APIService.Controllers
     [Authorize] // Yêu cầu xác thực JWT Token để truy cập thông tin khách hàng
     public class CustomersController : ControllerBase
     {
-        private readonly MySqlDbContext _context;
+        private readonly ICustomerRepository _customerRepository;
 
-        public CustomersController(MySqlDbContext context)
+        public CustomersController(ICustomerRepository customerRepository)
         {
-            _context = context;
+            _customerRepository = customerRepository;
         }
 
         /// <summary>
@@ -28,28 +29,12 @@ namespace BaseCore.APIService.Controllers
         [HttpGet]
         public async Task<IActionResult> GetAll([FromQuery] string keyword = "", [FromQuery] string segment = "")
         {
-            // 1. Lọc tất cả người dùng thông thường (UserType == 0), loại bỏ tài khoản quản trị (Admin) và tài khoản khách vãng lai ảo
-            var usersQuery = _context.Users.Where(u => u.UserType == 0 && u.Id != "guest_checkout");
-
-            // Tìm kiếm khách hàng theo từ khóa (Tên, Tên tài khoản, Email, Số điện thoại)
-            if (!string.IsNullOrEmpty(keyword))
-            {
-                var kw = keyword.Trim().ToLower();
-                usersQuery = usersQuery.Where(u => 
-                    (u.Name != null && u.Name.ToLower().Contains(kw)) ||
-                    (u.UserName != null && u.UserName.ToLower().Contains(kw)) ||
-                    (u.Email != null && u.Email.ToLower().Contains(kw)) ||
-                    (u.Phone != null && u.Phone.ToLower().Contains(kw))
-                );
-            }
-
-            var users = await usersQuery.ToListAsync();
+            // 1. Lấy danh sách khách hàng thông qua Repository
+            var users = await _customerRepository.GetCustomersAsync(keyword);
             
             // 2. Lấy toàn bộ danh sách đơn hàng của những khách hàng này để phân tích hành vi mua sắm
             var userIds = users.Select(u => u.Id).ToList();
-            var orders = await _context.Orders
-                .Where(o => userIds.Contains(o.UserId))
-                .ToListAsync();
+            var orders = await _customerRepository.GetOrdersByUserIdsAsync(userIds);
 
             // Nhóm đơn hàng theo UserId để xử lý in-memory giúp tối ưu hóa hiệu năng, giảm tải truy vấn DB lặp đi lặp lại
             var ordersGrouped = orders.GroupBy(o => o.UserId).ToDictionary(g => g.Key, g => g.ToList());
@@ -114,18 +99,15 @@ namespace BaseCore.APIService.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(string id)
         {
-            // Tìm kiếm tài khoản khách hàng theo ID (loại bỏ tài khoản khách vãng lai ảo)
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == id && u.UserType == 0 && u.Id != "guest_checkout");
+            // Tìm kiếm tài khoản khách hàng theo ID thông qua Repository
+            var user = await _customerRepository.GetCustomerByIdAsync(id);
             if (user == null)
             {
                 return NotFound(new { message = "Không tìm thấy khách hàng" });
             }
 
-            // Lấy toàn bộ lịch sử đơn hàng của khách hàng này (sắp xếp đơn mới nhất ở trên cùng)
-            var userOrders = await _context.Orders
-                .Where(o => o.UserId == id)
-                .OrderByDescending(o => o.OrderDate)
-                .ToListAsync();
+            // Lấy toàn bộ lịch sử đơn hàng của khách hàng này thông qua Repository (sắp xếp đơn mới nhất ở trên cùng)
+            var userOrders = await _customerRepository.GetOrdersByUserIdAsync(id);
 
             // Phân tích các thông tin mua sắm của khách hàng
             var totalOrders = userOrders.Count;

@@ -3,6 +3,11 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BaseCore.Entities;
 using BaseCore.Repository;
+using BaseCore.Repository.EFCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace BaseCore.APIService.Controllers
 {
@@ -13,11 +18,11 @@ namespace BaseCore.APIService.Controllers
     [ApiController]
     public class CouponsController : ControllerBase
     {
-        private readonly MySqlDbContext _dbContext;
+        private readonly ICouponRepository _couponRepository;
 
-        public CouponsController(MySqlDbContext dbContext)
+        public CouponsController(ICouponRepository couponRepository)
         {
-            _dbContext = dbContext;
+            _couponRepository = couponRepository;
         }
 
         /// <summary>
@@ -27,32 +32,23 @@ namespace BaseCore.APIService.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GetPublicCoupons()
         {
-            var now = DateTime.UtcNow;
+            var coupons = await _couponRepository.GetPublicCouponsAsync();
 
-            // Tìm các mã kích hoạt, chưa hết lượt sử dụng, trong khoảng ngày hiệu lực
-            var coupons = await _dbContext.Coupons
-                .Where(c =>
-                    c.IsActive &&
-                    (c.UsageLimit == 0 || c.UsedCount < c.UsageLimit) &&
-                    c.StartDate <= now &&
-                    c.ExpiryDate >= now)
-                .OrderBy(c => c.ExpiryDate)
-                .Select(c => new
-                {
-                    c.Id,
-                    c.Code,
-                    c.Description,
-                    c.DiscountType,
-                    c.DiscountValue,
-                    c.MaxDiscountAmount,
-                    c.MinOrderAmount,
-                    c.UsageLimit,
-                    c.UsedCount,
-                    c.ExpiryDate
-                })
-                .ToListAsync();
+            var result = coupons.Select(c => new
+            {
+                c.Id,
+                c.Code,
+                c.Description,
+                c.DiscountType,
+                c.DiscountValue,
+                c.MaxDiscountAmount,
+                c.MinOrderAmount,
+                c.UsageLimit,
+                c.UsedCount,
+                c.ExpiryDate
+            });
 
-            return Ok(coupons);
+            return Ok(result);
         }
 
         /// <summary>
@@ -64,25 +60,7 @@ namespace BaseCore.APIService.Controllers
             [FromQuery] string? keyword = null,
             [FromQuery] bool? isActive = null)
         {
-            var query = _dbContext.Coupons.AsQueryable();
-
-            // Tìm kiếm theo từ khóa Code hoặc mô tả Description
-            if (!string.IsNullOrWhiteSpace(keyword))
-            {
-                var kw = keyword.Trim().ToLower();
-                query = query.Where(c =>
-                    c.Code.ToLower().Contains(kw) ||
-                    c.Description.ToLower().Contains(kw));
-            }
-
-            // Lọc theo trạng thái Kích hoạt / Vô hiệu hóa
-            if (isActive.HasValue)
-                query = query.Where(c => c.IsActive == isActive.Value);
-
-            var coupons = await query
-                .OrderByDescending(c => c.CreatedAt)
-                .ToListAsync();
-
+            var coupons = await _couponRepository.GetAllCouponsAsync(keyword, isActive);
             return Ok(coupons);
         }
 
@@ -93,7 +71,7 @@ namespace BaseCore.APIService.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> GetById(int id)
         {
-            var coupon = await _dbContext.Coupons.FindAsync(id);
+            var coupon = await _couponRepository.GetByIdAsync(id);
             if (coupon == null)
                 return NotFound(new { message = "Không tìm thấy mã giảm giá" });
 
@@ -107,8 +85,7 @@ namespace BaseCore.APIService.Controllers
         [Authorize]
         public async Task<IActionResult> Validate(string code, [FromQuery] decimal orderAmount)
         {
-            var coupon = await _dbContext.Coupons
-                .FirstOrDefaultAsync(c => c.Code.ToUpper() == code.Trim().ToUpper());
+            var coupon = await _couponRepository.GetByCodeAsync(code);
 
             if (coupon == null)
                 return NotFound(new { message = "Mã giảm giá không tồn tại" });
@@ -167,8 +144,8 @@ namespace BaseCore.APIService.Controllers
                 return BadRequest(new { message = validationMsg });
 
             // Kiểm tra trùng code (mã code viết hoa làm chuẩn)
-            var exists = await _dbContext.Coupons.AnyAsync(c => c.Code == dto.Code.Trim().ToUpper());
-            if (exists)
+            var existing = await _couponRepository.GetByCodeAsync(dto.Code);
+            if (existing != null)
                 return BadRequest(new { message = $"Mã '{dto.Code.ToUpper()}' đã tồn tại" });
 
             var coupon = new Coupon
@@ -186,8 +163,7 @@ namespace BaseCore.APIService.Controllers
                 CreatedAt = DateTime.UtcNow
             };
 
-            _dbContext.Coupons.Add(coupon);
-            await _dbContext.SaveChangesAsync();
+            await _couponRepository.AddAsync(coupon);
 
             return CreatedAtAction(nameof(GetById), new { id = coupon.Id }, coupon);
         }
@@ -199,7 +175,7 @@ namespace BaseCore.APIService.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Update(int id, [FromBody] CouponUpdateDto dto)
         {
-            var coupon = await _dbContext.Coupons.FindAsync(id);
+            var coupon = await _couponRepository.GetByIdAsync(id);
             if (coupon == null)
                 return NotFound(new { message = "Không tìm thấy mã giảm giá" });
 
@@ -207,9 +183,8 @@ namespace BaseCore.APIService.Controllers
             if (!string.IsNullOrWhiteSpace(dto.Code) &&
                 dto.Code.Trim().ToUpper() != coupon.Code)
             {
-                var exists = await _dbContext.Coupons
-                    .AnyAsync(c => c.Code == dto.Code.Trim().ToUpper() && c.Id != id);
-                if (exists)
+                var existing = await _couponRepository.GetByCodeAsync(dto.Code);
+                if (existing != null && existing.Id != id)
                     return BadRequest(new { message = $"Mã '{dto.Code.ToUpper()}' đã tồn tại" });
 
                 coupon.Code = dto.Code.Trim().ToUpper();
@@ -231,7 +206,7 @@ namespace BaseCore.APIService.Controllers
             if (dto.ExpiryDate.HasValue) coupon.ExpiryDate = dto.ExpiryDate.Value;
             if (dto.IsActive.HasValue) coupon.IsActive = dto.IsActive.Value;
 
-            await _dbContext.SaveChangesAsync();
+            await _couponRepository.UpdateAsync(coupon);
             return Ok(coupon);
         }
 
@@ -242,12 +217,12 @@ namespace BaseCore.APIService.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Toggle(int id)
         {
-            var coupon = await _dbContext.Coupons.FindAsync(id);
+            var coupon = await _couponRepository.GetByIdAsync(id);
             if (coupon == null)
                 return NotFound(new { message = "Không tìm thấy mã giảm giá" });
 
             coupon.IsActive = !coupon.IsActive;
-            await _dbContext.SaveChangesAsync();
+            await _couponRepository.UpdateAsync(coupon);
 
             return Ok(new
             {
@@ -263,12 +238,11 @@ namespace BaseCore.APIService.Controllers
         [Authorize(Roles = "Admin")]
         public async Task<IActionResult> Delete(int id)
         {
-            var coupon = await _dbContext.Coupons.FindAsync(id);
+            var coupon = await _couponRepository.GetByIdAsync(id);
             if (coupon == null)
                 return NotFound(new { message = "Không tìm thấy mã giảm giá" });
 
-            _dbContext.Coupons.Remove(coupon);
-            await _dbContext.SaveChangesAsync();
+            await _couponRepository.DeleteAsync(coupon);
 
             return Ok(new { message = "Đã xóa mã giảm giá thành công" });
         }
